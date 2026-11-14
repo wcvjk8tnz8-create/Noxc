@@ -87,8 +87,15 @@ h1 em{font-style:italic;color:var(--acc)}
 .legal a{border-bottom:1px solid var(--line2);color:var(--body);font-weight:600}
 .legal a:hover{color:var(--acc);border-color:var(--acc)}
 /* ── 页脚 ── */
-.foot{flex-shrink:0;border-top:1px solid var(--line);padding-top:12px;display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;color:var(--muted)}
+.foot{flex-shrink:0;border-top:1px solid var(--line);padding-top:12px;display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;color:var(--muted);flex-wrap:wrap}
 .foot a:hover{color:var(--acc)}
+.foot{flex-wrap:wrap;align-items:center}
+.foot a:hover,.icp-slot a:hover{color:var(--acc)}
+.icp-slot{display:none;align-items:center;gap:8px;white-space:nowrap;color:inherit;font:inherit;letter-spacing:inherit}
+.icp-slot::before{content:'';width:1px;height:10px;background:currentColor;opacity:.3;flex:0 0 auto}
+.icp-slot a{color:inherit;text-decoration:none;border-bottom:1px solid transparent}
+.icp-slot a:hover{border-bottom-color:currentColor}
+
 /* ── 交互：与控制台共用同一组缓动，只动颜色 / 边框 / 阴影 / 滤镜 ── */
 a,.lang button,.nav a,.legal a,.foot a,.checker button.check,.suffix select,.pill{
   transition:color var(--dur1) var(--easeSoft),background-color var(--dur1) var(--easeSoft),
@@ -263,6 +270,7 @@ body{
   <footer class="foot rise" style="--d:.34s">
     <span>© <span id="yr">2026</span> TerraDomain</span>
     <a id="siteLink" href="#">nic.299282.xyz</a>
+    <span id="icpSlot" class="icp-slot"></span>
   </footer>
 </div>
 
@@ -371,6 +379,13 @@ function loadRoots(){
             : (d.rootDomain ? [d.rootDomain] : []));
         /* 服务端确实给了清单才覆盖；空清单不覆盖，避免「有些域名没加载出来」 */
         if (list.length) fill(list);
+        /* 页脚备案号：与官网后台「站点设置」同源，跨域接口不可用时保持隐藏 */
+        var icp = document.getElementById("icpSlot");
+        if (icp) {
+          var fh = String(d.footerIcpHtml || "");
+          icp.innerHTML = fh;
+          icp.style.display = fh ? "inline-flex" : "none";
+        }
       })
       .catch(function(){});
   } catch(e){}

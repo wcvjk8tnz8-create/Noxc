@@ -694,6 +694,35 @@ app.get('/ai-review-status', async (c) => {
   }
 });
 
+/**
+ * 页脚备案 HTML：管理员可直接贴 <a href="...">萌ICP备…号</a>。
+ * 只放行 <a> 文字链接与纯文本（其它标签一律丢弃，杜绝 script / onerror / javascript:），
+ * href 仅允许 http(s)、mailto 与站内相对路径，并统一补 target / rel。
+ * 清洗结果存库，前端直接用 innerHTML 渲染，不再二次拼接。
+ */
+function sanitizeFooterHtml(raw: unknown): string {
+  const src = String(raw ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 600);
+  if (!src) return '';
+  const escText = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const escAttr = (t: string) => t
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const re = /<a\b[^>]*>[\s\S]*?<\/a\s*>|<[^>]+>|[^<]+/gi;
+  let out = '';
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    const chunk = m[0];
+    if (chunk[0] !== '<') { out += escText(chunk); continue; }
+    const link = chunk.match(/^<a\b([^>]*)>([\s\S]*?)<\/a\s*>$/i);
+    if (!link) continue;   // 其它标签整段丢弃，只保留文字内容
+    const hm = link[1].match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const href = String((hm && (hm[1] ?? hm[2] ?? hm[3])) || '').trim();
+    if (!/^(https?:\/\/|mailto:|\/(?!\/))/i.test(href)) { out += escText(link[2]); continue; }
+    const label = escText(link[2].replace(/<[^>]*>/g, ''));
+    out += '<a href="' + escAttr(href) + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+  }
+  return out;
+}
+
 app.post('/settings', async (c) => {
   const u = c.get('user');
   const body = await c.req.json().catch(() => ({}));
@@ -715,6 +744,10 @@ app.post('/settings', async (c) => {
   if (body.logoUrl !== undefined) await set('logo_url', logo || '/img/logo.jpg');
   if (body.faviconUrl !== undefined) await set('favicon_url', favicon || '/favicon.ico');
   if (body.announcement !== undefined) await set('announcement', anno);
+  /* 页脚备案号：留空即隐藏；清洗后存库，公开接口只回传这段安全 HTML */
+  if (body.footerIcpHtml !== undefined) {
+    await set('footer_icp_html', sanitizeFooterHtml(body.footerIcpHtml));
+  }
 
   // 新域名申请开关（暂停后普通用户无法提交申请，管理员仍可自建）
   if (body.applyPaused !== undefined && String(c.env.APPLY_PAUSED || '').trim() !== '1') {

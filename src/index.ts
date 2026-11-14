@@ -148,7 +148,7 @@ app.use('/api/config', async (c, next) => {
 // 公开配置（含站点品牌，登录页也要用）
 app.get('/api/config', async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len')"
+    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len')"
   ).all();
   const s = Object.fromEntries(results.map((r) => [r.key, r.value]));
   // 显式取「生效列表」：不依赖中间件是否成功替换 c.env 引用，
@@ -186,6 +186,8 @@ app.get('/api/config', async (c) => {
     faviconUrl: s.favicon_url || '/favicon.ico',
     fontBody: s.font_body || 'system',
     fontDisplay: s.font_display || 'system',
+    // 页脚备案链接（后台站点设置里粘贴，已由服务端清洗成安全 HTML）
+    footerIcpHtml: String(s.footer_icp_html || ''),
     // 仅名单，不含任何 AI 接口地址或密钥
     aiReviewRoots: String(s.ai_review_roots || 'v-1.top').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean),
     dnsUnlimitedRoots: String(s.dns_unlimited_roots || 'v-1.top').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean),

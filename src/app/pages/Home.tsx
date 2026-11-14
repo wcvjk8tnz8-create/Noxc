@@ -176,6 +176,7 @@ export default function HomePage() {
           <div className="nk-fbottom">
             <span>© <span id="yr">2026</span> <b>TerraDomain</b> · 二级域名分发</span>
             <a href="https://github.com/wcvjk8tnz8-create/MeoyDomain" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <span className="nk-ficp" data-icp-slot></span>
           </div>
         </div>
       </footer>

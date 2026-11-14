@@ -1455,3 +1455,56 @@ html[data-theme="dark"] body:not(.page-home) .top-search kbd {
 @media (prefers-reduced-motion: reduce) {
   .page-root[data-ready="1"] .main { animation: none !important; opacity: 1 !important; }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   页脚备案号：后台「站点设置」粘贴 <a> 链接，显示在 GitHub 链接旁。
+   细竖线分隔、颜色继承页脚；手机端可折行，不撑出横向滚动。
+   ────────────────────────────────────────────────────────────── */
+.sf-icp,
+[data-icp-slot] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+.sf-icp::before,
+[data-icp-slot]:not(:empty)::before {
+  content: '';
+  width: 1px;
+  height: 11px;
+  background: currentColor;
+  opacity: .28;
+  flex: 0 0 auto;
+}
+.sf-icp a,
+[data-icp-slot] a {
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color var(--td-dur-1, 160ms) var(--td-ease, ease),
+              border-color var(--td-dur-1, 160ms) var(--td-ease, ease);
+}
+.sf-icp a:hover,
+[data-icp-slot] a:hover {
+  color: var(--td-accent, #1f7a55);
+  border-bottom-color: currentColor;
+}
+.nk-ficp:empty,
+[data-icp-slot]:empty { display: none; }
+.footer .sf-icp,
+.main-foot .sf-icp,
+.site-foot-in .sf-icp { margin-left: 12px; }
+/* 首页底栏：版权推到最左，GitHub 与备案号紧挨着靠右 */
+.nk-fbottom > span:first-child { margin-right: auto; }
+.nk-fbottom > .nk-ficp,
+.nk-fbottom > .sf-icp { margin-left: 0; }
+@media (max-width: 560px) {
+  .sf-icp,
+  [data-icp-slot] { font-size: 10px; gap: 6px; }
+  .nk-fbottom,
+  .site-foot-in,
+  .main-foot { flex-wrap: wrap; row-gap: 6px; }
+}

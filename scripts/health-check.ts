@@ -284,6 +284,27 @@ check(/tsx/.test(pkg) && /"tsx":/.test(pkg), 'tsx 已声明为开发依赖，CI 
 check(/rootPageFor/.test(read('src/index.ts')) && /c\.html\(rootPage\)/.test(read('src/index.ts')), 'Worker 按 Host 直出根域名页，不依赖静态 .html');
 check(/tailwindcss\(tailwindConfig/.test(read('vite.config.ts')) && !fs.existsSync(path.join(root, 'postcss.config.js')) && !fs.existsSync(path.join(root, 'tailwind.config.js')), 'PostCSS / Tailwind 配置内联进 vite.config.ts，无 .js 配置');
 check(fs.existsSync(path.join(root, '.gitattributes')) && fs.existsSync(path.join(root, '.mailmap')) && fs.existsSync(path.join(root, '.gitignore')), '语言统计与贡献者归并配置齐备');
+/* 15. 页脚备案号：后台可配 → 服务端清洗 → 公开接口下发 → 全站页脚渲染 */
+const cfgApi = read('src/index.ts');
+const adminApi = read('src/routes/admin.ts');
+const adminUi = read('src/app/legacy/admin.ts');
+const icpRuntime = read('src/app/lib/runtime.ts');
+const icpCss = read('src/app/styles/liquid-glass.css');
+const icpDict = read('src/app/lib/dict.en.ts');
+check(/function sanitizeFooterHtml/.test(adminApi) && /footer_icp_html/.test(adminApi), '备案 HTML 由服务端清洗后入库');
+check(/rel="noopener noreferrer"/.test(adminApi) && /escText/.test(adminApi) && /escAttr/.test(adminApi), '备案链接统一补 rel 且文本转义');
+check(/'footer_icp_html'/.test(cfgApi) && /footerIcpHtml:\s*String\(s\.footer_icp_html/.test(cfgApi), '公开 /api/config 下发备案 HTML');
+check(/id="sFooterIcpHtml"/.test(adminUi) && /footerIcpHtml:\s*document\.getElementById\('sFooterIcpHtml'\)/.test(adminUi), '后台站点设置可填写并回填备案 HTML');
+check(/export function mountIcpBadge/.test(icpRuntime) && /mountIcpBadge\(typeof b\.footerIcpHtml/.test(icpRuntime), '品牌应用时即时刷新备案号');
+check(/try \{ mountIcpBadge\(\); \} catch/.test(icpRuntime), '切页后重新挂载备案号');
+check(/data-icp-slot/.test(read('src/app/pages/Home.tsx')), '公共页页脚预留备案插槽');
+check(/\.sf-icp/.test(icpCss), '备案号样式在液态玻璃收口层');
+check(/'页脚备案号（可选）'/.test(icpDict), '备案设置有英文词条');
+for (const p of ['src/html/root-v1.ts', 'src/html/root-meoy.ts']) {
+  const t = read(p);
+  check(/id="icpSlot"/.test(t) && /d\.footerIcpHtml/.test(t), `${p} 根域名页从同一接口取备案号`);
+}
+
 // 用 git ls-files 判定「仓库里跟踪了什么」，构建产物 index.html 不应被误判
 try {
   const { execFileSync } = await import('node:child_process');

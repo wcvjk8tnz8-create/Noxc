@@ -32,7 +32,7 @@ const __setInterval = (fn: any, ms?: number) => {
 export const RUNTIME_KEYS = [
   'api','esc','fmtTime','fmtDate','toast','openModal','closeModal','loadBranding','applyBranding',
   'applyFonts','STATUS_MAP','statusBadge','copyText','quotaText','mountNav','mountShell',
-  'mountSiteFooter','logoHtml','wallpaperSwitchHtml','applyWallpaper','mountWallpaper','mountSakura',
+  'mountSiteFooter','mountIcpBadge','logoHtml','wallpaperSwitchHtml','applyWallpaper','mountWallpaper','mountSakura',
   'DEFAULT_BRAND','CN_FONTS','WALLPAPERS','PAW_SVG','SHELL_NAV','SHELL_ICON','prefetch',
   'readUserCache','writeUserCache','clearUserCache','idle','renderAvatars','catFaceFallback',
   'mountDecor','mountMotion','applyBrand','pawBurst','shellItem','MeoyRenderAvatars',
@@ -90,6 +90,11 @@ export function refreshRuntime() {
   try { mountDecor(); } catch {}
   try { mountMotion(); } catch {}
   try { mountSiteFooter(); } catch {}
+  try { mountIcpBadge(); } catch {}
+  // 首屏还没取到品牌配置时补一次（缓存命中，不额外阻塞渲染）
+  if (!icpBadgeLoaded()) {
+    try { void loadBranding().then((b) => mountIcpBadge(String(b?.footerIcpHtml || ''))); } catch {}
+  }
   try { (window as any).MeoyTheme?.remount?.(); } catch {}
   // 动效已由 mountMotion() 统一为全局单例，不再叠加第二套引擎
   // 语言常驻监听只需启动一次；每次切页补挂顶栏切换器并翻译新 DOM
@@ -298,7 +303,7 @@ document.addEventListener('click', (e) => {
 });
 
 /* ---------- 站点品牌（站点名 / Logo，管理员可在后台改） ---------- */
-export const DEFAULT_BRAND = { siteName: 'TerraDomain', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico' };
+export const DEFAULT_BRAND = { siteName: 'TerraDomain', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', fontBody: 'system', fontDisplay: 'system' };
 export let brandPromise = null;
 /* stale-while-revalidate：切页先用上一次的值立刻渲染，网络刷新放后台。
    以前每个页面都 await 一次 /api/config，接口一慢整页就卡在骨架上。 */
@@ -312,6 +317,8 @@ function normalizeBrand(d) {
     faviconUrl: d.faviconUrl || DEFAULT_BRAND.faviconUrl,
     fontBody: d.fontBody || 'system',
     fontDisplay: d.fontDisplay || 'system',
+    // 服务端已清洗：只含 <a> 文字链接与纯文本，可直接 innerHTML
+    footerIcpHtml: typeof d.footerIcpHtml === 'string' ? d.footerIcpHtml : '',
   };
 }
 
@@ -402,6 +409,8 @@ export function applyBranding(b) {
   f.href = b.faviconUrl;
   document.querySelectorAll('[data-site-name],[data-brand-name]').forEach((el) => setBrandName(el, b.siteName));
   document.querySelectorAll('[data-logo-img]').forEach((el) => (el.src = b.logoUrl));
+  // 后台保存后不用刷新整页，备案链接当场出现在页脚
+  try { mountIcpBadge(typeof b.footerIcpHtml === 'string' ? b.footerIcpHtml : ''); } catch {}
 }
 
 /** 生成 Logo 图片 HTML（size 为像素） */
@@ -666,6 +675,51 @@ export function mountSiteFooter() {
     inject();
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   全站页脚备案号：后台「站点设置 → 页脚备案号」粘贴，出现在 GitHub 链接旁
+   - 服务端已清洗成安全 HTML（仅 <a> 文字链接），这里只做幂等注入
+   - 覆盖：注入式 .site-foot / 控制台 .main-foot / 公共页 .nk-foot
+   - 留空即移除；切页重建 DOM 后由 refreshRuntime 重新挂
+   ══════════════════════════════════════════════════════════════ */
+let icpHtmlCache = '';
+let icpHtmlLoaded = false;
+export function mountIcpBadge(html?: string) {
+  if (typeof html === 'string') { icpHtmlCache = html; icpHtmlLoaded = true; }
+  const raw = icpHtmlCache.trim();
+  try {
+    // 先清掉上一轮，避免切页后叠加多个备案号
+    document.querySelectorAll('[data-icp-badge]').forEach((el) => el.remove());
+    document.querySelectorAll('[data-icp-slot]').forEach((el) => { el.innerHTML = ''; });
+    if (!raw) return;
+    const make = () => {
+      const s = document.createElement('span');
+      s.className = 'sf-icp';
+      s.setAttribute('data-icp-badge', '');
+      s.innerHTML = raw;
+      return s;
+    };
+    // React 公共页预留的插槽：由 React 持有节点，不会被重渲染挤掉
+    const slots = Array.from(document.querySelectorAll('footer [data-icp-slot]'));
+    if (slots.length) {
+      slots.forEach((slot) => slot.appendChild(make()));
+      return;
+    }
+    // 其余页面：页脚里的 GitHub 链接旁边，底部行优先
+    const anchors = Array.from(document.querySelectorAll('footer a'))
+      .filter((a) => /github\.com/i.test(String((a as HTMLAnchorElement).getAttribute('href') || '')));
+    const score = (el: Element) => el.closest('.nk-fbottom') ? 3
+      : (el.closest('.site-foot-in') || el.closest('.main-foot')) ? 2 : 1;
+    anchors.sort((a, b) => score(b) - score(a));
+    if (anchors[0] && anchors[0].parentElement) {
+      anchors[0].insertAdjacentElement('afterend', make());
+      return;
+    }
+    const f = document.querySelector('footer');
+    if (f) f.appendChild(make());
+  } catch (e) { /* 页脚装饰失败不影响页面 */ }
+}
+export function icpBadgeLoaded() { return icpHtmlLoaded; }
 
 
 /* ══════════════════════════════════════════════════════════════
@@ -1599,7 +1653,7 @@ export function idle(fn) {
 const R: Record<string, any> = {
   api, esc, fmtTime, fmtDate, toast, openModal, closeModal, loadBranding, applyBranding,
   applyFonts, STATUS_MAP, statusBadge, copyText, quotaText, mountNav, mountShell,
-  mountSiteFooter, logoHtml, wallpaperSwitchHtml, applyWallpaper, mountWallpaper, mountSakura,
+  mountSiteFooter, mountIcpBadge, logoHtml, wallpaperSwitchHtml, applyWallpaper, mountWallpaper, mountSakura,
   DEFAULT_BRAND, CN_FONTS, WALLPAPERS, PAW_SVG, SHELL_NAV, SHELL_ICON, prefetch,
   readUserCache, writeUserCache, clearUserCache, idle, renderAvatars, catFaceFallback,
   mountDecor, mountMotion, applyBrand, pawBurst, shellItem, refreshRuntime, cleanupPage, navigate,
@@ -1612,6 +1666,6 @@ export const MeoyRenderAvatars = renderAvatars;
 export const MeoyRenderCatFaces = catFaceFallback;
 Object.assign(window, {
   api, esc, fmtTime, fmtDate, toast, openModal, closeModal, loadBranding, applyBranding,
-  STATUS_MAP, statusBadge, copyText, quotaText, mountShell, mountNav, mountSiteFooter,
+  STATUS_MAP, statusBadge, copyText, quotaText, mountShell, mountNav, mountSiteFooter, mountIcpBadge,
   MeoyRenderAvatars, MeoyRenderCatFaces, refreshRuntime, cleanupPage, navigate,
 });
