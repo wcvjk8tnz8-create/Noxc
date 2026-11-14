@@ -293,13 +293,17 @@ const icpCss = read('src/app/styles/liquid-glass.css');
 const icpDict = read('src/app/lib/dict.en.ts');
 check(/function sanitizeFooterHtml/.test(adminApi) && /footer_icp_html/.test(adminApi), '备案 HTML 由服务端清洗后入库');
 check(/rel="noopener noreferrer"/.test(adminApi) && /escText/.test(adminApi) && /escAttr/.test(adminApi), '备案链接统一补 rel 且文本转义');
-check(/'footer_icp_html'/.test(cfgApi) && /footerIcpHtml:\s*String\(s\.footer_icp_html/.test(cfgApi), '公开 /api/config 下发备案 HTML');
+check(/'footer_icp_html'/.test(cfgApi) && /footerIcpHtml:\s*s\.footer_icp_html === undefined \? DEFAULT_FOOTER_ICP_HTML/.test(cfgApi), '公开 /api/config 下发备案 HTML（未配置时用默认值）');
 check(/id="sFooterIcpHtml"/.test(adminUi) && /footerIcpHtml:\s*document\.getElementById\('sFooterIcpHtml'\)/.test(adminUi), '后台站点设置可填写并回填备案 HTML');
 check(/export function mountIcpBadge/.test(icpRuntime) && /mountIcpBadge\(typeof b\.footerIcpHtml/.test(icpRuntime), '品牌应用时即时刷新备案号');
 check(/try \{ mountIcpBadge\(\); \} catch/.test(icpRuntime), '切页后重新挂载备案号');
 check(/data-icp-slot/.test(read('src/app/pages/Home.tsx')), '公共页页脚预留备案插槽');
 check(/\.sf-icp/.test(icpCss), '备案号样式在液态玻璃收口层');
 check(/'页脚备案号（可选）'/.test(icpDict), '备案设置有英文词条');
+const icpDefault = read('src/lib/footerIcp.ts');
+check(/DEFAULT_FOOTER_ICP_HTML/.test(icpDefault) && /icp\.gov\.moe\/\?keyword=20269429/.test(icpDefault), '默认备案号指向萌ICP 20269429');
+check(/s\.footer_icp_html === undefined \? DEFAULT_FOOTER_ICP_HTML/.test(cfgApi), '未配置时用默认值、主动清空则隐藏');
+check(/raw\.footer_icp_html === undefined/.test(adminApi), '后台设置回填默认备案号');
 for (const p of ['src/html/root-v1.ts', 'src/html/root-meoy.ts']) {
   const t = read(p);
   check(/id="icpSlot"/.test(t) && /d\.footerIcpHtml/.test(t), `${p} 根域名页从同一接口取备案号`);

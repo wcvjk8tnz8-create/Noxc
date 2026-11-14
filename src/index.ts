@@ -4,6 +4,7 @@ import { loadAiConfig } from './lib/aiReview.js';
 import { parseRootCosts } from './lib/points.js';
 import { runAiReviewBatch } from './lib/aiBatch.js';
 import { emailRuleHint, emailRuleOf } from './lib/emailRule.js';
+import { DEFAULT_FOOTER_ICP_HTML } from './lib/footerIcp.js';
 import { rootPageFor } from './html/rootPages.js';
 import { Hono } from 'hono';
 import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
@@ -186,8 +187,8 @@ app.get('/api/config', async (c) => {
     faviconUrl: s.favicon_url || '/favicon.ico',
     fontBody: s.font_body || 'system',
     fontDisplay: s.font_display || 'system',
-    // 页脚备案链接（后台站点设置里粘贴，已由服务端清洗成安全 HTML）
-    footerIcpHtml: String(s.footer_icp_html || ''),
+    // 页脚备案链接：首次部署即显示（审核要求），后台可覆盖；管理员主动清空则隐藏
+    footerIcpHtml: s.footer_icp_html === undefined ? DEFAULT_FOOTER_ICP_HTML : String(s.footer_icp_html),
     // 仅名单，不含任何 AI 接口地址或密钥
     aiReviewRoots: String(s.ai_review_roots || 'v-1.top').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean),
     dnsUnlimitedRoots: String(s.dns_unlimited_roots || 'v-1.top').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean),

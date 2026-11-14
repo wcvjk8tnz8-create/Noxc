@@ -15,6 +15,7 @@ import { aiTest, probeAiModels, chooseModel, loadAiConfig, AGNES_CHAT_MODELS, ro
   normalizeProvider, WORKERS_AI_MODELS, DEFAULT_WORKERS_AI_MODEL } from '../lib/aiReview.js';
 import { runAiReviewBatch, aiBatchStatus, queueAiBatch, startAiBatch } from '../lib/aiBatch.js';
 import { EMAIL_RULES, emailRuleOf, type EmailRule } from '../lib/emailRule.js';
+import { DEFAULT_FOOTER_ICP_HTML } from '../lib/footerIcp.js';
 
 const app = new Hono();
 
@@ -423,6 +424,8 @@ app.get('/settings', async (c) => {
   const SENSITIVE = ['dnshe_api_key', 'dnshe_api_secret', 'dns_api_key', 'dns_api_secret', 'mail_api_key', 'spaceship_api_key', 'spaceship_api_secret', 'ai_api_key'];
   const items = { ...raw };
   for (const k of SENSITIVE) delete items[k];
+  // 未配置过时把默认备案号回填到输入框，避免「页脚明明有、后台却是空的」
+  if (raw.footer_icp_html === undefined) items.footer_icp_html = DEFAULT_FOOTER_ICP_HTML;
 
   const mask = (v) => {
     const s = String(v || '');
@@ -718,7 +721,8 @@ function sanitizeFooterHtml(raw: unknown): string {
     const href = String((hm && (hm[1] ?? hm[2] ?? hm[3])) || '').trim();
     if (!/^(https?:\/\/|mailto:|\/(?!\/))/i.test(href)) { out += escText(link[2]); continue; }
     const label = escText(link[2].replace(/<[^>]*>/g, ''));
-    out += '<a href="' + escAttr(href) + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+    // data-no-i18n：备案号是专有编号，英文模式下也不该被界面翻译器改写
+    out += '<a href="' + escAttr(href) + '" target="_blank" rel="noopener noreferrer" data-no-i18n>' + label + '</a>';
   }
   return out;
 }
