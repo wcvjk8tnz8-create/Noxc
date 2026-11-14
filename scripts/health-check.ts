@@ -307,6 +307,8 @@ check(/raw\.footer_icp_html === undefined/.test(adminApi), '后台设置回填�
 for (const p of ['src/html/root-v1.ts', 'src/html/root-meoy.ts']) {
   const t = read(p);
   check(/id="icpSlot"/.test(t) && /d\.footerIcpHtml/.test(t), `${p} 根域名页从同一接口取备案号`);
+  check(/DEFAULT_ICP_HTML/.test(t) && /icp\.gov\.moe\/\?keyword=20269429/.test(t), `${p} 首屏内联默认备案号`);
+  check(/typeof d\.footerIcpHtml === "string"/.test(t), `${p} 接口无字段时保留默认备案号`);
 }
 
 // 用 git ls-files 判定「仓库里跟踪了什么」，构建产物 index.html 不应被误判

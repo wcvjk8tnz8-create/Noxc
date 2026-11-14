@@ -379,10 +379,11 @@ function loadRoots(){
             : (d.rootDomain ? [d.rootDomain] : []));
         /* 服务端确实给了清单才覆盖；空清单不覆盖，避免「有些域名没加载出来」 */
         if (list.length) fill(list);
-        /* 页脚备案号：与官网后台「站点设置」同源，跨域接口不可用时保持隐藏 */
+        /* 页脚备案号：后台「站点设置」可覆盖；管理员清空则隐藏。
+           接口没给这个字段（跨域失败 / 旧后端）时保留首屏默认值 */
         var icp = document.getElementById("icpSlot");
-        if (icp) {
-          var fh = String(d.footerIcpHtml || "");
+        if (icp && typeof d.footerIcpHtml === "string") {
+          var fh = d.footerIcpHtml;
           icp.innerHTML = fh;
           icp.style.display = fh ? "inline-flex" : "none";
         }
@@ -392,6 +393,12 @@ function loadRoots(){
 }
 
 fillLinks();
+/* 首屏先渲染默认备案号：跨域接口慢或不可用时，审核方打开页面就能看到 */
+var DEFAULT_ICP_HTML = '<a href="https://icp.gov.moe/?keyword=20269429" target="_blank" rel="noopener noreferrer" data-no-i18n>萌ICP备20269429号</a>';
+(function(){
+  var el = document.getElementById("icpSlot");
+  if (el) { el.innerHTML = DEFAULT_ICP_HTML; el.style.display = "inline-flex"; }
+})();
 loadRoots();
 var saved = "en";
 try { saved = localStorage.getItem("td_root_lang") || "en"; } catch(e){}
