@@ -601,3 +601,51 @@ th { font-family: var(--rv-mono); font-weight: 500; color: var(--rv-muted); }
 .rv-more button { min-height: 44px; }
 .rv-foot .nk-ficp a { color: var(--rv-muted); text-decoration: none; border-bottom: 1px solid var(--rv-hair); }
 .rv-foot .nk-ficp a:hover { color: var(--rv-fern); border-color: var(--rv-fern); }
+
+/* #toast 只是提示「容器」，不是提示卡片本身。
+   历史页面曾把 .toast 写在容器上，空容器被玻璃卡片样式刷成底部一块
+   34×22 的灰绿小方块；这里在最后加载层统一收口：容器永远透明无框，
+   没有任何子项时直接不参与布局。子项 .toast 仍各自成卡片。 */
+#toast {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  pointer-events: none !important;
+}
+#toast:empty,
+#toast:not(:has(> *)) { display: none !important; }
+#toast > * { pointer-events: auto !important; }
+
+/* 顶栏语言切换此前是 44×44、4px 圆角的两块方砖，和全圆角的玻璃语言不合。
+   收成胶囊外壳 + 两枚正圆按钮，仍保留 44px 触控目标。 */
+.lang-switch {
+  border-radius: 999px !important;
+  padding: 2px !important;
+  gap: 1px;
+  border-color: rgba(38, 58, 44, .16) !important;
+  background: rgba(255, 253, 247, .78) !important;
+}
+.lang-switch button {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: color .28s var(--td-ease, ease), background .28s var(--td-ease, ease), transform .28s var(--td-ease, ease) !important;
+}
+.lang-switch button:hover { transform: translateY(-1px); }
+.lang-switch i { opacity: .28; font-size: 10px !important; }
+[data-theme="dark"] .lang-switch {
+  background: rgba(18, 30, 26, .74) !important;
+  border-color: rgba(220, 235, 224, .14) !important;
+}

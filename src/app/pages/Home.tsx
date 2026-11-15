@@ -198,7 +198,7 @@ export default function HomePage() {
         </div>
       </footer>
 
-      <div className="toast" id="toast"></div>
+      <div id="toast"></div>
     </div>
   );
 }

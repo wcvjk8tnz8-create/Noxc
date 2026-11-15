@@ -60,7 +60,7 @@ export default function TicketsPage() {
       </div></div></main>
       
       <div className="modal" id="modal"><div className="modal-card" id="modalCard"></div></div>
-      <div className="toast" id="toast"></div>
+      <div id="toast"></div>
     </div>
   );
 }

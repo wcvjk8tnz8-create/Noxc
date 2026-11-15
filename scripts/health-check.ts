@@ -394,6 +394,16 @@ for (const dep of ['animejs', 'framer-motion', 'motion', 'gsap', '@reactbits', '
 const rvPages = fs.readdirSync(path.join(root, 'src/app/pages')).filter((f) => f.endsWith('.tsx'));
 check(rvPages.length >= 15, `全部 ${rvPages.length} 个页面组件保留`);
 
+/* #toast 只是容器：历史上误挂 .toast 卡片类，空容器被刷成底部一块 34×22 灰绿方块 */
+const rvAllPages = fs.readdirSync(path.join(root, 'src/app/pages')).filter((f) => f.endsWith('.tsx'));
+for (const f of rvAllPages) {
+  check(!/className="toast"\s+id="toast"/.test(read(`src/app/pages/${f}`)), `${f} 的 #toast 容器不带卡片类`);
+}
+check(/#toast:empty[\s\S]{0,140}#toast:not\(:has\(> \*\)\)[\s\S]{0,80}display: none/.test(rv), '空 #toast 不参与布局（底部空方块不再出现）');
+check(/#toast > \* \{ pointer-events: auto/.test(rv), '子项提示仍可交互');
+check(/\.lang-switch button \{[\s\S]{0,320}border-radius: 999px/.test(rv), '顶栏语言钮为正圆，不再是方砖');
+check(/\.lang-switch button \{[\s\S]{0,320}min-height: 44px/.test(rv), '圆形语言钮仍保留 44px 触控目标');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);
