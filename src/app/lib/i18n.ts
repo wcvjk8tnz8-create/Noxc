@@ -378,7 +378,6 @@ const FULL_SENTENCES: Record<string, string> = {
     'MOCK mode: DNS records are kept in memory only; Cloudflare is not called.',
   'DNS 记录按各根域名配置的后端实时同步（Cloudflare / Spaceship）。':
     'DNS records sync to the backend configured per root domain (Cloudflare / Spaceship).',
-  '已保存，刷新页面后生效': 'Saved. Refresh the page to apply.',
   '诊断中…（会真实请求网关，最多约 20 秒）':
     'Diagnosing… (makes real gateway calls, up to ~20s)',
   '诊断完成，请查看下方明细': 'Diagnosis complete — see details below',
@@ -413,7 +412,7 @@ const FULL_SENTENCES: Record<string, string> = {
   '检查失败：': 'Check failed: ', '读取失败：': 'Read failed: ',
   '网络请求失败': 'Network request failed',
   '菜单': 'Menu', '值': 'Value', '例如：': 'e.g. ', '夜深了': 'Late night', '我': 'Me',
-  '暂无数据': 'No data', '匿名': 'Anonymous', '本站域名': 'Local domain',
+  '匿名': 'Anonymous', '本站域名': 'Local domain',
   '须知加载失败，请刷新重试。': 'Could not load the notes. Refresh and try again.',
   '请先勾选同意《服务条款与免责声明》': 'Please accept the Terms & Disclaimer first',
   '请先填写邮箱': 'Enter your email first',

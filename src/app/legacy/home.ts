@@ -3,6 +3,7 @@
  * 外部符号由 runtime 提供；DOM 查询作用于当前挂载的页面。
  */
 import { api, esc, loadBranding, applyBranding } from '../lib/runtime';
+import { svgIcon } from '../lib/icons';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -22,6 +23,7 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
     box.innerHTML = list.map((d, i) => `
       <div class="card nk-suf">
         ${i === 0 ? '<span class="nk-hot">HOT</span>' : ''}
+        <div class="rv-suf-ico">${svgIcon('leaf', 18)}</div>
         <div class="nk-suf-name">.${esc(d.toUpperCase())}</div>
         <div class="nk-suf-desc">${esc(d)}</div>
         <div class="nk-suf-tip">单次注册 365 天，到期前 180 天可续期</div>
@@ -83,7 +85,7 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
     const label = document.getElementById('qName').value.trim();
     const box = document.getElementById('results');
     if (!label) { box.innerHTML = '<div class="nk-res-empty">请输入域名前缀</div>'; return; }
-    box.innerHTML = '<div class="nk-res-empty">查询中…</div>';
+    box.innerHTML = '<div class="nk-res-empty rv-loading">查询中… <span class="rv-dots"><i></i><i></i><i></i></span></div>';
   
     const sel = document.getElementById('qRoot') as HTMLSelectElement | null;
     const picked = (sel && sel.value && ROOTS.indexOf(sel.value) >= 0) ? sel.value : ROOTS[0];
@@ -102,7 +104,7 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
         <div class="nk-res-name mono">${esc((label + '.' + root).toUpperCase())}</div>
         <div class="nk-res-state">${esc(txt)}</div>
         <div class="nk-res-act">${free
-          ? `<a class="btn sm primary" href="/register?label=${encodeURIComponent(label)}&root=${encodeURIComponent(root)}">立即注册</a>`
+          ? `<a class="btn sm primary" href="/register?label=${encodeURIComponent(label)}&root=${encodeURIComponent(root)}">立即注册 ${svgIcon('arrow', 15)}</a>`
           : `<span class="nk-res-dim">域名不可用</span>`}</div>
       </div>`;
     }).join('');

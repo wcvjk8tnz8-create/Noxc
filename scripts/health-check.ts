@@ -20,6 +20,7 @@ const css = [
   'src/app/styles/theme-terra.css',
   'src/app/styles/motion.css',
   'src/app/styles/liquid-glass.css',
+  'src/app/styles/reverie.css',
 ];
 for (const p of css) {
   const t = read(p);
@@ -27,14 +28,15 @@ for (const p of css) {
   check(a === b, `${p} 括号平衡 ${a}/${b}`);
 }
 
-/* 2. 词典重复键：对象字面量里同名 key 会让 esbuild 直接报语法错 */
+/* 2. 词典重复键：对象字面量里同名 key 会让 esbuild 报 duplicate-object-key。
+      必须全量扫描 —— 旧版只认行首，漏掉了「一行写好几个键」的写法。 */
 const dicts = ['src/app/lib/i18n.ts', 'src/app/lib/dict.en.ts', 'src/lib/i18nServer.ts'];
 for (const p of dicts) {
   const t = read(p);
-  const keys = [...t.matchAll(/^\s*'([^']+)'\s*:/gm)].map((m) => m[1]);
+  const keys = [...t.matchAll(/(?:^|,\s*)'([^']+)'\s*:/gm)].map((m) => m[1]);
   const seen = new Set(), dup = new Set();
   for (const k of keys) { if (seen.has(k)) dup.add(k); seen.add(k); }
-  check(dup.size === 0, `${p} 无重复键（${keys.length} 条）${dup.size ? ' → ' + [...dup].join(', ') : ''}`);
+  check(dup.size === 0, `${p} 无重复键（全量 ${keys.length} 条）${dup.size ? ' → ' + [...dup].join(', ') : ''}`);
 }
 
 /* 3. 密钥绝不入库 */
@@ -57,15 +59,19 @@ for (const p of srcFiles) {
   check(!/\b(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,})\b/.test(t), `${p} 无明文密钥`);
 }
 
-/* 4. 样式层顺序：动效层在前、液态玻璃层收口在最后，且遮罩 / Toast / 抽屉修复仍在。
-      iOS 26 玻璃重构后最后加载的不再是 motion.css —— 玻璃层用同等 !important
-      收口前五层，必须同时复刻动效层的修复，否则会静默回退成旧 bug。 */
+/* 4. 样式层顺序：动效层 → 液态玻璃层 → Reverie 设计系统层收口在最后。
+      Reverie 用同等 !important 覆盖前六层的色板，必须保留玻璃层里
+      遮罩 / Toast / 抽屉 / 欢迎卡的修复，否则会静默回退成旧 bug。 */
 const main = read('src/app/main.tsx');
 const imports = [...main.matchAll(/import\s+['"]\.\/styles\/([^'"]+)['"]/g)].map((m) => m[1]);
-check(imports.at(-1) === 'liquid-glass.css', `liquid-glass.css 为最后加载的样式层（实际 ${imports.at(-1)}）`);
+check(imports.at(-1) === 'reverie.css', `reverie.css 为最后加载的样式层（实际 ${imports.at(-1)}）`);
 check(
   imports.includes('motion.css') && imports.indexOf('motion.css') < imports.indexOf('liquid-glass.css'),
   '动效层在玻璃层之前加载（玻璃层不得跳过动效层）',
+);
+check(
+  imports.includes('liquid-glass.css') && imports.indexOf('liquid-glass.css') < imports.indexOf('reverie.css'),
+  '液态玻璃层在 Reverie 之前加载，浮岛结构不被新层覆盖掉',
 );
 const glass = read('src/app/styles/liquid-glass.css');
 check(/\.modal\s*\{[^}]*background:\s*rgba\(/s.test(glass), '玻璃层保留半透明弹窗遮罩');
@@ -134,7 +140,7 @@ check(/:not\(\.side-toggle\)/.test(read('src/app/styles/theme-terra.css')), '汉
 const appRoutes = read('src/app/App.tsx');
 check(/'\/\s*':\s*HomePage/.test(appRoutes) && /'\/login':\s*LoginPage/.test(appRoutes), '根路径渲染主页、/login 独立为登录页');
 check(/ROUTES\[key\]\s*\|\|\s*HomePage/.test(appRoutes), '未知路径回落主页而非登录页');
-check(/\['\/', '\/index\.html', '\/home', '\/home\.html'\]/.test(appRoutes), '根路径复用落地页视觉脚本');
+check(!/mountCloudShader/.test(appRoutes) && !/cloudShader/.test(appRoutes), 'Reverie 首页不再挂 WebGL 云 shader（首屏更快、更安静）');
 check(/\/login\.html/.test(read('src/index.ts')), 'SPA 回落包含 /login.html');
 check(/zx-nav-cta"\s+href="\/register"/.test(read('src/app/pages/Home.tsx')), '主页 CTA 指向注册页');
 check(!/href="\/">登录/.test(runtime) && !/location\.href\s*=\s*'\/\?login=1'/.test(runtime), '不再有把根路径当登录页的入口');
@@ -225,7 +231,7 @@ check(/--bl-jade:\s*#2f8f83/.test(bloom) && /--bl-coral/.test(bloom), '取色自
 check(/bl-petals/.test(bloom) && /prefers-reduced-motion/.test(bloom), '花瓣呼吸动效且尊重减少动态');
 check(/\.bgswitch button[\s\S]{0,300}border-radius:\s*50%/.test(bloom), '壁纸切换器为圆形缩略点');
 check(/min-width:\s*620px\s*!important/.test(bloom), '窄屏表格不再竖排断字');
-check(imports.at(-1) === 'liquid-glass.css', '重构层仍位于最后加载的样式层');
+check(imports.at(-1) === 'reverie.css', 'Reverie 设计系统为最后加载的视觉权威层');
 
 /* 12. 首屏一次性就绪：不再「一阶段 / 二阶段 / 三阶段慢慢加载出来」 */
 const gate = read('src/app/lib/runtime.ts');
@@ -322,6 +328,71 @@ try {
 } catch {
   check(true, '非 git 环境：跳过 tracked 文件判定');
 }
+
+/* 16. Reverie 设计系统：Uiverse Reverie 版式 + 按各库替换按钮/图标 + 全站手机适配 */
+const rv = read('src/app/styles/reverie.css');
+const rvHome = read('src/app/pages/Home.tsx');
+const rvIcons = read('src/app/lib/icons.ts');
+const rvLegacy = read('src/app/legacy/home.ts');
+const rvDict = read('src/app/lib/dict.en.ts');
+const rvPkg = read('package.json');
+check(/--rv-paper:\s*#f6f2e8/.test(rv) && /--rv-fern:\s*#2f5d45/.test(rv), 'Reverie 羊皮纸与深蕨绿令牌就位');
+check(/\[data-theme="dark"\]/.test(rv) && /--rv-fern:\s*#9dc9a8/.test(rv), '深色模式有独立蕨绿 / 纸面色板');
+check(/\.rv-pill\.ink\s*\{[^}]*background:\s*var\(--rv-ink\)/s.test(rv), '墨黑药丸按钮（dark ink pill）');
+check(/\.rv-title em\s*\{[^}]*font-style:\s*italic[^}]*color:\s*var\(--rv-fern\)/s.test(rv), '标题只留一处绿色斜体强调');
+check(/\.rv-art\s*\{[^}]*background-image:\s*url\('\/img\/wallpaper\//s.test(rv), '画意卡承载壁纸，查询框浮在风景上');
+check(/html body\.page-home\.page-reverie\.has-cloud #bg\s*\{[^}]*opacity:\s*\.14 !important/s.test(rv), '首页壁纸仍满铺，只是退成纸面底纹（压住手机端 !important 规则）');
+check(/\.rv-head a\.rv-mobile-cta \{ display: none; \}/.test(rv) && /\.rv-head a\.rv-mobile-cta \{ display: inline-flex;/.test(rv), '桌面顶栏不出现重复「注册」药丸，手机端才显示');
+check(/@keyframes rvReveal/.test(rv) && /calc\(var\(--i, 0\) \* 80ms\)/.test(rv), 'React Bits / Anime.js 式 stagger 入场（纯 CSS，零依赖）');
+check(/@keyframes rvDots/.test(rv), 'Uiverse 三点 loader 用于查询中');
+check(/rvUnderline/.test(rv), 'Aceternity Hero Highlight 克制版细线扫光');
+check(/:not\(\.side-toggle\)/.test(read('src/app/styles/theme-terra.css')), '汉堡按钮仍被排除，桌面顶栏不出现空灰块');
+
+/* 首页结构：Reverie 类名 + legacy 契约一个不能少 */
+for (const cls of ['rv-head', 'rv-hero', 'rv-landscape', 'rv-frame', 'rv-ask', 'rv-sec', 'rv-quote', 'rv-cta', 'rv-foot']) {
+  check(rvHome.includes(cls), `首页含 ${cls} 结构`);
+}
+for (const id of ['searchForm', 'qName', 'qRoot', 'results', 'suffixGrid', 'rtTags', 'rtMore', 'apiHost', 'yr', 'toast']) {
+  check(new RegExp(`id="${id}"`).test(rvHome), `首页保留 legacy id #${id}`);
+}
+check(/data-logo-img/.test(rvHome) && /data-site-name/.test(rvHome) && /data-icp-slot/.test(rvHome), '品牌注入 / 页脚备案插槽未丢');
+check(/zx-nav-cta"\s+href="\/register"/.test(rvHome), 'Reverie 版 CTA 仍指向注册页');
+
+/* 图标：统一细线 currentColor、静态页与动态渲染共用一份 */
+check(/stroke="currentColor"/.test(rvIcons) && /stroke-width="1\.5"/.test(rvIcons), '全站图标为细线 currentColor（零外链）');
+check(!/https?:\/\//.test(rvIcons.replace(/https:\/\/uiverse\.io\/design\/systems\/reverie/g, '')), '图标集不加载任何外部资源');
+check(/export function svgIcon/.test(rvIcons) && /ICON_PATHS/.test(rvIcons), '图标集同时服务 TSX 与 legacy innerHTML');
+check(/svgIcon\('leaf'/.test(rvLegacy) && /svgIcon\('arrow'/.test(rvLegacy), '动态后缀卡 / 结果卡使用同一套图标');
+check(/rv-dots/.test(rvLegacy), '查询中改用 Uiverse 三点 loader');
+check(/td-ico/.test(rv), '图标有统一尺寸 / 对齐样式');
+
+/* 英文全局：新首页文案全部有词条 */
+for (const k of ['后缀', '开始注册', '可选后缀', '把事情做好', '安静地，', '先挑一个喜欢的前缀，剩下的交给我们。', 'Whois 查询 &', '查询中…']) {
+  check(new RegExp(`'${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'\\s*:`).test(rvDict), `词典含 Reverie 文案「${k}」`);
+}
+
+/* 全站手机适配：不是只改首页，所有页面的通用兜底都在最后一层 */
+check(/@media \(max-width: 700px\)/.test(rv) && /@media \(max-width: 360px\)/.test(rv), '700 / 360 两档手机断点');
+check(/@media \(max-aspect-ratio: 9\/19\)/.test(rv), '19.5:9 / 20:9 / 21:9 长屏断点');
+check(/@media \(orientation: landscape\) and \(max-height: 520px\)/.test(rv), '矮横屏 / 21:9 横屏断点');
+check(/@media \(min-width: 701px\) and \(max-width: 1000px\)/.test(rv), '平板 / 折叠展开断点');
+check(/@media \(prefers-reduced-motion: reduce\)/.test(rv), '减少动态时关闭全部 Reverie 动画且不藏内容');
+check(/\.stats, \.stat-grid[\s\S]{0,400}grid-template-columns: minmax\(0, 1fr\) !important/.test(rv), '手机上控制台多列一律单列');
+check(/input:not\(\[type="checkbox"\]\)[\s\S]{0,200}font-size: 16px !important/.test(rv), '手机输入框 16px，iOS 聚焦不缩放');
+check(/min-height: 44px/.test(rv), '手机触控目标 ≥44px');
+check(/button, \.btn, a\.btn, \.rv-pill, \.rv-pill\.sm, \.rv-more button, \.iconbtn \{ min-height: 44px; \}/.test(rv), 'sm 药丸 /「更多…」也 ≥44px（双类选择器不再盖过兜底）');
+check(/\.lang button\{min-height:44px;min-width:44px\}/.test(read('src/html/reverieRootCss.ts')), '根域名页语言切换触控目标 ≥44px');
+check(/overflow-x: auto !important/.test(rv), '表格在手机上横向可拖，不裁详情列');
+check(/100dvh/.test(rv) || /100dvh/.test(read('src/app/styles/responsive.css')), '浮层用 dvh 跟随 iOS 地址栏');
+check(/env\(safe-area-inset/.test(rv), '刘海 / 底部手势条安全区');
+
+/* 不引入任何运行时动画依赖：用户明确反馈过加载慢 */
+for (const dep of ['animejs', 'framer-motion', 'motion', 'gsap', '@reactbits', 'aceternity']) {
+  check(!new RegExp(`"${dep}"`).test(rvPkg), `未引入 ${dep} 运行时依赖`);
+}
+/* 15 个页面组件都在，Reverie 只收口视觉，不删任何页面 */
+const rvPages = fs.readdirSync(path.join(root, 'src/app/pages')).filter((f) => f.endsWith('.tsx'));
+check(rvPages.length >= 15, `全部 ${rvPages.length} 个页面组件保留`);
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);

@@ -76,21 +76,12 @@ function isInternal(href: string): boolean {
   return !!ROUTES[path] || !!ROUTES[path + '.html'];
 }
 
-/** 页面级的独立视觉脚本（已 TypeScript 化，切页时按需挂载） */
-let cloudMounted = false;
-async function mountPageVisuals(key: string) {
-  // 官网根路径现在就是主页，/home 保留为旧书签别名，两者用同一套视觉
-  if (!['/', '/index.html', '/home', '/home.html'].includes(key)) return;
-  if (cloudMounted) return;
-  cloudMounted = true;
-  try {
-    const m = await import('./lib/cloudShader');
-    m.mountCloudShader();
-  } catch (e) {
-    console.warn('[cloud-shader] 未启用，回退 CSS 天空背景', e);
-  }
-}
-
+/**
+ * Reverie 重构后首页不再挂 WebGL 云 shader：
+ * 羊皮纸 + 一张画意卡靠留白说话，云层会破坏「安静的阅读室」气质，
+ * 也多一次首屏 canvas 初始化（用户明确反馈过加载慢）。
+ * CSS 里的 .cloud-bg / .home-grid-bg 仍作为无害的静态兜底保留。
+ */
 export default function App() {
   const [key, setKey] = useState(() => keyOf(window.location.pathname));
   // 首屏挂载（含刷新、直接打开）不算跳转，不播过渡；只有 key 真的变了才播
@@ -143,7 +134,6 @@ export default function App() {
       prevKey.current = key;
       beginTransition(undefined, prefetchRoute(location.href));
     }
-    mountPageVisuals(key);
     // 语言切换器与翻译在每次切页后补挂（内部幂等）。
     // 用 layout effect 而非 effect：绘制前就完成首次翻译，英文模式不会先闪一帧中文。
     try { startI18n(); } catch { /* 不影响页面功能 */ }

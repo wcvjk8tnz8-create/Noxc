@@ -12,9 +12,13 @@ import './styles/theme-terra.css';
 /* 统一动效层必须最后加载：压过 theme-terra 里 6 处 transform:none!important，
    并把四层各写各的时长/缓动收口到同一组令牌。 */
 import './styles/motion.css';
-/* 布局重构层必须最后加载：浮起的玻璃侧栏 / 顶栏 + 全站液态玻璃材质 +
-   墨绿主题。以同等 specificity 收口前五层的 !important，不再叠加第 7 层。 */
+/* 布局重构层：浮起的玻璃侧栏 / 顶栏 + 全站液态玻璃材质。
+   保留浮岛结构与满铺壁纸，材质色板交给 Reverie 层收口。 */
 import './styles/liquid-glass.css';
+/* Reverie 设计系统层必须最后加载：Uiverse Reverie 的羊皮纸 / 深蕨绿 /
+   衬线绿斜体 / 墨黑药丸 / 发丝线 + 全站手机适配。
+   它用同等 specificity 收口前六层，是唯一的视觉权威层。 */
+import './styles/reverie.css';
 /* 切页过渡：Miku 冒出来 + 跳转中气泡。挂在 body 上，不随 SPA 页面卸载。 */
 import { mountTransition } from './lib/pageTransition';
 

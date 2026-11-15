@@ -763,4 +763,59 @@ export const EXTRA_DICT: Record<string, string> = {
   '页脚备案号（可选）': 'Footer ICP badge (optional)',
   '直接粘贴备案链接 HTML，会显示在全站页脚 GitHub 链接旁边，电脑与手机端均可见。': 'Paste the badge link HTML. It appears next to the GitHub link in the footer on both desktop and mobile.',
   '仅允许 a 标签文字链接，其它标签会被过滤；留空则隐藏。保存后立即生效，不用刷新。': 'Only <a> text links are kept; other tags are stripped. Leave it empty to hide. Changes apply immediately, no refresh needed.',
+
+  /* ── Reverie 首页（Uiverse Design System）────────────────────────
+     新首页全部文案集中在这里：英文模式不会残留中文，也不中英夹生。 */
+  '后缀': 'Suffixes',
+  '特性': 'Features',
+  '开始注册': 'Get started',
+  '管理控制台': 'Console',
+  '注册': 'Sign up',
+  '输入你想要的前缀': 'Choose a prefix',
+  '查询': 'Check',
+  '查询失败': 'Lookup failed',
+  '输入前缀，查询它在各个后缀下是否可用': 'Type a prefix to check availability across every suffix',
+  '可选后缀': 'Available suffixes',
+  '挑一个顺口的前缀，再挑一个喜欢的结尾。': 'Pick a prefix you like, then pick an ending.',
+  '安静地，': 'Quietly, ',
+  '把事情做好': 'done well',
+  '大多数服务急着把功能堆给你。我们更愿意先把域名、记录和审核这几件事做稳。':
+    'Most services rush to hand you more features. We would rather get domains, records and review quietly right.',
+  '永久免费的域名注册': 'Free domain registration, forever',
+  '完善的 DNS 管理': 'Full DNS management',
+  '免费技术支持': 'Free support',
+  '注册即拥有完整管理权，免费续期，无需任何费用与信用卡。':
+    'Full control from day one, free renewals, no fees and no credit card.',
+  '12 种记录类型、自定义 TTL、Cloudflare 代理、根域名验证一应俱全。':
+    '12 record types, custom TTL, Cloudflare proxy and root-domain verification.',
+  '内置工单系统与讨论区，遇到问题可随时提交，社区与管理员共同协助。':
+    'Built-in tickets and community. Ask anytime; users and admins answer together.',
+  '免费 DNS': 'Free DNS',
+  '专业级权威解析': 'Authoritative resolution',
+  '12+ 记录类型': '12+ record types',
+  '根域名验证': 'Root verification',
+  '域名托管委派': 'Zone delegation',
+  'DNSSEC 就绪': 'DNSSEC ready',
+  '「感觉不像在操作一套软件，更像把一件小事托付出去，然后它就安静地办好了。」':
+    '"It feels less like operating software and more like handing over one small thing, quietly done."',
+  'Whois 查询 &': 'WHOIS lookup &',
+  'DNS 工具': 'DNS tools',
+  '公开查询接口，无需登录即可调用': 'A public API — no sign-in required',
+  'Web 查询页': 'Web lookup',
+  'Whois LookUP': 'WHOIS lookup',
+  '访问 WHOIS 查询，支持查询本站子域名，以及 DNSHE / 任意外部域名。':
+    'Use the WHOIS page for local subdomains, DNSHE and any external domain.',
+  '自动识别输入归属：本站走 D1 实时状态，外部域名走 DNSHE 公开 WHOIS 或 RDAP。':
+    'Detects the source automatically: local names hit D1, external ones use public WHOIS or RDAP.',
+  '在域名详情页自助添加 A / AAAA / CNAME / MX / TXT 等记录，并支持平台验证一键写入。':
+    'Add A / AAAA / CNAME / MX / TXT records on the domain page, with one-click verification.',
+  '更多…': 'More…',
+  '先挑一个喜欢的前缀，剩下的交给我们。': 'Pick a prefix you like. Leave the rest to us.',
+  '立即注册': 'Sign up now',
+  '免费、开源的二级域名分发与 DNS 管理系统。': 'A free, open-source subdomain and DNS management service.',
+  '基于 Cloudflare Workers + D1。': 'Built on Cloudflare Workers + D1.',
+  '服务': 'Service',
+  '开源': 'Open source',
+  '二级域名分发': 'Subdomain distribution',
+  '服务条款': 'Terms of Service',
 };

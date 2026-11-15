@@ -1,4 +1,6 @@
 /** meoy.top 根域名落地页（自包含，供静态托管导出或 Worker 按 Host 直出） */
+import { reverieRootCss } from './reverieRootCss.js';
+
 export const meoyTopHtml = String.raw`<!doctype html>
 <html lang="en">
 <head>
@@ -209,6 +211,9 @@ body{
 }
 .metric{border-right-color:var(--lg-hair)}
 .field input,.suffix select{background:transparent}
+</style>
+<style id="td-reverie">
+${reverieRootCss}
 </style>
 </head>
 <body>
