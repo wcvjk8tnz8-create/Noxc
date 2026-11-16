@@ -8,7 +8,7 @@ import { DEFAULT_FOOTER_ICP_HTML } from './lib/footerIcp.js';
 import { rootPageFor } from './html/rootPages.js';
 import { Hono } from 'hono';
 import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
-import { ok, fail } from './lib/util.js';
+import { ok, fail, defaultQuotaOf } from './lib/util.js';
 import { RECORD_TYPES, TTL_CHOICES, VERIFY_PRESETS, TYPE_NAMES } from './lib/records.js';
 import authRoutes from './routes/auth.js';
 import termsRoutes from './routes/terms.js';
@@ -149,7 +149,7 @@ app.use('/api/config', async (c, next) => {
 // 公开配置（含站点品牌，登录页也要用）
 app.get('/api/config', async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len')"
+    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','default_quota')"
   ).all();
   const s = Object.fromEntries(results.map((r) => [r.key, r.value]));
   // 显式取「生效列表」：不依赖中间件是否成功替换 c.env 引用，
@@ -187,6 +187,8 @@ app.get('/api/config', async (c) => {
     faviconUrl: s.favicon_url || '/favicon.ico',
     fontBody: s.font_body || 'system',
     fontDisplay: s.font_display || 'system',
+    // 首页展示的额度跟着后台「站点设置」走，与注册同一逐级回落口径
+    defaultQuota: await defaultQuotaOf(c.env),
     // 页脚备案链接：首次部署即显示（审核要求），后台可覆盖；管理员主动清空则隐藏
     footerIcpHtml: s.footer_icp_html === undefined ? DEFAULT_FOOTER_ICP_HTML : String(s.footer_icp_html),
     // 仅名单，不含任何 AI 接口地址或密钥

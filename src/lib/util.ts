@@ -72,3 +72,38 @@ export async function audit(
     /* 审计失败不影响主流程 */
   }
 }
+
+/**
+ * 解析「新用户默认配额」：-1 = 不限量，0..10000 = 具体额度。
+ * 空值（undefined / null / 空白串）与脏值一律回落 fallback；空串绝不解释成 0
+ * （0 = 禁止申请，曾因 Number('') === 0 把「清空配置」误当成全员禁申）。
+ * 注册路由与后台设置共用，避免两处口径不一致（曾出现后台能改、注册仍写死 5）。
+ */
+export function parseDefaultQuota(raw: unknown, fallback: unknown = 5): number {
+  const v = validQuota(raw);
+  if (v !== null) return v;
+  const f = validQuota(fallback);
+  return f === null ? 5 : f;
+}
+
+/** 合法配额返回整数，否则返回 null，供后台设置 / 环境变量逐级回落 */
+function validQuota(raw: unknown): number | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw === 'string' && raw.trim() === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  const i = Math.floor(n);
+  return i >= -1 && i <= 10000 ? i : null;
+}
+
+/** 读取生效的默认配额：后台设置 > 环境变量 DEFAULT_QUOTA > 内置 5 */
+export async function defaultQuotaOf(env: any): Promise<number> {
+  let raw: unknown;
+  try {
+    const row: any = await env.DB.prepare("SELECT value FROM settings WHERE key = 'default_quota'").first();
+    raw = row?.value;
+  } catch { /* 老库还没跑迁移：回落环境变量 */ }
+  const fromDb = validQuota(raw);
+  if (fromDb !== null) return fromDb;
+  return parseDefaultQuota(env.DEFAULT_QUOTA);
+}

@@ -285,13 +285,13 @@ const DICT: Record<string, string> = {
 
   /* Zerexa 风格落地页 */
   '属于你的': 'Your own', '专属子域名': 'subdomain, made simple',
-  '免费注册子域名，自行管理 DNS 记录。每个邮箱默认 5 个额度，管理员可在后台调整配额。':
-    'Free subdomains with full DNS control. 5 per email by default; admins can adjust the quota.',
+  '免费注册子域名，自行管理 DNS 记录。每个邮箱的额度由站点设置决定，管理员可在后台随时调整。':
+    'Free subdomains with full DNS control. Each email gets the quota set by the site owner, adjustable any time in admin.',
   '输入你想要的前缀': 'Enter the label you want',
   '选择前缀并注册': 'Pick a label & register', '添加 TXT 验证': 'Add TXT verification',
   '查看我的域名': 'View my domains', '管理控制台': 'Console',
   '特性': 'Features', '价格': 'Pricing', '常见问题': 'FAQ',
-  '免费额度': 'Free quota', '5 个 / 邮箱': '5 / email', '可在后台调整': 'Adjustable in admin',
+  '免费额度': 'Free quota', '后台自定义': 'Set in admin', '可在后台调整': 'Adjustable in admin',
   '开通时效': 'Provisioning', '审核后即时': 'Instant on approval', 'AI 后缀可秒批': 'AI suffixes approve in seconds',
   '解析方式': 'DNS hosting', '完整 DNS': 'Full DNS',
   '有效期': 'Validity', '365 天': '365 days', '到期前 180 天可续': 'Renew within 180 days of expiry',

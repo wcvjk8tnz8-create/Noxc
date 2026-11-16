@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { hashPassword, verifyPassword, randomToken } from '../lib/crypto.js';
-import { ok, fail, now, audit, clientIp } from '../lib/util.js';
+import { ok, fail, now, audit, clientIp, defaultQuotaOf } from '../lib/util.js';
 import { createSession, setSessionCookie, clearSessionCookie, destroySession, UNLIMITED } from '../middleware/auth.js';
 import { notifyLoginIp, notify } from '../lib/notify.js';
 import { issueCode, checkCode, mailConfig, mailEnabled } from '../lib/mail.js';
@@ -82,8 +82,8 @@ app.post('/register', async (c) => {
   const role = count && count.n === 0 ? 'admin' : 'user';
 
   const hash = await hashPassword(String(password));
-  // 管理员不限量，普通用户用默认配额
-  const quota = role === 'admin' ? UNLIMITED : Number(env.DEFAULT_QUOTA || 5);
+  // 管理员不限量；普通用户用后台「站点设置」里的默认配额（可自定义，默认 5）
+  const quota = role === 'admin' ? UNLIMITED : await defaultQuotaOf(env);
   const res = await env.DB.prepare(
     'INSERT INTO users (email, password_hash, role, status, quota, created_at) VALUES (?,?,?,?,?,?)'
   )

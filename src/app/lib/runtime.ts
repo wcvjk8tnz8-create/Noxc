@@ -31,6 +31,7 @@ const __setInterval = (fn: any, ms?: number) => {
 /* 全局符号表：legacy 控制器从这里解构，页面之间互不干扰 */
 export const RUNTIME_KEYS = [
   'api','esc','fmtTime','fmtDate','toast','openModal','closeModal','loadBranding','applyBranding',
+  'applyDefaultQuota','resetBranding',
   'applyFonts','STATUS_MAP','statusBadge','copyText','quotaText','mountNav','mountShell',
   'mountSiteFooter','mountIcpBadge','logoHtml','wallpaperSwitchHtml','applyWallpaper','mountWallpaper','mountSakura',
   'DEFAULT_BRAND','CN_FONTS','WALLPAPERS','PAW_SVG','SHELL_NAV','SHELL_ICON','prefetch',
@@ -303,7 +304,7 @@ document.addEventListener('click', (e) => {
 });
 
 /* ---------- 站点品牌（站点名 / Logo，管理员可在后台改） ---------- */
-export const DEFAULT_BRAND = { siteName: 'TerraDomain', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', fontBody: 'system', fontDisplay: 'system' };
+export const DEFAULT_BRAND = { siteName: 'TerraDomain', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', fontBody: 'system', fontDisplay: 'system', defaultQuota: 5 };
 export let brandPromise = null;
 /* stale-while-revalidate：切页先用上一次的值立刻渲染，网络刷新放后台。
    以前每个页面都 await 一次 /api/config，接口一慢整页就卡在骨架上。 */
@@ -317,9 +318,17 @@ function normalizeBrand(d) {
     faviconUrl: d.faviconUrl || DEFAULT_BRAND.faviconUrl,
     fontBody: d.fontBody || 'system',
     fontDisplay: d.fontDisplay || 'system',
+    defaultQuota: Number.isFinite(Number(d.defaultQuota)) ? Number(d.defaultQuota) : 5,
     // 服务端已清洗：只含 <a> 文字链接与纯文本，可直接 innerHTML
     footerIcpHtml: typeof d.footerIcpHtml === 'string' ? d.footerIcpHtml : '',
   };
+}
+
+/** 首页额度展示：数字来自后台自定义默认配额，只写数字/∞，不写中文，英文模式不会冒中文 */
+export function applyDefaultQuota(n) {
+  const v = Number(n);
+  const text = Number.isFinite(v) && v < 0 ? '∞' : String(Math.max(0, Math.floor(Number.isFinite(v) ? v : 5)));
+  document.querySelectorAll('[data-default-quota]').forEach((el) => { el.textContent = text; });
 }
 
 export function loadBranding() {
@@ -327,7 +336,10 @@ export function loadBranding() {
     if (!brandRefreshing) {
       brandRefreshing = true;
       api.get('/api/config')
-        .then((d) => { brandValue = normalizeBrand(d); })
+        .then((d) => {
+          brandValue = normalizeBrand(d);
+          try { applyDefaultQuota(brandValue.defaultQuota); } catch {}
+        })
         .catch(() => { /* 保留旧值，不打断渲染 */ })
         .finally(() => { brandRefreshing = false; });
     }
@@ -336,7 +348,11 @@ export function loadBranding() {
   if (!brandPromise) {
     brandPromise = api
       .get('/api/config')
-      .then((d) => { brandValue = normalizeBrand(d); return brandValue; })
+      .then((d) => {
+        brandValue = normalizeBrand(d);
+        try { applyDefaultQuota(brandValue.defaultQuota); } catch {}
+        return brandValue;
+      })
       .catch(() => {
         brandPromise = null;   // 失败清缓存，下一次切页自动重试
         return { ...DEFAULT_BRAND };
@@ -411,6 +427,7 @@ export function applyBranding(b) {
   document.querySelectorAll('[data-logo-img]').forEach((el) => (el.src = b.logoUrl));
   // 后台保存后不用刷新整页，备案链接当场出现在页脚
   try { mountIcpBadge(typeof b.footerIcpHtml === 'string' ? b.footerIcpHtml : ''); } catch {}
+  try { applyDefaultQuota(b.defaultQuota); } catch {}
 }
 
 /** 生成 Logo 图片 HTML（size 为像素） */
@@ -1294,6 +1311,7 @@ export async function mountShell(active, opt: {
     const b = { siteName: cfg.siteName || cfg.site_name || 'TerraDomain', logoUrl: cfg.logoUrl || cfg.logo_url || '/img/logo.jpg' };
     writeBrandCache(b);
     if (b.siteName !== brand.siteName || b.logoUrl !== brand.logoUrl) applyBrand(b);
+    try { applyDefaultQuota(cfg.defaultQuota); } catch {}
   }).catch(() => {});
 
   const isAdmin = me && me.role === 'admin';
@@ -1652,6 +1670,7 @@ export function idle(fn) {
 /* ── 把运行时挂到 window，供内联 onclick / 旧代码使用 ── */
 const R: Record<string, any> = {
   api, esc, fmtTime, fmtDate, toast, openModal, closeModal, loadBranding, applyBranding,
+  applyDefaultQuota, resetBranding,
   applyFonts, STATUS_MAP, statusBadge, copyText, quotaText, mountNav, mountShell,
   mountSiteFooter, mountIcpBadge, logoHtml, wallpaperSwitchHtml, applyWallpaper, mountWallpaper, mountSakura,
   DEFAULT_BRAND, CN_FONTS, WALLPAPERS, PAW_SVG, SHELL_NAV, SHELL_ICON, prefetch,

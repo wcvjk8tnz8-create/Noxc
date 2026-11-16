@@ -68,9 +68,9 @@ export default function HomePage() {
       <main className="rv-main">
         {/* ══ Hero：单列、衬线、一处绿色斜体 ══ */}
         <section className="rv-hero rv-reveal" style={{ '--i': 0 } as CSSProperties}>
-          <p className="rv-eyebrow">OPEN REGISTRATION <span>·</span> 5 FREE DOMAINS PER EMAIL</p>
+          <p className="rv-eyebrow">OPEN REGISTRATION <span>·</span> <span data-default-quota data-no-i18n>5</span> FREE DOMAINS PER EMAIL</p>
           <h1 className="rv-title">属于你的<em>专属子域名</em><span className="rv-fullstop">.</span></h1>
-          <p className="rv-lede">免费注册子域名，自行管理 DNS 记录。每个邮箱默认 5 个额度，管理员可在后台调整配额。</p>
+          <p className="rv-lede">免费注册子域名，自行管理 DNS 记录。每个邮箱的额度由站点设置决定，管理员可在后台随时调整。</p>
           <div className="rv-actions">
             <a className="rv-pill ink lg" href="/register">开始注册 <Ico name="arrow" size={17} /></a>
             <a className="rv-pill line lg" href="/dashboard">管理控制台 <Ico name="arrowUp" size={15} /></a>

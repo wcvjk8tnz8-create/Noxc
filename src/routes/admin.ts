@@ -1,7 +1,7 @@
 import { listRoots, normalizeDomain } from '../lib/roots.js';
 import { serializeRootCosts, parseRootCosts } from '../lib/points.js';
 import { Hono } from 'hono';
-import { ok, fail, now, audit } from '../lib/util.js';
+import { ok, fail, now, audit, defaultQuotaOf, parseDefaultQuota } from '../lib/util.js';
 import { notify } from '../lib/notify.js';
 import { cfDelete, cfErrorMessage } from '../lib/cf.js';
 import { UNLIMITED } from '../middleware/auth.js';
@@ -256,7 +256,7 @@ app.post('/users/:id/quota', async (c) => {
   if (quota !== undefined) {
     const q = Number(quota);
     // -1 表示不限量
-    if (!Number.isFinite(q) || q < -1 || q > 500) return fail(c, '配额需在 -1（不限）到 500 之间');
+    if (!Number.isFinite(q) || q < -1 || q > 10000) return fail(c, '配额需在 -1（不限）到 10000 之间');
     await c.env.DB.prepare('UPDATE users SET quota = ? WHERE id = ?').bind(q === -1 ? -1 : Math.floor(q), id).run();
   }
   if (role !== undefined) {
@@ -269,7 +269,7 @@ app.post('/users/:id/quota', async (c) => {
       const cur = await c.env.DB.prepare('SELECT quota FROM users WHERE id = ?').bind(id).first();
       if (cur && Number(cur.quota) < 0) {
         await c.env.DB.prepare('UPDATE users SET quota = ? WHERE id = ?')
-          .bind(Number(c.env.DEFAULT_QUOTA || 5), id)
+          .bind(await defaultQuotaOf(c.env), id)
           .run();
       }
     }
@@ -426,6 +426,8 @@ app.get('/settings', async (c) => {
   for (const k of SENSITIVE) delete items[k];
   // 未配置过时把默认备案号回填到输入框，避免「页脚明明有、后台却是空的」
   if (raw.footer_icp_html === undefined) items.footer_icp_html = DEFAULT_FOOTER_ICP_HTML;
+  // 老库没跑新迁移时，显示实际生效值（环境变量或内置 5），不显示空白
+  if (raw.default_quota === undefined) items.default_quota = String(parseDefaultQuota(c.env.DEFAULT_QUOTA));
 
   const mask = (v) => {
     const s = String(v || '');
@@ -904,6 +906,16 @@ app.post('/settings', async (c) => {
   if (!(await numRule('short_domain_cost', body.shortDomainCost, 0, 100000, '单字域名消耗积分'))) return fail(c, c.__ruleErr);
   if (!(await numRule('short_domain_len', body.shortDomainLen, 1, 10, '单字域名长度上限'))) return fail(c, c.__ruleErr);
   if (!(await numRule('initial_points', body.initialPoints, 0, 10000, '新用户初始积分'))) return fail(c, c.__ruleErr);
+
+  /* 新用户默认子域名配额：后台可自定义；-1 = 不限量，0 = 不允许申请。
+     优先级高于环境变量 DEFAULT_QUOTA，注册时直接读这个值。 */
+  if (!(await numRule('default_quota', body.defaultQuota, -1, 10000, '新用户默认配额'))) return fail(c, c.__ruleErr);
+  if (body.applyQuotaToExisting === true) {
+    if (body.defaultQuota === '' || body.defaultQuota === undefined) return fail(c, '请先填写新用户默认配额');
+    const q = await defaultQuotaOf(c.env);
+    const res = await c.env.DB.prepare("UPDATE users SET quota = ? WHERE role != 'admin'").bind(q).run();
+    await audit(c, u.id, 'admin.quota.apply-all', 'site', `default_quota=${q} affected=${res.meta?.changes ?? '?'}`);
+  }
 
   /* 按根域名单独设置申请积分：{ 'v-1.top': 0, 'meoy.top': '' }
      · 0 = 该后缀免费（普通用户也不扣分）

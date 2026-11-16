@@ -221,7 +221,7 @@ check(/--bg-haze/.test(bloom) && /#bg\[data-wp-loaded="1"\]/.test(bloom) && /bl-
 check(/prefers-reduced-motion[\s\S]{0,300}#bg\[data-wp-loaded="1"\][\s\S]{0,160}animation:\s*none/.test(bloom), '减少动态时壁纸不做淡入');
 check(/dataset\.wpLoaded/.test(runtimeJs) && /img\.decode/.test(runtimeJs), 'runtime 解码完主图才打上淡入标记');
 check(/brandValue/.test(runtimeJs) && /brandRefreshing/.test(runtimeJs) && /Promise\.resolve\(brandValue\)/.test(runtimeJs), '品牌配置走 stale-while-revalidate，切页不再 await 接口');
-check(/brandPromise\s*=\s*null/.test(runtimeJs.split('resetBranding').pop() || ''), '后台保存后清缓存，下次切页拉新值');
+check(/export function resetBranding\(\)\s*\{[^}]*brandPromise\s*=\s*null/s.test(runtimeJs), '后台保存后清缓存，下次切页拉新值');
 const shellHtml = read('src/html/spa.ts');
 check(/rel="preload" as="image" href="\/img\/transition\/miku-pop\.png"/.test(shellHtml), '首屏 preload 过渡角色');
 check(/miku-bouquet-haze\.webp/.test(shellHtml) && /miku-bouquet-dark\.webp/.test(shellHtml), '首屏 preload 壁纸浅/深/氛围版');
@@ -403,6 +403,34 @@ check(/#toast:empty[\s\S]{0,140}#toast:not\(:has\(> \*\)\)[\s\S]{0,80}display: n
 check(/#toast > \* \{ pointer-events: auto/.test(rv), '子项提示仍可交互');
 check(/\.lang-switch button \{[\s\S]{0,320}border-radius: 999px/.test(rv), '顶栏语言钮为正圆，不再是方砖');
 check(/\.lang-switch button \{[\s\S]{0,320}min-height: 44px/.test(rv), '圆形语言钮仍保留 44px 触控目标');
+
+/* 可自定义用户配额：后台可配默认值 → 注册读取 → 首页展示 → 单用户可覆盖 */
+const quotaSchema = read('schema.sql');
+const quotaAuth = read('src/routes/auth.ts');
+const quotaAdminApi = read('src/routes/admin.ts');
+const quotaAdminUi = read('src/app/legacy/admin.ts');
+const quotaCfg = read('src/index.ts');
+const quotaRuntime = read('src/app/lib/runtime.ts');
+const quotaHome = read('src/app/pages/Home.tsx');
+const quotaDict = read('src/app/lib/dict.en.ts');
+check(/INSERT OR IGNORE INTO settings\(key, value\) VALUES \('default_quota', '5'\)/.test(quotaSchema), '新库自带 default_quota 设置');
+check(/defaultQuotaOf\(env\)/.test(quotaAuth) && !/Number\(env\.DEFAULT_QUOTA \|\| 5\)/.test(quotaAuth), '注册读取后台默认配额，不再写死 5');
+check(/numRule\('default_quota', body\.defaultQuota, -1, 10000/.test(quotaAdminApi), '后台保存校验 -1..10000');
+check(/applyQuotaToExisting === true/.test(quotaAdminApi) && /UPDATE users SET quota = \? WHERE role != 'admin'/.test(quotaAdminApi), '可一键同步到现有普通用户');
+check(/defaultQuota: await defaultQuotaOf\(c\.env\)/.test(quotaCfg), '公开配置下发 defaultQuota（与注册同口径）');
+check(/defaultQuota/.test(quotaRuntime) && /applyDefaultQuota/.test(quotaRuntime), '前端首页额度跟着配置刷新');
+check(/data-default-quota/.test(quotaHome) && !/默认 5 个额度/.test(quotaHome), '首页不再硬编码 5 个额度');
+for (const id of ['sDefaultQuota', 'sApplyQuota', 'qUseDefault']) {
+  check(new RegExp(`id="${id}"`).test(quotaAdminUi), `后台含配额控件 #${id}`);
+}
+for (const k of ['用户配额', '新用户默认配额', '同步到现有普通用户', '填入全局默认']) {
+  check(quotaDict.includes(`'${k}'`), `英文词典含配额文案「${k}」`);
+}
+const quotaUtil = read('src/lib/util.ts');
+check(/parseDefaultQuota/.test(quotaUtil) && /defaultQuotaOf/.test(quotaUtil), '配额解析与读取共用一份实现');
+check(/function validQuota/.test(quotaUtil) && /raw\.trim\(\) === ''/.test(quotaUtil), '空串不当成 0（清空配置 ≠ 全员禁申）');
+check(/const fromDb = validQuota\(raw\)/.test(quotaUtil) && /parseDefaultQuota\(env\.DEFAULT_QUOTA\)/.test(quotaUtil), '后台脏值逐级回落环境变量，不直接跳内置 5');
+check(/const q = await defaultQuotaOf\(c\.env\)/.test(quotaAdminApi), '一键同步复用同一逐级回落实现');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);

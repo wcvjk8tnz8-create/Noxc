@@ -157,9 +157,18 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
       });
       tb.querySelectorAll('[data-quota]').forEach((b) => b.onclick = () => {
         openModal('调整 ' + b.dataset.email, `
-          <div class="field"><label>子域名配额</label><input id="q" type="number" value="${b.dataset.q}"><div class="hint">填 -1 表示不限量</div></div>
+          <div class="field"><label>子域名配额</label><input id="q" type="number" value="${b.dataset.q}"><div class="hint">该用户可单独设置额度；-1 表示不限量，管理员始终不限。</div></div>
           <div class="field"><label>角色</label><select id="r"><option value="user" ${b.dataset.role === 'user' ? 'selected' : ''}>user</option><option value="admin" ${b.dataset.role === 'admin' ? 'selected' : ''}>admin</option></select></div>
+          <div class="field"><button class="btn sm" type="button" id="qUseDefault">填入全局默认</button> <span class="dim" id="qDefaultHint"></span></div>
           <div class="row end"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" id="ok">保存</button></div>`);
+        document.getElementById('qUseDefault').onclick = async () => {
+          try {
+            const s = await api.get('/api/admin/settings');
+            const q = s.items?.default_quota ?? 5;
+            document.getElementById('q').value = q;
+            document.getElementById('qDefaultHint').textContent = String(q);
+          } catch (e) { settingsFeedback(e.message, 'err'); }
+        };
         document.getElementById('ok').onclick = async () => {
           try { await api.post('/api/admin/users/' + b.dataset.quota + '/quota', { quota: Number(document.getElementById('q').value), role: document.getElementById('r').value }); settingsFeedback('已保存'); closeModal(); load(); }
           catch (e) { settingsFeedback(e.message, 'err'); }
@@ -441,6 +450,14 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <div class="hint" id="dnsheHint"></div>
             </div>
             <div class="field">
+              <label>用户配额</label>
+              <div class="grid2">
+                <div><span class="dim">新用户默认配额</span><input id="sDefaultQuota" type="number" min="-1" max="10000" step="1" value="${esc(s.default_quota ?? '5')}"></div>
+                <div><span class="dim">同步到现有普通用户</span><label class="check" style="margin-top:6px"><input type="checkbox" id="sApplyQuota"> 覆盖所有现有普通用户的单独配额</label></div>
+              </div>
+              <div class="hint">填 -1 = 不限量；0 = 不允许申请。只影响新注册用户；勾选同步会覆盖所有现有普通用户的单独配额（管理员始终不限）。</div>
+            </div>
+            <div class="field">
               <label>积分规则</label>
               <div class="grid2">
                 <div><span class="dim">每日签到奖励</span><input id="sCheckin" type="number" min="0" max="1000" value="${esc(s.checkin_points || '5')}"></div>
@@ -656,6 +673,8 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             emailRule: document.getElementById('sEmailRule').value,
             whoisHolder: document.getElementById('sWhois').value,
             checkinPoints: document.getElementById('sCheckin').value,
+            defaultQuota: document.getElementById('sDefaultQuota').value,
+            applyQuotaToExisting: document.getElementById('sApplyQuota').checked,
             initialPoints: document.getElementById('sInitial').value,
             domainCost: document.getElementById('sCost').value,
             shortDomainCost: document.getElementById('sShortCost').value,

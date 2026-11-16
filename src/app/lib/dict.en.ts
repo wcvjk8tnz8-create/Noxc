@@ -818,4 +818,20 @@ export const EXTRA_DICT: Record<string, string> = {
   '开源': 'Open source',
   '二级域名分发': 'Subdomain distribution',
   '服务条款': 'Terms of Service',
+
+  /* ── 可自定义用户配额（站点设置 + 用户列表弹窗） ── */
+  '用户配额': 'User quota',
+  '新用户默认配额': 'Default quota for new users',
+  '同步到现有普通用户': 'Apply to existing users',
+  '填 -1 = 不限量；0 = 不允许申请。只影响新注册用户；勾选同步会覆盖所有现有普通用户的单独配额（管理员始终不限）。':
+    'Use -1 for unlimited, 0 to block new requests. Applies to new signups only; checking the sync box overwrites every existing user\'s individual quota (admins are always unlimited).',
+  '当前默认配额': 'Current default quota',
+  '填入全局默认': 'Use site default',
+  '该用户可单独设置额度；-1 表示不限量，管理员始终不限。':
+    'This user can have an individual quota; -1 means unlimited. Admins are always unlimited.',
+  '配额需在 -1（不限）到 10000 之间': 'Quota must be between -1 (unlimited) and 10000',
+  '新用户默认配额需在 -1-10000 之间': 'Default quota must be between -1 and 10000',
+  '请先填写新用户默认配额': 'Please set a default quota first',
+  '已同步应用到现有用户': 'Applied to existing users',
+  '覆盖所有现有普通用户的单独配额': 'Overwrite every existing user\'s individual quota',
 };
