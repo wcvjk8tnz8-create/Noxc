@@ -2,12 +2,19 @@
  * Login 页面控制器（由 index.html 内联脚本平移）
  * 外部符号由 runtime 提供；DOM 查询作用于当前挂载的页面。
  */
-import { api, toast, loadBranding, applyBranding } from '../lib/runtime';
+import { api, toast, loadBranding, applyBranding, authProbe } from '../lib/runtime';
 
 import type { LegacyCtx } from '../lib/types';
 
 export async function mountLogin(_root: HTMLElement | null): Promise<void> {
-  
+
+  /* 已登录不再停在登录页：整页直达 /login 由 head 脚本抢先 replace，
+     这里是 SPA 切页（不会重跑 head）的兜底，复用同一个探测 Promise。
+     刻意不 await：接口慢也不拖慢登录表单的事件绑定。 */
+  authProbe().then((me) => {
+    if (me && me.id) location.replace('/dashboard');
+  }).catch(() => {});
+
   // 登录页顶栏不再放壁纸切换器（新版式留白优先）。
   // 兼容旧结构：若页面里仍有 #bgsw，保持为空即可，不再注入任何按钮。
   const bgsw = document.getElementById('bgsw');

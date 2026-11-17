@@ -33,6 +33,23 @@ export const spaShellHtml = String.raw`<!doctype html>
     document.documentElement.setAttribute('lang',v==='en'?'en':'zh-CN');
     document.documentElement.setAttribute('data-lang',v);
     if(v==='en')document.title='TerraDomain · Free Subdomains';}catch(e){}})();
+    /* 登录页登录态探测：整页直达 /login 时，已登录直接去控制台，
+       不让登录表单先渲染出来再跳。SPA 切页由 mountLogin 复用同一 Promise。 */
+    (function(){
+      try{
+        var p=location.pathname.replace(/\.html$/,'').replace(/\/+$/,'')||'/';
+        if(p!=='/login')return;
+        window.__tdAuthProbe=fetch('/api/auth/me',{credentials:'same-origin',headers:{'Accept':'application/json'}})
+          .then(function(r){return r.ok?r.json():null;})
+          .then(function(j){var u=j&&(j.user||j);return (u&&u.id)?u:null;})
+          .catch(function(){return null;});
+        window.__tdAuthProbe.then(function(u){
+          if(!u)return;
+          try{sessionStorage.setItem('meoy_user',JSON.stringify(u));}catch(e){}
+          location.replace('/dashboard');
+        });
+      }catch(e){}
+    })();
   </script>
 </head>
 <body>

@@ -10,6 +10,8 @@
  * 长句整译优先；短词用于 translateText 的全匹配与「全中文可消费」判定。
  */
 export const EXTRA_DICT: Record<string, string> = {
+  /* 登录态顶栏：整句词条，避免「→ 去往控制台」被短词拆成中英夹生 */
+  '→ 去往控制台': '→ Go to console', '→ 控制台': '→ Console',
   /* ── 通用短标签 ── */
   '内容': 'Content', '发布': 'Publish', '发送': 'Send', '密码': 'Password',
   '更换': 'Change', '昵称': 'Display name', '头像': 'Avatar', '积分': 'Points',

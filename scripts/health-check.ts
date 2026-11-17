@@ -480,6 +480,22 @@ for (const k of ['邮箱申请', '邮箱不在允许范围？申请使用此邮�
   check(erDict.includes(`'${k}'`), `英文词典含邮箱申请文案「${k}」`);
 }
 
+/* 登录页登录态探测 + 首页顶栏按登录态切换 */
+const agShell = read('src/html/spa.ts');
+const agRuntime = read('src/app/lib/runtime.ts');
+const agLoginCtrl = read('src/app/legacy/index.ts');
+const agHome = read('src/app/pages/Home.tsx');
+const agDict = read('src/app/lib/dict.en.ts');
+check(/__tdAuthProbe/.test(agShell) && /\/api\/auth\/me/.test(agShell), 'head 首屏脚本探测登录态');
+check(/p!=='\/login'/.test(agShell) && /location\.replace\('\/dashboard'\)/.test(agShell), '仅登录页探测，命中抢先去控制台（表单不闪）');
+check(/export function authProbe/.test(agRuntime) && /w\.__tdAuthProbe/.test(agRuntime), 'runtime 复用首屏探测，SPA 切页可补发');
+check(/authProbe\(\)/.test(agLoginCtrl) && /location\.replace\('\/dashboard'\)/.test(agLoginCtrl), '登录页 SPA 切页兜底：已登录不再停在登录页');
+check(/authProbe\(\)/.test(agHome) && /readUserCache\(\)/.test(agHome), '首页读缓存首帧切换，再以共享探测校正');
+check(/authed\s*\?/.test(agHome) && /href="\/dashboard">→ 去往控制台/.test(agHome), '首页已登录显示「→ 去往控制台」');
+check(/href="\/dashboard">→ 控制台/.test(agHome), '手机端 CTA 同步切到控制台');
+check(/href="\/login">登录/.test(agHome), '未登录仍保留登录入口');
+check(agDict.includes("'→ 去往控制台'") && agDict.includes("'→ 控制台'"), '英文词典含两个整句词条，不夹生');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

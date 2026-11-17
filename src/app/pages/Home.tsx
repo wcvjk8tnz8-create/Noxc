@@ -1,6 +1,6 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { mountHome } from '../legacy/home';
-import { refreshRuntime, cleanupPage } from '../lib/runtime';
+import { refreshRuntime, cleanupPage, readUserCache, authProbe } from '../lib/runtime';
 import { ICON_PATHS, type IconName } from '../lib/icons';
 
 /**
@@ -31,11 +31,18 @@ function Ico({ name, size = 18, className = '' }: { name: IconName; size?: numbe
 
 export default function HomePage() {
   const ref = useRef<HTMLDivElement>(null);
+  /* 顶栏入口按登录态切换：命中缓存时首帧就是「去往控制台」，
+     再用共享探测校正一次，避免会话已过期却误显示。 */
+  const [authed, setAuthed] = useState(() => {
+    const u = readUserCache();
+    return !!(u && u.id);
+  });
   useEffect(() => {
     document.body.className = 'page-home page-reverie has-cloud';
     document.documentElement.setAttribute('data-skin', 'doc');
     (window as any).MEOY_PUBLIC_PAGE = true;
     let alive = true;
+    authProbe().then((u) => { if (alive) setAuthed(!!(u && u.id)); });
     (async () => {
       try { await mountHome(ref.current); } catch (e) { console.error('[home] 页面初始化失败', e); }
       if (alive) refreshRuntime();
@@ -58,10 +65,14 @@ export default function HomePage() {
             <a href="#suffix">后缀</a>
             <a href="#features">特性</a>
             <a href="#faq">常见问题</a>
-            <a className="rv-pill line sm rv-login" href="/login">登录</a>
+            {authed
+              ? <a className="rv-pill line sm rv-login" href="/dashboard">→ 去往控制台</a>
+              : <a className="rv-pill line sm rv-login" href="/login">登录</a>}
             <a className="rv-pill ink sm zx-nav-cta" href="/register">立即注册 <Ico name="arrowUp" size={14} /></a>
           </nav>
-          <a className="rv-pill ink sm rv-mobile-cta zx-nav-cta" href="/register">注册 <Ico name="arrowUp" size={14} /></a>
+          {authed
+            ? <a className="rv-pill ink sm rv-mobile-cta zx-nav-cta" href="/dashboard">→ 控制台</a>
+            : <a className="rv-pill ink sm rv-mobile-cta zx-nav-cta" href="/register">注册 <Ico name="arrowUp" size={14} /></a>}
         </div>
       </header>
 

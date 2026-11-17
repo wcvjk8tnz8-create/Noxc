@@ -1306,6 +1306,29 @@ export function clearUserCache() {
   try { sessionStorage.removeItem(USER_KEY); } catch {}
 }
 
+/**
+ * 全站共享的一次登录态探测（返回 user 对象或 null）。
+ * head 首屏脚本在整页直达 /login 时可能已发起，这里复用同一个 Promise；
+ * SPA 切页不会重跑 head，则由本函数补发。整页会话内只查一次。
+ * 刻意用原生 fetch 而非 api.get：401 不该触发 api 的全局跳转副作用。
+ */
+export function authProbe(): Promise<any> {
+  const w = window as any;
+  if (!w.__tdAuthProbe) {
+    w.__tdAuthProbe = fetch('/api/auth/me', {
+      credentials: 'same-origin', headers: { 'Accept': 'application/json' },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const u = j && (j.user || j);
+        if (u && u.id) { writeUserCache(u); return u; }
+        return null;
+      })
+      .catch(() => null);
+  }
+  return w.__tdAuthProbe;
+}
+
 /** 点猫爪 → 冒几个小爱心（纯装饰，走 transform 动画） */
 export function pawBurst(anchor) {
   for (let i = 0; i < 5; i++) {
