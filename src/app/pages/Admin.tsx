@@ -34,6 +34,7 @@ export default function AdminPage() {
           <button className="tab" data-tab="users">用户</button>
           <button className="tab" data-tab="locks">验证锁定</button>
           <button className="tab" data-tab="ips">同 IP 账号</button>
+          <button className="tab" data-tab="emailreq">邮箱申请</button>
           <button className="tab" data-tab="settings">站点设置</button>
           <button className="tab" data-tab="audit">审计日志</button>
         </div>

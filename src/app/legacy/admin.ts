@@ -22,6 +22,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
     locks: ['记录名', '类型', '发起人', '锁定时间', '操作'],
     settings: ['站点品牌', '值'],
     ips: ['IP', '账号数', '邮箱', '最近注册', '状态', '操作'],
+    emailreq: ['邮箱', '理由 / 联系方式', '状态', '时间', '操作'],
     audit: ['时间', '用户', '动作', '对象', '详情'],
   };
   
@@ -1096,6 +1097,91 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
       return;
     }
   
+    /* 第三方邮箱注册申请：通过即写入精确白名单，任何规则模式下都放行 */
+    if (tab === 'emailreq') {
+      const d = await api.get('/api/admin/email-requests');
+      const allow: any[] = d.allowlist || [];
+      const items: any[] = d.items || [];
+      const stateText: Record<string, string> = { pending: '待审核', approved: '已通过', rejected: '已驳回' };
+      const manage = `
+        <tr><td colspan="5" style="background:transparent">
+          <div style="padding:6px 2px 14px">
+            <b>精确邮箱白名单</b>
+            <div class="hint" style="margin:4px 0 10px">命中白名单的邮箱在任何注册规则下都能注册。通过下方申请会自动加入白名单。</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+              <input id="erNewEmail" class="input" type="email" placeholder="name@example.com" style="flex:1;min-width:180px;padding:8px 10px">
+              <input id="erNewNote" class="input" type="text" maxlength="200" placeholder="备注（选填）" style="flex:1;min-width:140px;padding:8px 10px">
+              <button class="btn sm primary" id="erAdd" type="button">添加白名单</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              ${allow.length ? allow.map((a) => `
+                <span class="badge" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px">
+                  <span class="mono">${esc(a.email)}</span>
+                  ${a.note ? `<span class="dim" style="font-size:11px">${esc(a.note)}</span>` : ''}
+                  <button class="btn sm" type="button" data-erremove="${esc(a.email)}" title="移除" style="padding:0 5px">×</button>
+                </span>`).join('') : '<span class="hint">暂无白名单邮箱</span>'}
+            </div>
+          </div>
+        </td></tr>`;
+      const rows = items.map((r) => `
+        <tr>
+          <td class="mono">${esc(r.email)}</td>
+          <td class="cell-detail">
+            ${esc(r.reason || '（未填写）')}
+            ${r.contact ? `<div class="hint mono">${esc(r.contact)}</div>` : ''}
+            ${r.note ? `<div class="hint">· ${esc(r.note)}</div>` : ''}
+          </td>
+          <td><span class="badge ${r.status === 'approved' ? 'ok' : (r.status === 'rejected' ? 'warn' : '')}">${esc(stateText[r.status] || r.status)}</span></td>
+          <td class="nowrap" style="color:var(--muted)">${fmtTime(r.created_at)}</td>
+          <td class="right nowrap">
+            ${r.status === 'pending' ? `
+              <button class="btn sm ok" type="button" data-eract="approve" data-id="${r.id}">通过并加白名单</button>
+              <button class="btn sm" type="button" data-eract="reject" data-id="${r.id}">驳回</button>` : '<span class="hint">已处理</span>'}
+          </td>
+        </tr>`).join('');
+      tb.innerHTML = manage + (rows || `<tr><td colspan="5" class="empty">${d.unavailable ? '数据表尚未初始化，请稍后重试' : '暂无邮箱注册申请'}</td></tr>`);
+
+      tb.querySelectorAll('[data-eract]').forEach((b: any) => {
+        b.onclick = async () => {
+          const id = b.dataset.id, act = b.dataset.eract;
+          let note = '';
+          if (act === 'reject') {
+            const v = prompt('驳回原因（选填）：');
+            if (v === null) return;
+            note = v;
+          }
+          b.disabled = true;
+          try {
+            await api.post(`/api/admin/email-requests/${id}/${act}`, { note });
+            settingsFeedback(act === 'approve' ? '已通过并加入白名单' : '已驳回申请');
+            load();
+          } catch (e) { b.disabled = false; settingsFeedback(e.message, 'err'); }
+        };
+      });
+      tb.querySelectorAll('[data-erremove]').forEach((b: any) => {
+        b.onclick = async () => {
+          try {
+            await api.del('/api/admin/email-allowlist/' + encodeURIComponent(b.dataset.erremove));
+            settingsFeedback('已移除白名单');
+            load();
+          } catch (e) { settingsFeedback(e.message, 'err'); }
+        };
+      });
+      const addBtn = document.getElementById('erAdd') as HTMLButtonElement | null;
+      if (addBtn) addBtn.onclick = async () => {
+        const email = (document.getElementById('erNewEmail') as HTMLInputElement)?.value.trim() || '';
+        const note = (document.getElementById('erNewNote') as HTMLInputElement)?.value.trim() || '';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return settingsFeedback('请填写有效的邮箱地址', 'err');
+        addBtn.disabled = true;
+        try {
+          await api.post('/api/admin/email-allowlist', { email, note });
+          settingsFeedback('已加入白名单');
+          load();
+        } catch (e) { addBtn.disabled = false; settingsFeedback(e.message, 'err'); }
+      };
+      return;
+    }
+
     if (tab === 'audit') {
       const d = await api.get('/api/admin/audit');
       tb.innerHTML = d.items.map((a) => `

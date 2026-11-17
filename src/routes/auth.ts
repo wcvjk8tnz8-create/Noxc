@@ -4,17 +4,11 @@ import { ok, fail, now, audit, clientIp, defaultQuotaOf } from '../lib/util.js';
 import { createSession, setSessionCookie, clearSessionCookie, destroySession, UNLIMITED } from '../middleware/auth.js';
 import { notifyLoginIp, notify } from '../lib/notify.js';
 import { issueCode, checkCode, mailConfig, mailEnabled } from '../lib/mail.js';
-import { allowedDomains, emailAllowed, emailRuleOf, emailRuleReject } from '../lib/emailRule.js';
+import { signupEmailOk, emailRuleReject } from '../lib/emailRule.js';
 
 const app = new Hono();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-/** 注册邮箱是否放行：默认「白名单 ∪ 任意含 edu 的邮箱」，后台可切换规则 */
-async function signupEmailOk(env, mail) {
-  const rule = await emailRuleOf(env);
-  return { ok: emailAllowed(mail, rule, allowedDomains(env)), rule };
-}
 
 /** 同 IP 允许的账号数 */
 async function maxPerIp(env) {

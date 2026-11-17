@@ -139,5 +139,96 @@ export async function mountLogin(_root: HTMLElement | null): Promise<void> {
   // 从 WHOIS 页带名称过来：/?q=xxx
   const preQ = new URLSearchParams(location.search).get('q');
   if (preQ) { switchTo('reg'); document.getElementById('rEmail').focus(); }
-  
+
+  /* ---------- 第三方邮箱注册申请 ----------
+     邮箱不符合当前规则时，访客可提交申请；管理员在后台通过后写入
+     email_allowlist，该地址即在任何规则模式下都能注册。 */
+  const REQ_STATUS_TEXT: Record<string, string> = {
+    none: '',
+    pending: '申请已提交，请等待管理员审核',
+    approved: '申请已通过，请直接用该邮箱注册',
+    rejected: '申请被驳回，24 小时后可重新提交',
+    unnecessary: '该邮箱已符合注册规则，直接注册即可',
+    registered: '该邮箱已注册，请直接登录',
+    cooldown: '24 小时内已提交过，请稍后再试',
+    expired: '可以重新提交申请',
+    unknown: '申请服务暂不可用，请稍后再试',
+  };
+
+  function openEmailRequest() {
+    const old = document.getElementById('erMask');
+    if (old) old.remove();
+    const mask = document.createElement('div');
+    mask.id = 'erMask';
+    mask.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(16,26,22,.42);backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px';
+    mask.innerHTML = `
+      <div class="card" role="dialog" aria-modal="true" aria-label="申请使用第三方邮箱注册"
+           style="width:min(460px,94vw);max-height:88vh;overflow:auto;padding:20px">
+        <h2 class="auth-title" style="font-size:19px;margin:0 0 6px">申请使用第三方邮箱注册</h2>
+        <p class="auth-sub" style="margin:0 0 6px">当前规则放行的邮箱可直接注册。</p>
+        <p class="auth-sub" style="margin:0 0 16px">其它邮箱请提交申请，管理员通过后即可使用，不会向你发送邮件。</p>
+        <div class="field"><label>邮箱</label><input id="erEmail" type="email" placeholder="name@example.com" autocomplete="username"></div>
+        <div class="field"><label>申请理由（选填）</label><textarea id="erReason" rows="3" maxlength="300" style="width:100%;resize:vertical" placeholder="简单说明用途，方便管理员审核"></textarea></div>
+        <div class="field"><label>联系方式（选填）</label><input id="erContact" type="text" maxlength="120" placeholder="Telegram / 其它联系方式"></div>
+        <input id="erWebsite" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+        <div class="hint" id="erStatus" style="min-height:18px;margin:2px 0 12px"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+          <button class="btn sm" id="erCheck" type="button">查询状态</button>
+          <button class="btn" id="erCancel" type="button">取消</button>
+          <button class="btn primary" id="erSubmit" type="button">提交申请</button>
+        </div>
+      </div>`;
+    document.body.appendChild(mask);
+
+    const el = (id: string) => document.getElementById(id) as HTMLInputElement | null;
+    const statusEl = document.getElementById('erStatus');
+    const close = () => mask.remove();
+    const showStatus = (s: string) => { if (statusEl) statusEl.textContent = REQ_STATUS_TEXT[s] || s; };
+    const mailValue = () => (el('erEmail')?.value || '').trim().toLowerCase();
+
+    (el('erEmail') as HTMLInputElement).value = (document.getElementById('rEmail') as HTMLInputElement)?.value || '';
+    mask.addEventListener('click', (e) => { if (e.target === mask) close(); });
+    document.getElementById('erCancel')!.onclick = close;
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); } };
+    document.addEventListener('keydown', onEsc);
+
+    document.getElementById('erCheck')!.onclick = async () => {
+      const mail = mailValue();
+      if (!mail) return toast('请先填写邮箱', 'err');
+      try {
+        const r = await api.get('/api/email-request/status?email=' + encodeURIComponent(mail));
+        const s = String(r.status || 'none');
+        showStatus(s === 'none' ? '暂无申请记录，可以提交申请' : s);
+      } catch (e) { toast(e.message, 'err'); }
+    };
+
+    document.getElementById('erSubmit')!.onclick = async () => {
+      const mail = mailValue();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)) return toast('请填写有效的邮箱地址', 'err');
+      const btn = document.getElementById('erSubmit') as HTMLButtonElement;
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = '提交中…';
+      try {
+        const r = await api.post('/api/email-request', {
+          email: mail,
+          reason: el('erReason')?.value || '',
+          contact: el('erContact')?.value || '',
+          website: el('erWebsite')?.value || '',
+        });
+        showStatus(String(r.status || 'pending'));
+        if (r.status === 'pending') toast('申请已提交，请等待管理员审核');
+      } catch (e) {
+        showStatus('提交失败，请稍后再试');
+        toast(e.message, 'err');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    };
+    (el('erEmail') as HTMLInputElement).focus();
+  }
+
+  const reqLink = document.getElementById('emailReqLink');
+  if (reqLink) reqLink.onclick = (e) => { e.preventDefault(); openEmailRequest(); };
 }

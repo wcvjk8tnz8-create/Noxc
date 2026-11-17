@@ -26,6 +26,7 @@ import profileRoutes from './routes/profile.js';
 import ticketRoutes from './routes/tickets.js';
 import transferRoutes from './routes/transfer.js';
 import abuseRoutes from './routes/abuse.js';
+import emailRequestRoutes from './routes/emailRequests.js';
 
 const app = new Hono();
 
@@ -214,6 +215,8 @@ app.get('/api/config', async (c) => {
 
 // 认证
 app.route('/api/auth', authRoutes);
+// 第三方邮箱注册申请：公开，不需要登录（管理员审批接口在 /api/admin 下）
+app.route('/api', emailRequestRoutes);
 app.route('/api/notifications', notificationRoutes);
 app.route('/api', termsRoutes);
 // WHOIS 公开查询（无需登录）

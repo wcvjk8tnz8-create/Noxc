@@ -1117,4 +1117,95 @@ app.get('/roots', async (c) => {
   });
 });
 
+/* ---------------- 第三方邮箱注册申请 / 精确白名单 ---------------- */
+
+const MAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const normMail = (v: unknown) => String(v ?? '').trim().toLowerCase();
+
+/** 申请列表 + 当前白名单（一个请求渲染整个后台页签） */
+app.get('/email-requests', async (c) => {
+  try {
+    const reqs = await c.env.DB.prepare(
+      `SELECT id, email, reason, contact, status, ip, created_at, reviewed_at, reviewed_by, note
+         FROM email_requests
+        ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, id DESC LIMIT 200`
+    ).all();
+    const allow = await c.env.DB.prepare(
+      'SELECT email, note, source, created_at FROM email_allowlist ORDER BY created_at DESC LIMIT 200'
+    ).all();
+    return ok(c, { items: reqs.results || [], allowlist: allow.results || [] });
+  } catch {
+    return ok(c, { items: [], allowlist: [], unavailable: true });
+  }
+});
+
+/** 通过：写入精确白名单并标记申请（两步都完成才算成功） */
+app.post('/email-requests/:id/approve', async (c) => {
+  const u = c.get('user');
+  const id = Number(c.req.param('id'));
+  if (!Number.isFinite(id) || id <= 0) return fail(c, '申请编号不合法');
+  const row: any = await c.env.DB.prepare('SELECT * FROM email_requests WHERE id = ?').bind(id).first();
+  if (!row) return fail(c, '申请不存在', 404);
+  if (row.status === 'approved') return ok(c, { email: row.email, already: true });
+  const body = await c.req.json().catch(() => ({}));
+  const note = String((body as any)?.note || '').trim().slice(0, 200);
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO email_allowlist(email, note, source, created_at) VALUES (?,?,?,?)
+       ON CONFLICT(email) DO UPDATE SET note = excluded.note, source = excluded.source`
+    ).bind(row.email, note || '邮箱注册申请通过', 'request', now()).run();
+    await c.env.DB.prepare(
+      'UPDATE email_requests SET status = ?, reviewed_at = ?, reviewed_by = ?, note = ? WHERE id = ?'
+    ).bind('approved', now(), String(u?.email || ''), note, id).run();
+  } catch {
+    return fail(c, '写入白名单失败，请稍后重试', 500);
+  }
+  await audit(c, u?.id, 'admin.email.approve', row.email, note || '通过第三方邮箱注册申请');
+  return ok(c, { email: row.email });
+});
+
+/** 驳回 */
+app.post('/email-requests/:id/reject', async (c) => {
+  const u = c.get('user');
+  const id = Number(c.req.param('id'));
+  if (!Number.isFinite(id) || id <= 0) return fail(c, '申请编号不合法');
+  const body = await c.req.json().catch(() => ({}));
+  const note = String((body as any)?.note || '').trim().slice(0, 200);
+  const r: any = await c.env.DB.prepare(
+    'UPDATE email_requests SET status = ?, reviewed_at = ?, reviewed_by = ?, note = ? WHERE id = ? AND status = ?'
+  ).bind('rejected', now(), String(u?.email || ''), note, id, 'pending').run();
+  if (!r?.meta?.changes) return fail(c, '申请不存在或已处理', 404);
+  await audit(c, u?.id, 'admin.email.reject', String(id), note || '驳回第三方邮箱注册申请');
+  return ok(c, {});
+});
+
+/** 手动添加白名单邮箱（不必等用户提交申请） */
+app.post('/email-allowlist', async (c) => {
+  const u = c.get('user');
+  const body = await c.req.json().catch(() => ({}));
+  const mail = normMail((body as any)?.email);
+  if (!MAIL_RE.test(mail)) return fail(c, '请填写有效的邮箱地址');
+  const note = String((body as any)?.note || '').trim().slice(0, 200);
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO email_allowlist(email, note, source, created_at) VALUES (?,?,?,?)
+       ON CONFLICT(email) DO UPDATE SET note = excluded.note`
+    ).bind(mail, note, 'manual', now()).run();
+  } catch {
+    return fail(c, '写入白名单失败，请稍后重试', 500);
+  }
+  await audit(c, u?.id, 'admin.email.allow', mail, note || '手动添加邮箱白名单');
+  return ok(c, { email: mail });
+});
+
+/** 移除白名单（表存在后以表为准，不会被内置种子复活） */
+app.delete('/email-allowlist/:email', async (c) => {
+  const u = c.get('user');
+  const mail = normMail(c.req.param('email'));
+  if (!MAIL_RE.test(mail)) return fail(c, '请填写有效的邮箱地址');
+  await c.env.DB.prepare('DELETE FROM email_allowlist WHERE email = ?').bind(mail).run();
+  await audit(c, u?.id, 'admin.email.unallow', mail, '移除邮箱白名单');
+  return ok(c, {});
+});
+
 export default app;

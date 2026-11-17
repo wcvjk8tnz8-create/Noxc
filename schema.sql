@@ -486,3 +486,31 @@ INSERT OR IGNORE INTO settings(key, value) VALUES ('ai_model', '');
 
 -- 不限制「单个子域名最多 50 条 DNS 记录」的根域名（逗号分隔）
 INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_unlimited_roots', 'v-1.top');
+
+-- 第三方邮箱注册：精确白名单（命中即在任何规则模式下都放行）
+CREATE TABLE IF NOT EXISTS email_allowlist (
+  email      TEXT PRIMARY KEY,
+  note       TEXT NOT NULL DEFAULT '',
+  source     TEXT NOT NULL DEFAULT 'manual',
+  created_at INTEGER NOT NULL
+);
+-- SEUS 社区申请：me@stanimir.cn（OP 已答应给白名单）
+INSERT OR IGNORE INTO email_allowlist(email, note, source, created_at)
+  VALUES ('me@stanimir.cn', 'SEUS 社区白名单申请', 'seed', CAST(strftime('%s','now') AS INTEGER) * 1000);
+
+-- 第三方邮箱注册申请（注册页公开提交 → 后台审批）
+CREATE TABLE IF NOT EXISTS email_requests (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  email       TEXT NOT NULL,
+  reason      TEXT NOT NULL DEFAULT '',
+  contact     TEXT NOT NULL DEFAULT '',
+  status      TEXT NOT NULL DEFAULT 'pending',  -- pending / approved / rejected
+  ip          TEXT NOT NULL DEFAULT '',
+  ua          TEXT NOT NULL DEFAULT '',
+  created_at  INTEGER NOT NULL,
+  reviewed_at INTEGER,
+  reviewed_by TEXT NOT NULL DEFAULT '',
+  note        TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_email_requests_email ON email_requests(email, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_email_requests_status ON email_requests(status, created_at DESC);

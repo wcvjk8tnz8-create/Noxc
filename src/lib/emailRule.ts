@@ -11,6 +11,10 @@
  * 站长可在「站点设置 → 注册邮箱规则」切换四种模式：
  *   whitelist_edu (默认) | whitelist (旧行为) | edu_only (严格) | any (全放开)
  * 优先级：settings.email_rule > 环境变量 EMAIL_RULE > 默认。
+ *
+ * 另有一条「精确邮箱白名单」通道：命中 email_allowlist 表（或
+ * ALLOWED_EMAILS 环境变量）的具体地址，四种规则下都无条件放行。
+ * 第三方邮箱可在注册页提交申请，管理员通过后自动写入该表。
  */
 
 export type EmailRule = 'whitelist_edu' | 'whitelist' | 'edu_only' | 'any';
@@ -58,6 +62,51 @@ export function emailAllowed(mail: string, rule: EmailRule, allow: string[]): bo
     case 'whitelist_edu':
     default: return whitelisted || hasEdu;
   }
+}
+
+/**
+ * 预置白名单：仅作为 email_allowlist 表尚未建立时的兜底，让首批获准的
+ * 第三方邮箱在 D1 迁移跑完之前也能注册。表一旦存在，就完全以表为准
+ * （管理员删掉某个地址后不会又被常量「复活」）。
+ */
+export const SEED_ALLOWED_EMAILS = ['me@stanimir.cn'];
+
+const normalizeMail = (v: unknown) => String(v ?? '').trim().toLowerCase();
+
+/** 环境变量里的精确邮箱（逗号分隔），优先级高于所有规则模式 */
+export function allowedEmails(env: any): string[] {
+  return String(env?.ALLOWED_EMAILS || '')
+    .split(',')
+    .map(normalizeMail)
+    .filter((m) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m));
+}
+
+/** 该邮箱是否在精确白名单里（内置种子 / 环境变量 / D1 表） */
+export async function explicitlyAllowed(env: any, mail: string): Promise<boolean> {
+  const m = normalizeMail(mail);
+  if (!m) return false;
+  if (allowedEmails(env).includes(m)) return true;
+  const fallback = SEED_ALLOWED_EMAILS.includes(m);
+  let row: any;
+  try {
+    const db = env?.DB;
+    if (!db) return fallback;
+    row = await db.prepare('SELECT 1 AS ok FROM email_allowlist WHERE email = ?').bind(m).first();
+  } catch {
+    // 表还没建 / D1 暂不可用：只放行预置白名单，不让整站注册挂掉
+    return fallback;
+  }
+  return !!row?.ok;
+}
+
+/** 注册邮箱是否放行（注册与发验证码共用，避免两处口径漂移） */
+export async function signupEmailOk(
+  env: any,
+  mail: string
+): Promise<{ ok: boolean; rule: EmailRule; viaAllowlist: boolean }> {
+  const rule = await emailRuleOf(env);
+  if (await explicitlyAllowed(env, mail)) return { ok: true, rule, viaAllowlist: true };
+  return { ok: emailAllowed(mail, rule, allowedDomains(env)), rule, viaAllowlist: false };
 }
 
 /** 规则说明（登录页 /api/rules 下发，固定句式便于中英精确翻译） */

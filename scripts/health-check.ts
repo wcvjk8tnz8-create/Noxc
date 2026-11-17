@@ -451,6 +451,35 @@ check(/function validQuota/.test(quotaUtil) && /raw\.trim\(\) === ''/.test(quota
 check(/const fromDb = validQuota\(raw\)/.test(quotaUtil) && /parseDefaultQuota\(env\.DEFAULT_QUOTA\)/.test(quotaUtil), '后台脏值逐级回落环境变量，不直接跳内置 5');
 check(/const q = await defaultQuotaOf\(c\.env\)/.test(quotaAdminApi), '一键同步复用同一逐级回落实现');
 
+/* 第三方邮箱注册申请 / 精确白名单 */
+const erSchema = read('schema.sql');
+const erRule = read('src/lib/emailRule.ts');
+const erAuth = read('src/routes/auth.ts');
+const erPublic = fs.existsSync(path.join(root, 'src/routes/emailRequests.ts'))
+  ? read('src/routes/emailRequests.ts') : '';
+const erIndex = read('src/index.ts');
+const erAdminApi = read('src/routes/admin.ts');
+const erAdminUi = read('src/app/legacy/admin.ts');
+const erLogin = read('src/app/pages/Login.tsx');
+const erLoginCtrl = read('src/app/legacy/index.ts');
+const erAdminPage = read('src/app/pages/Admin.tsx');
+const erDict = read('src/app/lib/dict.en.ts');
+check(/CREATE TABLE IF NOT EXISTS email_allowlist/.test(erSchema) && /CREATE TABLE IF NOT EXISTS email_requests/.test(erSchema), 'D1 有白名单与申请表');
+check(/VALUES \('me@stanimir\.cn'/.test(erSchema), '预置白名单含社区申请的 me@stanimir.cn');
+check(/explicitlyAllowed/.test(erRule) && /signupEmailOk/.test(erRule), '白名单判定与注册放行共用一份实现');
+check(/SEED_ALLOWED_EMAILS/.test(erRule) && /表一旦存在/.test(erRule), '表未建时种子兜底、表存在后管理员可删除');
+check(/signupEmailOk\(env, mail\)/.test(erAuth) && !/emailAllowed\(mail, rule, allowedDomains\(env\)\)/.test(erAuth), '注册与发码都走统一放行入口');
+check(/app\.post\('\/email-request'/.test(erPublic) && /app\.get\('\/email-request\/status'/.test(erPublic), '公开提交与状态查询接口存在');
+check(/emailRequestRoutes/.test(erIndex) && /app\.route\('\/api', emailRequestRoutes\)/.test(erIndex), '公开申请路由已挂载');
+check(/\/email-requests\/:id\/approve/.test(erAdminApi) && /\/email-allowlist\/:email/.test(erAdminApi), '后台审批与白名单增删接口存在');
+check(/INSERT INTO email_allowlist/.test(erAdminApi) && /status = 'approved'|status = \?, reviewed_at/.test(erAdminApi), '通过申请会写入白名单');
+check(/id="emailReqLink"/.test(erLogin), '注册页有第三方邮箱申请入口');
+check(/openEmailRequest/.test(erLoginCtrl) && /api\.post\('\/api\/email-request'/.test(erLoginCtrl), '注册页弹窗会提交申请');
+check(/data-tab="emailreq"/.test(erAdminPage) && /data-eract="approve"/.test(erAdminUi) && /id="erAdd"/.test(erAdminUi), '后台有邮箱申请页签与审批控件');
+for (const k of ['邮箱申请', '邮箱不在允许范围？申请使用此邮箱注册', '申请已提交，请等待管理员审核', '精确邮箱白名单']) {
+  check(erDict.includes(`'${k}'`), `英文词典含邮箱申请文案「${k}」`);
+}
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);
