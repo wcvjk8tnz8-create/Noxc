@@ -5,6 +5,7 @@ import { parseRootCosts } from './lib/points.js';
 import { runAiReviewBatch } from './lib/aiBatch.js';
 import { emailRuleHint, emailRuleOf } from './lib/emailRule.js';
 import { DEFAULT_FOOTER_ICP_HTML } from './lib/footerIcp.js';
+import { DEFAULT_FOOTER_CONTACT_HTML } from './lib/footerContact.js';
 import { rootPageFor } from './html/rootPages.js';
 import { Hono } from 'hono';
 import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
@@ -149,7 +150,7 @@ app.use('/api/config', async (c, next) => {
 // 公开配置（含站点品牌，登录页也要用）
 app.get('/api/config', async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','default_quota')"
+    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','default_quota')"
   ).all();
   const s = Object.fromEntries(results.map((r) => [r.key, r.value]));
   // 显式取「生效列表」：不依赖中间件是否成功替换 c.env 引用，
@@ -191,6 +192,8 @@ app.get('/api/config', async (c) => {
     defaultQuota: await defaultQuotaOf(c.env),
     // 页脚备案链接：首次部署即显示（审核要求），后台可覆盖；管理员主动清空则隐藏
     footerIcpHtml: s.footer_icp_html === undefined ? DEFAULT_FOOTER_ICP_HTML : String(s.footer_icp_html),
+    // 页脚联系方式：首次部署即显示（Telegram 邀请链接），后台可覆盖；管理员主动清空则隐藏
+    footerContactHtml: s.footer_contact_html === undefined ? DEFAULT_FOOTER_CONTACT_HTML : String(s.footer_contact_html),
     // 仅名单，不含任何 AI 接口地址或密钥
     aiReviewRoots: String(s.ai_review_roots || 'v-1.top').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean),
     dnsUnlimitedRoots: String(s.dns_unlimited_roots || 'v-1.top').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean),

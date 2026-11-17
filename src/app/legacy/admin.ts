@@ -295,6 +295,12 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <div class="hint">仅允许 a 标签文字链接，其它标签会被过滤；留空则隐藏。保存后立即生效，不用刷新。</div>
             </div>
             <div class="field">
+              <label>页脚联系方式（可选）</label>
+              <textarea id="sFooterContactHtml" rows="2" style="width:100%;resize:vertical" placeholder='&lt;a href="https://t.me/+cTDEQy_0HqcxZDVl" target="_blank"&gt;Telegram&lt;/a&gt;'>${esc(s.footer_contact_html || '')}</textarea>
+              <div class="hint">直接粘贴联系链接 HTML，会显示在全站页脚 GitHub 链接旁边，电脑与手机端均可见。</div>
+              <div class="hint">仅允许 a 标签文字链接，其它标签会被过滤；留空则隐藏。保存后立即生效，不用刷新。</div>
+            </div>
+            <div class="field">
               <label>同一 IP 最多注册账号数</label>
               <input id="sIpLimit" type="number" min="1" max="50" value="${esc(s.max_accounts_per_ip || '2')}" style="max-width:160px">
               <div class="hint">超出限制注册的账号，可在「同 IP 账号」页一键全部封禁。管理员账号不受影响。</div>
@@ -669,6 +675,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             faviconUrl: document.getElementById('sFav').value,
             announcement: document.getElementById('sAnno').value,
             footerIcpHtml: document.getElementById('sFooterIcpHtml').value,
+            footerContactHtml: document.getElementById('sFooterContactHtml').value,
             maxAccountsPerIp: document.getElementById('sIpLimit').value,
             emailRule: document.getElementById('sEmailRule').value,
             whoisHolder: document.getElementById('sWhois').value,
@@ -724,7 +731,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
         showDialog({
           title: '设置已保存',
           message: '已保存，刷新页面后生效',
-          detail: '已尝试即时更新模型列表、导航 Logo 与页脚备案；若没变化，点「刷新页面」即可。',
+          detail: '已尝试即时更新模型列表、导航 Logo 与页脚备案 / 联系方式；若没变化，点「刷新页面」即可。',
           tone: 'ok',
           onReload: () => location.reload(),
         });

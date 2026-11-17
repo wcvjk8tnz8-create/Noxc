@@ -316,6 +316,25 @@ for (const p of ['src/html/root-v1.ts', 'src/html/root-meoy.ts']) {
   check(/DEFAULT_ICP_HTML/.test(t) && /icp\.gov\.moe\/\?keyword=20269429/.test(t), `${p} 首屏内联默认备案号`);
   check(/typeof d\.footerIcpHtml === "string"/.test(t), `${p} 接口无字段时保留默认备案号`);
 }
+/* 16. 页脚联系方式：与备案号共用清洗 / 下发 / 注入链路，首次部署即显示 */
+const contactDefault = read('src/lib/footerContact.ts');
+check(/DEFAULT_FOOTER_CONTACT_HTML/.test(contactDefault) && /t\.me\/\+cTDEQy_0HqcxZDVl/.test(contactDefault), '默认联系方式指向 Telegram 邀请链接');
+check(/data-no-i18n/.test(contactDefault), '默认联系方式不被界面翻译器改写（英文模式不冒中文）');
+check(/'footer_contact_html'/.test(cfgApi) && /footerContactHtml:\s*s\.footer_contact_html === undefined \? DEFAULT_FOOTER_CONTACT_HTML/.test(cfgApi), '公开 /api/config 下发联系方式 HTML（未配置时用默认值）');
+check(/sanitizeFooterHtml\(body\.footerContactHtml\)/.test(adminApi) && /set\('footer_contact_html'/.test(adminApi), '后台保存联系方式复用同一安全清洗器');
+check(/raw\.footer_contact_html === undefined/.test(adminApi), '后台设置回填默认联系方式');
+check(/id="sFooterContactHtml"/.test(adminUi) && /footerContactHtml:\s*document\.getElementById\('sFooterContactHtml'\)/.test(adminUi), '站点设置可填写并保存联系方式');
+check(/export function mountContactBadge/.test(icpRuntime) && /data-contact-slot/.test(icpRuntime), '全站页脚联系方式注入逻辑存在');
+check(/mountContactBadge\(typeof b\.footerContactHtml/.test(icpRuntime), '后台保存后联系方式即时刷新');
+check(/data-contact-slot/.test(read('src/app/pages/Home.tsx')), '公共页页脚预留联系方式插槽');
+check(/\.sf-contact/.test(icpCss) && /\.nk-fcontact:empty/.test(icpCss), '联系方式样式在液态玻璃收口层且空槽隐藏');
+check(/'页脚联系方式（可选）'/.test(icpDict) && /'直接粘贴联系链接 HTML/.test(icpDict), '联系方式设置有英文词条');
+for (const p of ['src/html/root-v1.ts', 'src/html/root-meoy.ts']) {
+  const t = read(p);
+  check(/id="contactSlot"/.test(t) && /d\.footerContactHtml/.test(t), `${p} 根域名页从同一接口取联系方式`);
+  check(/DEFAULT_CONTACT_HTML/.test(t) && /t\.me\/\+cTDEQy_0HqcxZDVl/.test(t), `${p} 首屏内联默认联系方式`);
+  check(/typeof d\.footerContactHtml === "string"/.test(t), `${p} 接口无字段时保留默认联系方式`);
+}
 
 // 用 git ls-files 判定「仓库里跟踪了什么」，构建产物 index.html 不应被误判
 try {

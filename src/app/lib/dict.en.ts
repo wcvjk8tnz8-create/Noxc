@@ -758,10 +758,12 @@ export const EXTRA_DICT: Record<string, string> = {
   '知道了': 'Got it',
   '刷新页面': 'Refresh page',
   '已保存，刷新页面后生效': 'Saved. Refresh the page for all changes to take effect.',
-  '已尝试即时更新模型列表、导航 Logo 与页脚备案；若没变化，点「刷新页面」即可。': 'Tried to refresh the model list, navigation logo and footer badge immediately; if nothing changed, click "Refresh page".',
-  /* ── 页脚备案号（站点设置） ── */
+  '已尝试即时更新模型列表、导航 Logo 与页脚备案 / 联系方式；若没变化，点「刷新页面」即可。': 'Tried to refresh the model list, navigation logo and footer badges immediately; if nothing changed, click "Refresh page".',
+  /* ── 页脚备案号 / 联系方式（站点设置） ── */
   '页脚备案号（可选）': 'Footer ICP badge (optional)',
   '直接粘贴备案链接 HTML，会显示在全站页脚 GitHub 链接旁边，电脑与手机端均可见。': 'Paste the badge link HTML. It appears next to the GitHub link in the footer on both desktop and mobile.',
+  '页脚联系方式（可选）': 'Footer contact (optional)',
+  '直接粘贴联系链接 HTML，会显示在全站页脚 GitHub 链接旁边，电脑与手机端均可见。': 'Paste the contact link HTML. It appears next to the GitHub link in the footer on both desktop and mobile.',
   '仅允许 a 标签文字链接，其它标签会被过滤；留空则隐藏。保存后立即生效，不用刷新。': 'Only <a> text links are kept; other tags are stripped. Leave it empty to hide. Changes apply immediately, no refresh needed.',
 
   /* ── Reverie 首页（Uiverse Design System）────────────────────────

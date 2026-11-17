@@ -16,6 +16,7 @@ import { aiTest, probeAiModels, chooseModel, loadAiConfig, AGNES_CHAT_MODELS, ro
 import { runAiReviewBatch, aiBatchStatus, queueAiBatch, startAiBatch } from '../lib/aiBatch.js';
 import { EMAIL_RULES, emailRuleOf, type EmailRule } from '../lib/emailRule.js';
 import { DEFAULT_FOOTER_ICP_HTML } from '../lib/footerIcp.js';
+import { DEFAULT_FOOTER_CONTACT_HTML } from '../lib/footerContact.js';
 
 const app = new Hono();
 
@@ -426,6 +427,8 @@ app.get('/settings', async (c) => {
   for (const k of SENSITIVE) delete items[k];
   // 未配置过时把默认备案号回填到输入框，避免「页脚明明有、后台却是空的」
   if (raw.footer_icp_html === undefined) items.footer_icp_html = DEFAULT_FOOTER_ICP_HTML;
+  // 未配置过时把默认联系方式回填到输入框，避免「页脚明明有、后台却是空的」
+  if (raw.footer_contact_html === undefined) items.footer_contact_html = DEFAULT_FOOTER_CONTACT_HTML;
   // 老库没跑新迁移时，显示实际生效值（环境变量或内置 5），不显示空白
   if (raw.default_quota === undefined) items.default_quota = String(parseDefaultQuota(c.env.DEFAULT_QUOTA));
 
@@ -753,6 +756,10 @@ app.post('/settings', async (c) => {
   /* 页脚备案号：留空即隐藏；清洗后存库，公开接口只回传这段安全 HTML */
   if (body.footerIcpHtml !== undefined) {
     await set('footer_icp_html', sanitizeFooterHtml(body.footerIcpHtml));
+  }
+  /* 页脚联系方式：与备案号共用清洗器，只留 <a> 文字链接；留空即隐藏 */
+  if (body.footerContactHtml !== undefined) {
+    await set('footer_contact_html', sanitizeFooterHtml(body.footerContactHtml));
   }
 
   // 新域名申请开关（暂停后普通用户无法提交申请，管理员仍可自建）

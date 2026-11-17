@@ -1461,7 +1461,9 @@ html[data-theme="dark"] body:not(.page-home) .top-search kbd {
    细竖线分隔、颜色继承页脚；手机端可折行，不撑出横向滚动。
    ────────────────────────────────────────────────────────────── */
 .sf-icp,
-[data-icp-slot] {
+.sf-contact,
+[data-icp-slot],
+[data-contact-slot] {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1472,7 +1474,9 @@ html[data-theme="dark"] body:not(.page-home) .top-search kbd {
   white-space: nowrap;
 }
 .sf-icp::before,
-[data-icp-slot]:not(:empty)::before {
+.sf-contact::before,
+[data-icp-slot]:not(:empty)::before,
+[data-contact-slot]:not(:empty)::before {
   content: '';
   width: 1px;
   height: 11px;
@@ -1481,29 +1485,42 @@ html[data-theme="dark"] body:not(.page-home) .top-search kbd {
   flex: 0 0 auto;
 }
 .sf-icp a,
-[data-icp-slot] a {
+.sf-contact a,
+[data-icp-slot] a,
+[data-contact-slot] a {
   text-decoration: none;
   border-bottom: 1px solid transparent;
   transition: color var(--td-dur-1, 160ms) var(--td-ease, ease),
               border-color var(--td-dur-1, 160ms) var(--td-ease, ease);
 }
 .sf-icp a:hover,
-[data-icp-slot] a:hover {
+.sf-contact a:hover,
+[data-icp-slot] a:hover,
+[data-contact-slot] a:hover {
   color: var(--td-accent, #1f7a55);
   border-bottom-color: currentColor;
 }
 .nk-ficp:empty,
-[data-icp-slot]:empty { display: none; }
+.nk-fcontact:empty,
+[data-icp-slot]:empty,
+[data-contact-slot]:empty { display: none; }
 .footer .sf-icp,
+.footer .sf-contact,
 .main-foot .sf-icp,
-.site-foot-in .sf-icp { margin-left: 12px; }
-/* 首页底栏：版权推到最左，GitHub 与备案号紧挨着靠右 */
+.main-foot .sf-contact,
+.site-foot-in .sf-icp,
+.site-foot-in .sf-contact { margin-left: 12px; }
+/* 首页底栏：版权推到最左，GitHub / 备案号 / 联系方式紧挨着靠右 */
 .nk-fbottom > span:first-child { margin-right: auto; }
 .nk-fbottom > .nk-ficp,
-.nk-fbottom > .sf-icp { margin-left: 0; }
+.nk-fbottom > .nk-fcontact,
+.nk-fbottom > .sf-icp,
+.nk-fbottom > .sf-contact { margin-left: 0; }
 @media (max-width: 560px) {
   .sf-icp,
-  [data-icp-slot] { font-size: 10px; gap: 6px; }
+  .sf-contact,
+  [data-icp-slot],
+  [data-contact-slot] { font-size: 10px; gap: 6px; }
   .nk-fbottom,
   .site-foot-in,
   .main-foot { flex-wrap: wrap; row-gap: 6px; }

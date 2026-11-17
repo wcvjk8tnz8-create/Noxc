@@ -92,9 +92,15 @@ export function refreshRuntime() {
   try { mountMotion(); } catch {}
   try { mountSiteFooter(); } catch {}
   try { mountIcpBadge(); } catch {}
+  try { mountContactBadge(); } catch {}
   // 首屏还没取到品牌配置时补一次（缓存命中，不额外阻塞渲染）
-  if (!icpBadgeLoaded()) {
-    try { void loadBranding().then((b) => mountIcpBadge(String(b?.footerIcpHtml || ''))); } catch {}
+  if (!icpBadgeLoaded() || !contactBadgeLoaded()) {
+    try {
+      void loadBranding().then((b) => {
+        try { mountIcpBadge(String(b?.footerIcpHtml || '')); } catch {}
+        try { mountContactBadge(String(b?.footerContactHtml || '')); } catch {}
+      });
+    } catch {}
   }
   try { (window as any).MeoyTheme?.remount?.(); } catch {}
   // 动效已由 mountMotion() 统一为全局单例，不再叠加第二套引擎
@@ -304,7 +310,7 @@ document.addEventListener('click', (e) => {
 });
 
 /* ---------- 站点品牌（站点名 / Logo，管理员可在后台改） ---------- */
-export const DEFAULT_BRAND = { siteName: 'TerraDomain', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', fontBody: 'system', fontDisplay: 'system', defaultQuota: 5 };
+export const DEFAULT_BRAND = { siteName: 'TerraDomain', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', footerContactHtml: '', fontBody: 'system', fontDisplay: 'system', defaultQuota: 5 };
 export let brandPromise = null;
 /* stale-while-revalidate：切页先用上一次的值立刻渲染，网络刷新放后台。
    以前每个页面都 await 一次 /api/config，接口一慢整页就卡在骨架上。 */
@@ -321,6 +327,8 @@ function normalizeBrand(d) {
     defaultQuota: Number.isFinite(Number(d.defaultQuota)) ? Number(d.defaultQuota) : 5,
     // 服务端已清洗：只含 <a> 文字链接与纯文本，可直接 innerHTML
     footerIcpHtml: typeof d.footerIcpHtml === 'string' ? d.footerIcpHtml : '',
+    // 服务端已清洗：只含 <a> 文字链接与纯文本，可直接 innerHTML
+    footerContactHtml: typeof d.footerContactHtml === 'string' ? d.footerContactHtml : '',
   };
 }
 
@@ -427,6 +435,8 @@ export function applyBranding(b) {
   document.querySelectorAll('[data-logo-img]').forEach((el) => (el.src = b.logoUrl));
   // 后台保存后不用刷新整页，备案链接当场出现在页脚
   try { mountIcpBadge(typeof b.footerIcpHtml === 'string' ? b.footerIcpHtml : ''); } catch {}
+  // 后台保存后不用刷新整页，联系方式当场出现在页脚
+  try { mountContactBadge(typeof b.footerContactHtml === 'string' ? b.footerContactHtml : ''); } catch {}
   try { applyDefaultQuota(b.defaultQuota); } catch {}
 }
 
@@ -737,6 +747,56 @@ export function mountIcpBadge(html?: string) {
   } catch (e) { /* 页脚装饰失败不影响页面 */ }
 }
 export function icpBadgeLoaded() { return icpHtmlLoaded; }
+
+/* ══════════════════════════════════════════════════════════════
+   全站页脚联系方式：后台「站点设置 → 页脚联系方式」粘贴，排在备案号旁
+   - 与备案号共用服务端清洗结果，注入逻辑独立、幂等
+   - 覆盖：注入式 .site-foot / 控制台 .main-foot / 公共页 .nk-foot
+   - 留空即移除；切页重建 DOM 后由 refreshRuntime 重新挂
+   ══════════════════════════════════════════════════════════════ */
+let contactHtmlCache = '';
+let contactHtmlLoaded = false;
+export function mountContactBadge(html?: string) {
+  if (typeof html === 'string') { contactHtmlCache = html; contactHtmlLoaded = true; }
+  const raw = contactHtmlCache.trim();
+  try {
+    // 先清掉上一轮，避免切页后叠加多个联系方式
+    document.querySelectorAll('[data-contact-badge]').forEach((el) => el.remove());
+    document.querySelectorAll('[data-contact-slot]').forEach((el) => { el.innerHTML = ''; });
+    if (!raw) return;
+    const make = () => {
+      const s = document.createElement('span');
+      s.className = 'sf-contact';
+      s.setAttribute('data-contact-badge', '');
+      s.innerHTML = raw;
+      return s;
+    };
+    // React 公共页预留的插槽：由 React 持有节点，不会被重渲染挤掉
+    const slots = Array.from(document.querySelectorAll('footer [data-contact-slot]'));
+    if (slots.length) {
+      slots.forEach((slot) => slot.appendChild(make()));
+      return;
+    }
+    // 其余页面：紧跟备案号，备案号不在时退回 GitHub 链接旁
+    const icp = document.querySelector('footer [data-icp-badge]');
+    if (icp && icp.parentElement) {
+      icp.insertAdjacentElement('afterend', make());
+      return;
+    }
+    const anchors = Array.from(document.querySelectorAll('footer a'))
+      .filter((a) => /github\.com/i.test(String((a as HTMLAnchorElement).getAttribute('href') || '')));
+    const score = (el: Element) => el.closest('.nk-fbottom') ? 3
+      : (el.closest('.site-foot-in') || el.closest('.main-foot')) ? 2 : 1;
+    anchors.sort((a, b) => score(b) - score(a));
+    if (anchors[0] && anchors[0].parentElement) {
+      anchors[0].insertAdjacentElement('afterend', make());
+      return;
+    }
+    const f = document.querySelector('footer');
+    if (f) f.appendChild(make());
+  } catch (e) { /* 页脚装饰失败不影响页面 */ }
+}
+export function contactBadgeLoaded() { return contactHtmlLoaded; }
 
 
 /* ══════════════════════════════════════════════════════════════

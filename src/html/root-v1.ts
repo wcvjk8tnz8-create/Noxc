@@ -92,11 +92,11 @@ h1 em{font-style:italic;color:var(--acc)}
 .foot{flex-shrink:0;border-top:1px solid var(--line);padding-top:12px;display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;color:var(--muted);flex-wrap:wrap}
 .foot a:hover{color:var(--acc)}
 .foot{flex-wrap:wrap;align-items:center}
-.foot a:hover,.icp-slot a:hover{color:var(--acc)}
-.icp-slot{display:none;align-items:center;gap:8px;white-space:nowrap;color:inherit;font:inherit;letter-spacing:inherit}
-.icp-slot::before{content:'';width:1px;height:10px;background:currentColor;opacity:.3;flex:0 0 auto}
-.icp-slot a{color:inherit;text-decoration:none;border-bottom:1px solid transparent}
-.icp-slot a:hover{border-bottom-color:currentColor}
+.foot a:hover,.icp-slot a:hover,.contact-slot a:hover{color:var(--acc)}
+.icp-slot,.contact-slot{display:none;align-items:center;gap:8px;white-space:nowrap;color:inherit;font:inherit;letter-spacing:inherit}
+.icp-slot::before,.contact-slot::before{content:'';width:1px;height:10px;background:currentColor;opacity:.3;flex:0 0 auto}
+.icp-slot a,.contact-slot a{color:inherit;text-decoration:none;border-bottom:1px solid transparent}
+.icp-slot a:hover,.contact-slot a:hover{border-bottom-color:currentColor}
 
 /* ── 交互：与控制台共用同一组缓动，只动颜色 / 边框 / 阴影 / 滤镜 ── */
 a,.lang button,.nav a,.legal a,.foot a,.checker button.check,.suffix select,.pill{
@@ -276,6 +276,7 @@ ${reverieRootCss}
     <span>© <span id="yr">2026</span> TerraDomain</span>
     <a id="siteLink" href="#">nic.299282.xyz</a>
     <span id="icpSlot" class="icp-slot"></span>
+    <span id="contactSlot" class="contact-slot"></span>
   </footer>
 </div>
 
@@ -392,6 +393,13 @@ function loadRoots(){
           icp.innerHTML = fh;
           icp.style.display = fh ? "inline-flex" : "none";
         }
+        /* 页脚联系方式：后台可覆盖；管理员清空则隐藏。接口没给该字段时保留首屏默认值 */
+        var contact = document.getElementById("contactSlot");
+        if (contact && typeof d.footerContactHtml === "string") {
+          var ch = d.footerContactHtml;
+          contact.innerHTML = ch;
+          contact.style.display = ch ? "inline-flex" : "none";
+        }
       })
       .catch(function(){});
   } catch(e){}
@@ -400,9 +408,12 @@ function loadRoots(){
 fillLinks();
 /* 首屏先渲染默认备案号：跨域接口慢或不可用时，审核方打开页面就能看到 */
 var DEFAULT_ICP_HTML = '<a href="https://icp.gov.moe/?keyword=20269429" target="_blank" rel="noopener noreferrer" data-no-i18n>萌ICP备20269429号</a>';
+var DEFAULT_CONTACT_HTML = '<a href="https://t.me/+cTDEQy_0HqcxZDVl" target="_blank" rel="noopener noreferrer" data-no-i18n>Telegram</a>';
 (function(){
   var el = document.getElementById("icpSlot");
   if (el) { el.innerHTML = DEFAULT_ICP_HTML; el.style.display = "inline-flex"; }
+  var ct = document.getElementById("contactSlot");
+  if (ct) { ct.innerHTML = DEFAULT_CONTACT_HTML; ct.style.display = "inline-flex"; }
 })();
 loadRoots();
 var saved = "en";

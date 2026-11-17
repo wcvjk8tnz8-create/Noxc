@@ -471,7 +471,8 @@ th { font-family: var(--rv-mono); font-weight: 500; color: var(--rv-muted); }
   font-size: 12px; color: var(--rv-muted);
 }
 .rv-fbottom a { margin-left: auto; }
-.rv-fbottom .nk-ficp { margin-left: 0; }
+.rv-fbottom .nk-ficp,
+.rv-fbottom .nk-fcontact { margin-left: 0; }
 
 /* ══════════════════════════════════════════════════════════════
    全站手机适配（所有页面，不只首页）
@@ -599,8 +600,12 @@ th { font-family: var(--rv-mono); font-weight: 500; color: var(--rv-muted); }
 .rv-tags .nk-tag-hidden { display: none; }
 .rv-tags .nk-tag-hidden.show { display: contents; }
 .rv-more button { min-height: 44px; }
-.rv-foot .nk-ficp a { color: var(--rv-muted); text-decoration: none; border-bottom: 1px solid var(--rv-hair); }
-.rv-foot .nk-ficp a:hover { color: var(--rv-fern); border-color: var(--rv-fern); }
+.rv-foot .nk-ficp a,
+.rv-foot .nk-fcontact a,
+.rv-foot .sf-contact a { color: var(--rv-muted); text-decoration: none; border-bottom: 1px solid var(--rv-hair); }
+.rv-foot .nk-ficp a:hover,
+.rv-foot .nk-fcontact a:hover,
+.rv-foot .sf-contact a:hover { color: var(--rv-fern); border-color: var(--rv-fern); }
 
 /* #toast 只是提示「容器」，不是提示卡片本身。
    历史页面曾把 .toast 写在容器上，空容器被玻璃卡片样式刷成底部一块
