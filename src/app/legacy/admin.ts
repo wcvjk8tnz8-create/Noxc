@@ -457,6 +457,12 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <div class="hint" id="dnsheHint"></div>
             </div>
             <div class="field">
+              <label>保留域名</label>
+              <div><span class="dim">额外保留名称</span><input id="sReservedLabels" type="text" autocomplete="off" placeholder="例如：pay,live,lab" value="${esc(s.reserved_labels || '')}"></div>
+              <div class="hint">系统基线始终生效，包含 ai、dash、nic、www、mail、admin、whois 等，不能在这里删除。</div>
+              <div class="hint">用逗号分隔，保存后立即生效，无需重新部署；管理员仍可自建保留名称。留空表示只使用系统基线。</div>
+            </div>
+            <div class="field">
               <label>用户配额</label>
               <div class="grid2">
                 <div><span class="dim">新用户默认配额</span><input id="sDefaultQuota" type="number" min="-1" max="10000" step="1" value="${esc(s.default_quota ?? '5')}"></div>
@@ -677,6 +683,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             announcement: document.getElementById('sAnno').value,
             footerIcpHtml: document.getElementById('sFooterIcpHtml').value,
             footerContactHtml: document.getElementById('sFooterContactHtml').value,
+            reservedLabels: document.getElementById('sReservedLabels').value,
             maxAccountsPerIp: document.getElementById('sIpLimit').value,
             emailRule: document.getElementById('sEmailRule').value,
             whoisHolder: document.getElementById('sWhois').value,

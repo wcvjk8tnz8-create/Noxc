@@ -49,7 +49,10 @@ ALLOW_SIGNUP = "1"
 REQUIRE_APPROVAL = "1"
 # 保留子域（逗号分隔，禁止申请；管理员仍可申请）
 # 注意：whois 用于 WHOIS 查询页、bbs/forum 等留给站点自身功能，务必保留
-RESERVED_LABELS = "www,ns1,ns2,ns3,ns4,mail,admin,api,cdn,ftp,smtp,pop,imap,mx,test,blog,shop,app,dns,dns1,dns2,root,support,help,docs,status,panel,cloud,dev,git,ssh,mysql,db,web,forum,bbs,home,search,whois,dnshe,anyns,ns,cdn1,cname,static,assets,img,image,img1,cdn2,img2"
+# ai / dash / nic 为官方用途预留（AI 服务 / 控制台 / 注册局入口）
+# 本项与后台「站点设置 → 额外保留域名」都只做「追加」：
+# 真正的基线在 src/lib/reserved.ts，CI 用 Variable 覆盖本行也不会冲掉基线
+RESERVED_LABELS = "www,ns1,ns2,ns3,ns4,mail,admin,api,cdn,ftp,smtp,pop,imap,mx,test,blog,shop,app,dns,dns1,dns2,root,support,help,docs,status,panel,cloud,dev,git,ssh,mysql,db,web,forum,bbs,home,search,whois,dnshe,anyns,ns,cdn1,cname,static,assets,img,image,img1,cdn2,img2,ai,dash,nic"
 # 调试用：置为 "1" 时不真实调用 Cloudflare API，改为内存模拟（方便本地跑通流程）
 CF_MOCK = "0"
 # R2 公开访问域名（留空则用默认 /api/avatar/<key> 代理读取）

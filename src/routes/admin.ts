@@ -17,6 +17,7 @@ import { runAiReviewBatch, aiBatchStatus, queueAiBatch, startAiBatch } from '../
 import { EMAIL_RULES, emailRuleOf, type EmailRule } from '../lib/emailRule.js';
 import { DEFAULT_FOOTER_ICP_HTML } from '../lib/footerIcp.js';
 import { DEFAULT_FOOTER_CONTACT_HTML } from '../lib/footerContact.js';
+import { normalizeReservedExtra, reservedOverview } from '../lib/reserved.js';
 
 const app = new Hono();
 
@@ -431,6 +432,8 @@ app.get('/settings', async (c) => {
   if (raw.footer_contact_html === undefined) items.footer_contact_html = DEFAULT_FOOTER_CONTACT_HTML;
   // 老库没跑新迁移时，显示实际生效值（环境变量或内置 5），不显示空白
   if (raw.default_quota === undefined) items.default_quota = String(parseDefaultQuota(c.env.DEFAULT_QUOTA));
+  // 未配置「额外保留域名」时输入框留空（基线名单由代码保证，不需要在这里重复填）
+  if (raw.reserved_labels === undefined) items.reserved_labels = '';
 
   const mask = (v) => {
     const s = String(v || '');
@@ -487,6 +490,8 @@ app.get('/settings', async (c) => {
     rootDomains: listRoots(c.env).map((r) => r.domain),
     // 按根域名的积分覆盖（0 = 免费；未列出的后缀按全局规则）
     rootPointCosts: parseRootCosts(raw.root_point_costs),
+    // 系统保留名称：base 是代码基线（不可删），extra 是后台追加，effective 为最终生效
+    reserved: await reservedOverview(c.env),
 
     // AI 自动审核（自定义 OpenAI 兼容网关 / Workers AI）
     ai: {
@@ -760,6 +765,13 @@ app.post('/settings', async (c) => {
   /* 页脚联系方式：与备案号共用清洗器，只留 <a> 文字链接；留空即隐藏 */
   if (body.footerContactHtml !== undefined) {
     await set('footer_contact_html', sanitizeFooterHtml(body.footerContactHtml));
+  }
+  /* 额外保留域名：与代码基线、环境变量合并生效，保存即生效，无需重新部署。
+     只存「额外」部分，基线项自动去重；管理员仍可自建保留名称。 */
+  if (body.reservedLabels !== undefined) {
+    const next = normalizeReservedExtra(body.reservedLabels);
+    await set('reserved_labels', next);
+    await audit(c, u.id, 'admin.reserved-labels', 'site', next || '(清空额外名单)');
   }
 
   // 新域名申请开关（暂停后普通用户无法提交申请，管理员仍可自建）

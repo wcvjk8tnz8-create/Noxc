@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { ok, fail, now, audit } from '../lib/util.js';
 import { validateLabel } from '../lib/records.js';
+import { reservedLabelsOf } from '../lib/reserved.js';
 import { cfDelete, cfErrorMessage } from '../lib/cf.js';
 import { UNLIMITED_POINTS, ensurePoints, addPoints, domainCost } from '../lib/points.js';
 import { pointRules } from './points.js';
@@ -47,16 +48,16 @@ export async function lookupLabel(c, rawLabel, rootOverride) {
     .bind(fqdn)
     .first();
 
-  const reserved = String(c.env.RESERVED_LABELS || '')
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  const isReserved = reserved.includes(v.label);
+  // 与 /check、真正提交、/api/whois 共用同一份名单：
+  // 代码基线 + 环境变量（追加）+ 后台「额外保留域名」（追加）
+  const isReserved = (await reservedLabelsOf(c.env)).has(v.label);
 
+  // 每个分支都带上 isReserved：提交申请直接复用，不再查第二次名单，
+  // 也避免两处解析在极端时序下得出不同结论。
   // 1) 已存在且不是「被驳回」→ 占用
   if (row && row.status !== 'rejected') {
     return {
-      ok: true, fqdn, available: false, message: '该子域名已被注册',
+      ok: true, fqdn, available: false, message: '该子域名已被注册', isReserved,
       status: row.status, exists: true, row, isAdmin, isMine: myId && row.user_id === myId,
     };
   }
@@ -66,21 +67,21 @@ export async function lookupLabel(c, rawLabel, rootOverride) {
     const mine = myId && row.user_id === myId;
     if (mine || isAdmin) {
       return {
-        ok: true, fqdn, available: true, message: '你此前申请的该名称被驳回，可重新申请',
+        ok: true, fqdn, available: true, message: '你此前申请的该名称被驳回，可重新申请', isReserved,
         status: 'rejected', exists: true, row, isAdmin, isMine: mine, reclaimable: true,
       };
     }
     return {
-      ok: true, fqdn, available: false, message: '该子域名暂不可用（原申请人正在处理）',
+      ok: true, fqdn, available: false, message: '该子域名暂不可用（原申请人正在处理）', isReserved,
       status: 'rejected', exists: true, row, isAdmin, isMine: false,
     };
   }
   // 3) 保留域名
   if (isReserved && !isAdmin) {
-    return { ok: true, fqdn, available: false, message: '该名称为系统保留，不可申请', status: 'reserved', exists: false, isAdmin };
+    return { ok: true, fqdn, available: false, message: '该名称为系统保留，不可申请', status: 'reserved', exists: false, isAdmin, isReserved };
   }
   return {
-    ok: true, fqdn, available: true,
+    ok: true, fqdn, available: true, isReserved,
     message: isReserved ? '保留域名 · 管理员可用' : '可以注册',
     status: 'available', exists: false, isAdmin,
   };
@@ -181,11 +182,6 @@ const createMine = async (c) => {
   if (!v.ok) return fail(c, v.error);
 
   const isAdmin = u.role === 'admin';
-  const reserved = String(c.env.RESERVED_LABELS || '')
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  const isReserved = reserved.includes(v.label);
 
   // 与 /check、/api/whois 使用同一套判定，避免「显示可注册、提交却说已注册」
   // 根域名：body.root 指定或取默认；非法则报错（提前声明，下面多处复用）
@@ -196,6 +192,8 @@ const createMine = async (c) => {
   const lk = await lookupLabel(c, v.label, reqRoot);
   if (!lk.ok) return fail(c, lk.message);
   if (!lk.available) return fail(c, lk.message, 409);
+  // 直接复用 lookupLabel 的判定：一次申请只查一次名单，审计与返回值不再另算
+  const isReserved = !!lk.isReserved;
 
   // 需要清理的旧记录：仅「本人/管理员重新申请此前被驳回的名称」
   const dup = lk.reclaimable && lk.row ? lk.row : null;

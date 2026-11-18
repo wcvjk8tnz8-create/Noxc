@@ -6,6 +6,7 @@ import { runAiReviewBatch } from './lib/aiBatch.js';
 import { emailRuleHint, emailRuleOf } from './lib/emailRule.js';
 import { DEFAULT_FOOTER_ICP_HTML } from './lib/footerIcp.js';
 import { DEFAULT_FOOTER_CONTACT_HTML } from './lib/footerContact.js';
+import { reservedLabelsOf } from './lib/reserved.js';
 import { rootPageFor } from './html/rootPages.js';
 import { Hono } from 'hono';
 import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
@@ -170,6 +171,8 @@ app.get('/api/config', async (c) => {
     signupEmailHint: emailRuleHint(emailRule),
     rootDomain: effectiveRoots[0] || c.env.ROOT_DOMAIN,
     rootDomains: effectiveRoots,
+    // 系统保留名称：公开名单，注册页 / WHOIS 可即时提示；管理员仍可自建
+    reservedLabels: [...(await reservedLabelsOf(c.env))],
     // 注册页后缀菜单据此显示每个后缀的积分（0 = Free，未配置 = 按全局规则）
     rootPointCosts: parseRootCosts(s.root_point_costs),
     pointRules: {

@@ -496,6 +496,32 @@ check(/href="\/dashboard">→ 控制台/.test(agHome), '手机端 CTA 同步切�
 check(/href="\/login">登录/.test(agHome), '未登录仍保留登录入口');
 check(agDict.includes("'→ 去往控制台'") && agDict.includes("'→ 控制台'"), '英文词典含两个整句词条，不夹生');
 
+/* 系统保留域名（ai / dash / nic 官方预留 + 后台可追加） */
+const rvToml = read('wrangler.toml');
+const rvLib = read('src/lib/reserved.ts');
+const rvSub = read('src/routes/subdomains.ts');
+const rvIndex = read('src/index.ts');
+const rvAdminApi = read('src/routes/admin.ts');
+const rvAdminUi = read('src/app/legacy/admin.ts');
+const rsvDict = read('src/app/lib/dict.en.ts');
+const rsvServerDict = read('src/lib/i18nServer.ts');
+for (const l of ['ai', 'dash', 'nic']) {
+  check(new RegExp(`['"]${l}['"]`).test(rvLib), `代码基线含 ${l}（不依赖环境变量是否被 CI 覆盖）`);
+  check(new RegExp(`,${l},|${l}"`).test(rvToml), `wrangler 默认名单含 ${l}`);
+}
+check((rvSub.match(/reservedLabelsOf\(c\.env\)/g) || []).length === 1, '保留名单只在 lookupLabel 解析一次（一次申请不查两次库）');
+check(/const isReserved = !!lk\.isReserved/.test(rvSub) && /isReserved,/.test(rvSub), '/check 与真正提交复用同一次判定结果');
+check(!/c\.env\.RESERVED_LABELS/.test(rvSub), '注册链路不再各自解析 RESERVED_LABELS（避免两处口径不一致）');
+check(/isAdmin/.test(rvSub) && /isReserved && !isAdmin/.test(rvSub), '管理员仍可自建保留域名');
+check(/reservedLabels: \[\.\.\.\(await reservedLabelsOf\(c\.env\)\)\]/.test(rvIndex), '公开配置下发当前生效保留名单');
+check(/reserved: await reservedOverview\(c\.env\)/.test(rvAdminApi), '后台设置返回基线 / 额外 / 生效三份清单');
+check(/normalizeReservedExtra\(body\.reservedLabels\)/.test(rvAdminApi) && /admin\.reserved-labels/.test(rvAdminApi), '后台保存额外名单并写审计日志');
+check(/id="sReservedLabels"/.test(rvAdminUi) && /reservedLabels: document\.getElementById\('sReservedLabels'\)/.test(rvAdminUi), '后台有保留域名输入框且随保存提交');
+for (const k of ['额外保留名称', '该名称为系统保留，不可申请', '保留域名 · 管理员可用']) {
+  check(rsvDict.includes(`'${k}'`), `英文词典含保留域名文案「${k}」`);
+}
+check(rsvServerDict.includes("'保留域名 · 管理员可用'"), '服务端词典含管理员可见的保留提示');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

@@ -77,6 +77,16 @@ export const EXTRA_DICT: Record<string, string> = {
   '请先登录': 'Please sign in', '无权删除': 'Permission denied',
   '保留记录': 'Keep record', '已被用完': 'Used up', '可以注册': 'Available',
   '保留域名': 'Reserved name', '无权操作': 'Permission denied',
+  /* 保留域名相关：整句优先，防止「该名称为系统保留，不可申请」被短词拆成夹生句 */
+  '该名称为系统保留，不可申请': 'This name is reserved and cannot be requested',
+  '保留域名 · 管理员可用': 'Reserved name · admins can still use it',
+  /* 站点设置 → 保留域名（整句词条，避免英文模式夹生） */
+  '额外保留名称': 'Additional reserved names',
+  '例如：pay,live,lab': 'e.g. pay,live,lab',
+  '系统基线始终生效，包含 ai、dash、nic、www、mail、admin、whois 等，不能在这里删除。':
+    'The built-in baseline always applies (ai, dash, nic, www, mail, admin, whois, …) and cannot be removed here.',
+  '用逗号分隔，保存后立即生效，无需重新部署；管理员仍可自建保留名称。留空表示只使用系统基线。':
+    'Comma-separated. Changes apply immediately without redeploying; admins can still create reserved names. Leave blank to use only the built-in baseline.',
   '无权查看': 'Permission denied', '无权回复': 'Permission denied',
   '无权关闭': 'Permission denied', '域名审核': 'Domain review',
   '目标域名': 'Target domain', '文本内容': 'Text content', '目标主机': 'Target host',

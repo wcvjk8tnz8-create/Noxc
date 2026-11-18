@@ -100,6 +100,7 @@ export const SERVER_DICT: Record<string, string> = {
   '该子域名暂不可用（原申请人正在处理）':
     'This subdomain is temporarily unavailable (the previous applicant is still handling it)',
   '该名称为系统保留，不可申请': 'This name is reserved and cannot be requested',
+  '保留域名 · 管理员可用': 'Reserved name · admins can still use it',
   '子域名仍在审核中': 'This subdomain is still under review',
   '子域名已被停用': 'This subdomain has been suspended',
   '你已有一个待审核的申请': 'You already have a pending request',
