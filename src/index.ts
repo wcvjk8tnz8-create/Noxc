@@ -18,6 +18,8 @@ import whoisRoutes from './routes/whois.js';
 import delegationRoutes from './routes/delegation.js';
 import pointRoutes from './routes/points.js';
 import subdomainRoutes from './routes/subdomains.js';
+import captchaRoutes from './routes/captcha.js';
+import { captchaEnabled } from './lib/captcha.js';
 import recordRoutes from './routes/records.js';
 import adminRoutes from './routes/admin.js';
 import redeemRoutes from './routes/redeem.js';
@@ -60,7 +62,7 @@ app.use('*', async (c, next) => {
   // ① WHOIS 页与接口、静态资源：绝对放行，任何 host 都不重定向
   if (/^\/whois(\.html)?$/i.test(p)) return next();
   if (p.startsWith('/api/')) return next();
-  if (/\.(css|js|png|jpg|jpeg|ico|svg|json|txt|woff2?)$/i.test(p)) return next();
+  if (/\.(css|js|png|jpg|jpeg|webp|ico|svg|json|txt|woff2?)$/i.test(p)) return next();
 
   const seg = u.hostname.toLowerCase().split('.');
   if (seg.length < 3 || seg[0] !== 'whois') return next();
@@ -173,6 +175,8 @@ app.get('/api/config', async (c) => {
     rootDomains: effectiveRoots,
     // 系统保留名称：公开名单，注册页 / WHOIS 可即时提示；管理员仍可自建
     reservedLabels: [...(await reservedLabelsOf(c.env))],
+    // 注册滑块验证：前端据此决定是否渲染，后端注册接口用同一份判定
+    captchaEnabled: await captchaEnabled(c.env),
     // 注册页后缀菜单据此显示每个后缀的积分（0 = Free，未配置 = 按全局规则）
     rootPointCosts: parseRootCosts(s.root_point_costs),
     pointRules: {
@@ -243,6 +247,8 @@ app.route('/api/profile', profileRoutes);
 app.route('/api/tickets', ticketRoutes);
 app.route('/api/transfer', transferRoutes);
 app.route('/api/points', pointRoutes);
+// 必须先挂：subdomainRoutes 里的 /:id 会把 /captcha 当成域名 id 吃掉
+app.route('/api/subdomains', captchaRoutes);
 app.route('/api/subdomains', subdomainRoutes);
 // NS 委派：/api/delegation/providers 与 /api/subdomains/:id/delegation
 app.route('/api/delegation', delegationRoutes);

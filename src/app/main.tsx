@@ -19,6 +19,9 @@ import './styles/liquid-glass.css';
    衬线绿斜体 / 墨黑药丸 / 发丝线 + 全站手机适配。
    它用同等 specificity 收口前六层，是唯一的视觉权威层。 */
 import './styles/reverie.css';
+/* 滑块拼图验证是独立组件层：类名全部 tdcap- 前缀，不参与全站色板，
+   放在 Reverie 之后收口，避免被按钮/圆角基线回压成直角。 */
+import './styles/captcha.css';
 /* 切页过渡：Miku 冒出来 + 跳转中气泡。挂在 body 上，不随 SPA 页面卸载。 */
 import { mountTransition } from './lib/pageTransition';
 

@@ -514,3 +514,16 @@ CREATE TABLE IF NOT EXISTS email_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_email_requests_email ON email_requests(email, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_email_requests_status ON email_requests(status, created_at DESC);
+
+-- 注册滑块验证：challenge / pass / 领取频控共用的防重放表。
+-- id 为主键，重复 INSERT 即代表票据已被用过（不依赖 UPDATE 返回值）。
+CREATE TABLE IF NOT EXISTS captcha_nonce (
+  id   TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,      -- challenge / pass / issue
+  exp  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_captcha_nonce_exp ON captcha_nonce(exp);
+
+-- 默认开启；后台可关、可选图库子集。CI 用 Variable 覆盖也不会冲掉代码里的默认行为。
+INSERT OR IGNORE INTO settings(key, value) VALUES ('captcha_enabled', '1');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('captcha_images', 'typhoon,meoy,miku,cloud');

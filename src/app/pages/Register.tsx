@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { mountRegister } from '../legacy/register';
-import { refreshRuntime, cleanupPage } from '../lib/runtime';
+import { refreshRuntime, cleanupPage, readUserCache } from '../lib/runtime';
+import SliderCaptcha from '../components/SliderCaptcha';
 
 /**
  * Register —— 参考 DnsNeko 的四步注册向导。
@@ -22,6 +23,19 @@ export default function RegisterPage() {
   } | null>(null);
   const [count, setCount] = useState(0);
   const [noteCount, setNoteCount] = useState(0);
+  const [capToken, setCapToken] = useState('');
+  // 管理员是「开通」不是「申请」，后端同样豁免；缓存未命中时按普通用户处理（多点一下不影响）
+  const isAdmin = (() => {
+    const u: any = readUserCache();
+    return u?.role === 'admin';
+  })();
+
+  const onCapPass = (t: string | null) => {
+    setCapToken(t || '');
+    const btn = document.getElementById('btnApply') as HTMLButtonElement | null;
+    const cap = (window as any).__TD_CAPTCHA__;
+    if (btn) btn.disabled = !!(cap && cap.required && !t);
+  };
 
   useEffect(() => {
     document.body.className = "";
@@ -167,9 +181,13 @@ export default function RegisterPage() {
               <input type="checkbox" id="agreeUse" />
               <span id="agreeUseLabel">我承诺不将域名用于钓鱼、恶意程序、垃圾邮件等违规用途，并已阅读<a href="/terms" target="_blank">《服务条款与免责声明》</a>：服务按「现状」提供，不对可用性、数据损失及第三方行为承担责任。</span>
             </label>
+            {/* 换域名时 key 变化 → 旧票据作废、重新出图，避免票据跨名称复用 */}
+            {!isAdmin && (
+              <SliderCaptcha key={`cap:${summary.fqdn}`} onPass={onCapPass} />
+            )}
             <div className="reg-actions">
               <button className="btn ghost" onClick={() => setStep(2)}>← 上一步</button>
-              <button className="btn primary" id="btnApply">提交注册</button>
+              <button className="btn primary" id="btnApply" data-captcha-ready={capToken ? '1' : '0'}>提交注册</button>
             </div>
           </div>
         </section>

@@ -226,7 +226,10 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       if (!pending.length) {
         box.innerHTML = '';
         if (APPLY_PAUSED) return;        // 暂停态优先，别把按钮重新启用
-        btn.disabled = false; labelEl.disabled = false; btn.textContent = '提交注册';
+        var cap = window.__TD_CAPTCHA__;
+        // 验证未通过时按钮保持锁定，别被「无待审申请」重新放开
+        btn.disabled = !!(cap && cap.required && !cap.get());
+        labelEl.disabled = false; btn.textContent = '提交注册';
         return;
       }
       var f = pending[0].fqdn || pending[0].label;
@@ -264,9 +267,16 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     if (!label) return toast('请输入子域名', 'err');
     var agree = document.getElementById('agreeUse');
     if (agree && !agree.checked) return toast('请先勾选免责与使用承诺', 'err');
+    var cap = window.__TD_CAPTCHA__;
+    if (cap && cap.required && !cap.get()) return toast('请先完成滑块验证', 'err');
     try {
       localStorage.setItem('meoy_agree_use', '1');
-      var r = await api.post('/api/subdomains', { label: label, note: note, root: currentRoot() });
+      var r = await api.post('/api/subdomains', {
+        label: label, note: note, root: currentRoot(),
+        captchaToken: cap ? cap.get() : ''
+      });
+      // 票据一次性：提交回来就领新图，避免「再注册一个」复用已消费的票据
+      if (cap && typeof cap.reset === 'function') cap.reset();
       const rejected = r.status === 'rejected';
       // 有新申请时后端会立即排队审核「所有」待审域名；同步判定失败的这一条
       // 很可能在后台几秒内被重新判定，别再写成「等待管理员审核」。
@@ -316,7 +326,9 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       } else {
         setTimeout(function(){ location.href = '/dashboard'; }, 900);
       }
-    } catch (e) {
+    } catch (e: any) {
+      var cap = window.__TD_CAPTCHA__;
+      if (e && e.data && e.data.captchaRequired && cap && typeof cap.reset === 'function') cap.reset();
       toast(e.message, 'err');
     }
   };

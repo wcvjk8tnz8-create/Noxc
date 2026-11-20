@@ -434,6 +434,9 @@ app.get('/settings', async (c) => {
   if (raw.default_quota === undefined) items.default_quota = String(parseDefaultQuota(c.env.DEFAULT_QUOTA));
   // 未配置「额外保留域名」时输入框留空（基线名单由代码保证，不需要在这里重复填）
   if (raw.reserved_labels === undefined) items.reserved_labels = '';
+  // 滑块验证：老库没跑新迁移时显示实际生效的默认值（默认开启 + 四张图）
+  if (raw.captcha_enabled === undefined) items.captcha_enabled = '1';
+  if (raw.captcha_images === undefined) items.captcha_images = 'typhoon,meoy,miku,cloud';
 
   const mask = (v) => {
     const s = String(v || '');
@@ -772,6 +775,18 @@ app.post('/settings', async (c) => {
     const next = normalizeReservedExtra(body.reservedLabels);
     await set('reserved_labels', next);
     await audit(c, u.id, 'admin.reserved-labels', 'site', next || '(清空额外名单)');
+  }
+  /* 注册滑块验证：开关 + 图库子集。图名按白名单过滤，
+     防止管理员填了不存在的名字让验证图 404；留空回落到四张全量。 */
+  if (body.captchaEnabled !== undefined) {
+    await set('captcha_enabled', body.captchaEnabled ? '1' : '0');
+    await audit(c, u.id, 'admin.captcha', 'site', `enabled=${body.captchaEnabled ? '1' : '0'}`);
+  }
+  if (body.captchaImages !== undefined) {
+    const ALLOWED = ['typhoon', 'meoy', 'miku', 'cloud'];
+    const list = String(body.captchaImages || '').split(',')
+      .map((x) => x.trim().toLowerCase()).filter((x) => ALLOWED.includes(x));
+    await set('captcha_images', list.length ? list.join(',') : ALLOWED.join(','));
   }
 
   // 新域名申请开关（暂停后普通用户无法提交申请，管理员仍可自建）

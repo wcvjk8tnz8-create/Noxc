@@ -463,6 +463,12 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <div class="hint">用逗号分隔，保存后立即生效，无需重新部署；管理员仍可自建保留名称。留空表示只使用系统基线。</div>
             </div>
             <div class="field">
+              <label>注册验证</label>
+              <div><label class="check" style="margin-top:2px"><input type="checkbox" id="sCaptchaEnabled" ${String(s.captcha_enabled ?? '1') !== '0' ? 'checked' : ''}> 注册域名前需要完成滑块拼图验证</label></div>
+              <div style="margin-top:8px"><span class="dim">验证图库</span><input id="sCaptchaImages" type="text" autocomplete="off" placeholder="typhoon,meoy,miku,cloud" value="${esc(s.captcha_images || 'typhoon,meoy,miku,cloud')}"></div>
+              <div class="hint">可选 typhoon / meoy / miku / cloud，逗号分隔，随机抽一张；留空恢复全部。管理员自建域名不经过验证，关闭后全链路放行。</div>
+            </div>
+            <div class="field">
               <label>用户配额</label>
               <div class="grid2">
                 <div><span class="dim">新用户默认配额</span><input id="sDefaultQuota" type="number" min="-1" max="10000" step="1" value="${esc(s.default_quota ?? '5')}"></div>
@@ -684,6 +690,8 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             footerIcpHtml: document.getElementById('sFooterIcpHtml').value,
             footerContactHtml: document.getElementById('sFooterContactHtml').value,
             reservedLabels: document.getElementById('sReservedLabels').value,
+            captchaEnabled: (document.getElementById('sCaptchaEnabled') as HTMLInputElement).checked,
+            captchaImages: (document.getElementById('sCaptchaImages') as HTMLInputElement).value,
             maxAccountsPerIp: document.getElementById('sIpLimit').value,
             emailRule: document.getElementById('sEmailRule').value,
             whoisHolder: document.getElementById('sWhois').value,

@@ -21,6 +21,7 @@ const css = [
   'src/app/styles/motion.css',
   'src/app/styles/liquid-glass.css',
   'src/app/styles/reverie.css',
+  'src/app/styles/captcha.css',
 ];
 for (const p of css) {
   const t = read(p);
@@ -64,7 +65,14 @@ for (const p of srcFiles) {
       遮罩 / Toast / 抽屉 / 欢迎卡的修复，否则会静默回退成旧 bug。 */
 const main = read('src/app/main.tsx');
 const imports = [...main.matchAll(/import\s+['"]\.\/styles\/([^'"]+)['"]/g)].map((m) => m[1]);
-check(imports.at(-1) === 'reverie.css', `reverie.css 为最后加载的样式层（实际 ${imports.at(-1)}）`);
+check(
+  imports.at(-1) === 'reverie.css' || imports.at(-1) === 'captcha.css',
+  `视觉权威层为 Reverie，独立组件层可最后收口（实际 ${imports.at(-1)}）`
+);
+check(
+  imports.indexOf('reverie.css') < imports.indexOf('captcha.css') || !imports.includes('captcha.css'),
+  '滑块组件层在 Reverie 之后，不被全站色板回压'
+);
 check(
   imports.includes('motion.css') && imports.indexOf('motion.css') < imports.indexOf('liquid-glass.css'),
   '动效层在玻璃层之前加载（玻璃层不得跳过动效层）',
@@ -231,7 +239,11 @@ check(/--bl-jade:\s*#2f8f83/.test(bloom) && /--bl-coral/.test(bloom), '取色自
 check(/bl-petals/.test(bloom) && /prefers-reduced-motion/.test(bloom), '花瓣呼吸动效且尊重减少动态');
 check(/\.bgswitch button[\s\S]{0,300}border-radius:\s*50%/.test(bloom), '壁纸切换器为圆形缩略点');
 check(/min-width:\s*620px\s*!important/.test(bloom), '窄屏表格不再竖排断字');
-check(imports.at(-1) === 'reverie.css', 'Reverie 设计系统为最后加载的视觉权威层');
+check(
+  imports.includes('reverie.css') && imports.indexOf('reverie.css') < imports.length - 1
+    ? imports.at(-1) === 'captcha.css' : imports.at(-1) === 'reverie.css',
+  'Reverie 为视觉权威层，滑块组件层只在其后收口'
+);
 
 /* 12. 首屏一次性就绪：不再「一阶段 / 二阶段 / 三阶段慢慢加载出来」 */
 const gate = read('src/app/lib/runtime.ts');
@@ -521,6 +533,62 @@ for (const k of ['额外保留名称', '该名称为系统保留，不可申请'
   check(rsvDict.includes(`'${k}'`), `英文词典含保留域名文案「${k}」`);
 }
 check(rsvServerDict.includes("'保留域名 · 管理员可用'"), '服务端词典含管理员可见的保留提示');
+
+/* 注册滑块拼图验证：图库 / 三段式票据 / 后台开关 / 全链路接线 */
+const cpCore = read('src/lib/captcha.ts');
+const cpRoute = read('src/routes/captcha.ts');
+const cpIndex = read('src/index.ts');
+const cpSub = read('src/routes/subdomains.ts');
+const cpAdminApi = read('src/routes/admin.ts');
+const cpAdminUi = read('src/app/legacy/admin.ts');
+const cpReg = read('src/app/pages/Register.tsx');
+const cpLegacy = read('src/app/legacy/register.ts');
+const cpComp = read('src/app/components/SliderCaptcha.tsx');
+const cpCss = read('src/app/styles/captcha.css');
+const cpMain = read('src/app/main.tsx');
+const cpSchema = read('schema.sql');
+const cpRuntime = read('src/app/lib/runtime.ts');
+const cpDict = read('src/app/lib/dict.en.ts');
+const cpServerDict = read('src/lib/i18nServer.ts');
+
+for (const n of ['typhoon', 'meoy', 'miku', 'cloud', 'knob']) {
+  check(fs.existsSync(path.join(root, `public/img/captcha/${n}.webp`)), `验证图库素材 ${n}.webp 存在`);
+}
+check(/captcha_nonce/.test(cpSchema) && /captcha_enabled', '1'/.test(cpSchema), 'D1 建一次性 nonce 表并写入默认开启');
+check(/export async function captchaEnabled/.test(cpCore) && /captcha_images/.test(cpCore), '开关与图库子集读 settings，默认全开四张');
+check(/validateTrace/.test(cpCore) && /uniformT/.test(cpCore), '拖动轨迹做轻量人形判定，挡掉直接 POST');
+check(/markUsed\(env, 'c:'/.test(cpCore) && /markUsed\(env, 'p:'/.test(cpCore), 'challenge 与 pass 各消耗一次 nonce（防重放）');
+check(/p\.scope !== captchaScope\(userId\)/.test(cpCore), 'pass 票据绑定用户 id，不能跨账号借用');
+check(/issueRateOk/.test(cpRoute) && /429/.test(cpRoute), '领取挑战有频控，挡住脚本无限刷票据');
+check(/app\.use\('\/api\/subdomains\/\*', requireAuth\)/.test(cpIndex), 'captcha 路由在 requireAuth 之后，未登录领不到挑战');
+check(
+  cpIndex.indexOf("app.route('/api/subdomains', captchaRoutes)") <
+  cpIndex.indexOf("app.route('/api/subdomains', subdomainRoutes)"),
+  'captcha 路由先于 /:id 挂载，否则会被当成域名 id 吃掉'
+);
+check(/jpeg\|webp\|ico/.test(cpIndex), '静态资源放行 .webp（验证图不会被根域名重定向截走）');
+check(/captchaEnabled: await captchaEnabled\(c\.env\)/.test(cpIndex), '/api/config 下发开关，前后端同一份判定');
+check(/consumePass\(c\.env, captchaToken, u\.id\)/.test(cpSub) && /if \(!isAdmin &&/.test(cpSub), '注册提交校验一次性票据，管理员开通豁免');
+check(/captchaRequired/.test(cpRoute) && /err\.data = data/.test(cpRuntime), '验证失败可透传 captchaRequired，前端据此重新领图');
+check(/captchaToken: cap \? cap\.get\(\) : ''/.test(cpLegacy) && /cap\.reset\(\)/.test(cpLegacy), '注册请求携带票据且提交后立即作废');
+check(/id="sCaptchaEnabled"/.test(cpAdminUi) && /id="sCaptchaImages"/.test(cpAdminUi), '后台有验证开关与图库输入框');
+check(
+  /captchaEnabled: \(document\.getElementById\('sCaptchaEnabled'\) as HTMLInputElement\)\.checked/.test(cpAdminUi) &&
+  /captchaImages: \(document\.getElementById\('sCaptchaImages'\) as HTMLInputElement\)\.value/.test(cpAdminUi),
+  '后台「保存设置」把开关与图库一起提交（否则开关改不动）'
+);
+check(/body\.captchaEnabled !== undefined/.test(cpAdminApi) && /body\.captchaImages !== undefined/.test(cpAdminApi), '后台接口接收开关与图库并写审计');
+check(/ALLOWED = \['typhoon', 'meoy', 'miku', 'cloud'\]/.test(cpAdminApi), '图库名按白名单过滤，管理员填错不会让验证图 404');
+check(/items\.captcha_enabled = '1'/.test(cpAdminApi), '老库未跑迁移时后台显示实际生效的默认值');
+check(/<SliderCaptcha key=/.test(cpReg) && /!isAdmin/.test(cpReg), '换域名重新出图，管理员不渲染验证组件');
+check(/btn\.disabled = !!\(needed && !tokenRef\.current\)/.test(cpComp), '组件发布时同步按钮禁用态，首屏不会出现「看似可点却点不动」');
+check(/onKeyDown/.test(cpComp) && /ArrowRight/.test(cpComp), '键盘方向键 + Enter 通道可用');
+check(/验证已过期/.test(cpComp) && /换一张/.test(cpComp), '挑战过期自动换图，可手动换图');
+check(/touch-action: none/.test(cpCss) && /min-height: 44px/.test(cpCss), '手机拖动不滚页面，触控目标 ≥44px');
+check(/prefers-reduced-motion/.test(cpCss) && /html\[data-theme="dark"\] \.tdcap/.test(cpCss), '深色与减少动态都覆盖');
+check(/^[\s\S]*\.tdcap/.test(cpCss) && !/\.btn[^-]/.test(cpCss), '组件层只用 tdcap- 前缀，不回压全站按钮');
+check(/import '\.\/styles\/captcha\.css'/.test(cpMain), '组件样式层已挂载');
+check(cpServerDict.includes("'请先完成滑块验证'") && cpDict.includes("'安全验证'"), '服务端与前端英文词条齐，英文模式不夹生');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);

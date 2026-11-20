@@ -10,6 +10,7 @@ import { defaultRoot, isAllowedRoot, listRoots } from '../lib/roots.js';
 import { applyGate } from '../lib/applyGate.js';
 import { aiReviewDetailed } from '../lib/aiReview.js';
 import { ensureAiColumns, queueAiBatch } from '../lib/aiBatch.js';
+import { captchaEnabled, consumePass } from '../lib/captcha.js';
 
 const app = new Hono();
 
@@ -177,11 +178,20 @@ const createMine = async (c) => {
   const gate = await applyGate(c.env);
   if (gate.paused && u.role !== 'admin') return fail(c, gate.message, 403, { applyPaused: true });
 
-  const { label, note, root: rootReq } = await c.req.json().catch(() => ({}));
+  const { label, note, root: rootReq, captchaToken } = await c.req.json().catch(() => ({}));
+  const isAdmin = u.role === 'admin';
+
+  /* 滑块验证：管理员「开通」不拦，普通用户必须先拿到一次性 passToken。
+     放在 label 校验之前 —— 未通过验证不给探测名称是否可用的机会。
+     与 /api/config、/captcha 共用同一份开关判定，关掉即全链路放行。 */
+  if (!isAdmin && (await captchaEnabled(c.env))) {
+    if (!(await consumePass(c.env, captchaToken, u.id))) {
+      return fail(c, '请先完成滑块验证', 403, { captchaRequired: true });
+    }
+  }
+
   const v = validateLabel(label);
   if (!v.ok) return fail(c, v.error);
-
-  const isAdmin = u.role === 'admin';
 
   // 与 /check、/api/whois 使用同一套判定，避免「显示可注册、提交却说已注册」
   // 根域名：body.root 指定或取默认；非法则报错（提前声明，下面多处复用）

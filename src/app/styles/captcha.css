@@ -1,0 +1,192 @@
+/* TerraDomain · 滑块拼图验证
+   放在 Reverie 之后收口：Reverie 是视觉权威层，本层只用 tdcap- 前缀，
+   不覆盖全站类名；关键圆角/布局加 !important 防历史层 !important 回压。 */
+
+.tdcap {
+  --cap-ink: #1c2723;
+  --cap-green: #1f4d3d;
+  --cap-jade: #7fb9a4;
+  --cap-paper: rgba(250, 249, 244, .88);
+  --cap-line: rgba(31, 77, 61, .16);
+  margin: 18px 0 4px;
+  padding: 16px 16px 12px;
+  background: var(--cap-paper);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  backdrop-filter: blur(18px) saturate(1.15);
+  border: 1px solid var(--cap-line);
+  border-radius: 20px !important;
+  box-shadow: 0 10px 34px rgba(24, 52, 41, .09), inset 0 1px 0 rgba(255, 255, 255, .7);
+  max-width: 100%;
+}
+
+.tdcap-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.tdcap-title {
+  font-size: 15px; font-weight: 600; letter-spacing: .02em;
+  color: var(--cap-green);
+}
+.tdcap-sub { font-size: 12px; color: #6f7d76; flex: 1 1 160px; }
+.tdcap-refresh {
+  min-height: 44px; padding: 0 14px;
+  border: 1px solid var(--cap-line) !important;
+  border-radius: 999px !important;
+  background: transparent; color: var(--cap-green);
+  font-size: 12px; cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+.tdcap-refresh:hover { background: rgba(127, 185, 164, .16); transform: translateY(-1px); }
+
+.tdcap-stage {
+  position: relative; width: 100%;
+  border-radius: 14px !important;
+  overflow: hidden;
+  background: #e9f0ea;
+  box-shadow: inset 0 0 0 1px rgba(31, 77, 61, .1);
+  user-select: none; -webkit-user-select: none;
+}
+.tdcap-bg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  display: block; pointer-events: none;
+  -webkit-user-drag: none;
+}
+.tdcap-hole {
+  position: absolute;
+  border-radius: 10px !important;
+  background: rgba(10, 26, 20, .46);
+  border: 2px solid rgba(255, 255, 255, .86);
+  box-shadow: inset 0 3px 10px rgba(0, 0, 0, .5), 0 0 0 1px rgba(0, 0, 0, .18);
+  pointer-events: none;
+}
+.tdcap-piece {
+  position: absolute;
+  border-radius: 10px !important;
+  border: 2px solid rgba(255, 255, 255, .92);
+  background-repeat: no-repeat;
+  box-shadow: 0 5px 16px rgba(8, 24, 18, .34);
+  will-change: transform;
+  pointer-events: none;
+}
+.tdcap-mask {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: rgba(247, 245, 239, .72);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  font-size: 13px; color: var(--cap-green);
+}
+.tdcap-click { cursor: pointer; }
+.tdcap-pass {
+  position: absolute; left: 10px; bottom: 10px;
+  padding: 6px 14px; border-radius: 999px !important;
+  background: rgba(31, 77, 61, .92); color: #fff;
+  font-size: 12px; letter-spacing: .02em;
+  box-shadow: 0 4px 14px rgba(31, 77, 61, .28);
+  animation: tdcap-in .32s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.tdcap-track {
+  position: relative; height: 48px; margin-top: 14px;
+  border-radius: 999px !important;
+  background: rgba(31, 77, 61, .07);
+  box-shadow: inset 0 0 0 1px var(--cap-line);
+  touch-action: none;              /* 手机拖动不带着页面滚 */
+  overflow: hidden;
+}
+.tdcap-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  border-radius: 999px !important;
+  background: linear-gradient(90deg, rgba(127, 185, 164, .5), rgba(31, 77, 61, .42));
+  pointer-events: none;
+  transition: width .06s linear;
+}
+.tdcap-hint {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 12px; color: #7e8b84;
+  pointer-events: none;
+  transition: opacity .22s ease;
+}
+.tdcap-hint.gone { opacity: 0; }
+.tdcap-knob {
+  position: absolute; left: 0; top: 2px;
+  width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+  display: grid !important; place-items: center;
+  padding: 0 !important;
+  border: 2px solid #fff !important;
+  border-radius: 50% !important;
+  background: var(--cap-green) !important;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(20, 52, 41, .28);
+  cursor: grab; touch-action: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow .2s ease, background .2s ease;
+}
+.tdcap-knob:active { cursor: grabbing; box-shadow: 0 6px 20px rgba(20, 52, 41, .36); }
+.tdcap-knob img { width: 28px; height: 28px; object-fit: contain; pointer-events: none; }
+.tdcap-arrow { display: none; font-size: 24px; line-height: 1; }
+.tdcap-knob:focus-visible { outline: 3px solid var(--cap-jade); outline-offset: 3px; }
+.tdcap.is-ok .tdcap-knob { background: #2f7a5c !important; cursor: default; }
+.tdcap.is-ok .tdcap-track { background: rgba(47, 122, 92, .12); }
+.tdcap.is-bad .tdcap-knob { animation: tdcap-shake .42s cubic-bezier(.36, .07, .19, .97) both; }
+.tdcap.is-bad .tdcap-foot { color: #b0443c; }
+
+.tdcap-foot {
+  margin-top: 9px; min-height: 18px;
+  font-size: 12px; color: #7e8b84;
+}
+.tdcap.is-ok .tdcap-foot { color: #2f7a5c; }
+
+@keyframes tdcap-in {
+  from { opacity: 0; transform: translateY(8px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes tdcap-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+/* 深色：与全站壁纸夜色版一致（显式主题 + 跟随系统两种入口） */
+html[data-theme="dark"] .tdcap {
+  --cap-ink: #e9f1ec;
+  --cap-green: #a8d8c2;
+  --cap-jade: #6fae95;
+  --cap-paper: rgba(24, 34, 30, .84);
+  --cap-line: rgba(168, 216, 194, .2);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .tdcap {
+    --cap-ink: #e9f1ec;
+    --cap-green: #a8d8c2;
+    --cap-jade: #6fae95;
+    --cap-paper: rgba(24, 34, 30, .84);
+    --cap-line: rgba(168, 216, 194, .2);
+  }
+}
+html[data-theme="dark"] .tdcap-stage { background: #1b2a24; }
+html[data-theme="dark"] .tdcap-track { background: rgba(168, 216, 194, .09); }
+html[data-theme="dark"] .tdcap-sub,
+html[data-theme="dark"] .tdcap-hint,
+html[data-theme="dark"] .tdcap-foot { color: #9fb2a8; }
+html[data-theme="dark"] .tdcap-mask { background: rgba(20, 30, 26, .74); }
+html[data-theme="dark"] .tdcap-knob { background: #2f7a5c !important; }
+
+/* 手机：触控目标全部 ≥44px，不撑出横向滚动 */
+@media (max-width: 480px) {
+  .tdcap { padding: 13px 12px 10px; border-radius: 18px !important; }
+  .tdcap-head { gap: 8px; }
+  .tdcap-sub { flex-basis: 100%; order: 3; }
+  .tdcap-refresh { margin-left: auto; }
+  .tdcap-track { height: 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tdcap *, .tdcap *::before, .tdcap *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+}

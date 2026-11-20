@@ -151,7 +151,13 @@ export const api = {
       const p = location.pathname.replace(/\/+$/, '') || '/';
       if (!['/', '/index', '/index.html', '/login', '/login.html', '/home', '/home.html'].includes(p)) location.href = '/login';
     }
-    if (!data.success) throw new Error(data.message || '请求失败');
+    if (!data.success) {
+      // 保留 extra（如 captchaRequired），调用方可据此重新领图；
+      // 只附加字段，不改变既有 throw Error(message) 的行为。
+      const err: any = new Error(data.message || '请求失败');
+      err.data = data;
+      throw err;
+    }
     // 写过数据就丢掉预取缓存，避免切回页面时看到旧值
     if (method !== 'GET') { invalidatePrefetch(); clearSharedGet(); }
     return data;
