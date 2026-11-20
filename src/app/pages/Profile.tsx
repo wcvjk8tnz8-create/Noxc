@@ -106,6 +106,11 @@ export default function ProfilePage() {
                 <div><div className="sec-t">账号邮箱</div><div className="sec-d" id="secMail">—</div></div>
                 <span className="badge">已绑定</span>
               </div>
+              {/* 站点启用 NodeLoc 登录后才由控制器显示 */}
+              <div className="sec-row td-oauth-row" id="nodelocRow" hidden>
+                <div><div className="sec-t">NodeLoc 账号</div><div className="sec-d" id="nodelocState">未绑定</div></div>
+                <button className="btn sm td-oauth-btn" id="btnNodelocBind" type="button">绑定</button>
+              </div>
             </div>
           </div>
         </div>

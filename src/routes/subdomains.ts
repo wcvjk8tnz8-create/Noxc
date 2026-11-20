@@ -165,6 +165,9 @@ const listMine = async (c) => {
 };
 
 app.get('/', listMine);
+/* 旧前端缓存会请求 /api/subdomains/mine?limit=200；这条必须在 /:id 之前注册，
+   否则 mine 被当成域名 id 查库 → 404「子域名不存在」，待审申请永远读不到。 */
+app.get('/mine', listMine);
 
 // 申请子域名
 const createMine = async (c) => {

@@ -527,3 +527,42 @@ CREATE INDEX IF NOT EXISTS idx_captcha_nonce_exp ON captcha_nonce(exp);
 -- 默认开启；后台可关、可选图库子集。CI 用 Variable 覆盖也不会冲掉代码里的默认行为。
 INSERT OR IGNORE INTO settings(key, value) VALUES ('captcha_enabled', '1');
 INSERT OR IGNORE INTO settings(key, value) VALUES ('captcha_images', 'typhoon,meoy,miku,cloud');
+
+-- ============================================================
+--  NodeLoc OAuth 2.0 登录：第三方身份绑定 + 一次性 state
+--  provider + sub 唯一：同一个 NodeLoc 账号不能绑到两个本地账号，
+--  也不能被两个本地账号同时认领。
+-- ============================================================
+CREATE TABLE IF NOT EXISTS oauth_bindings (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider    TEXT    NOT NULL,
+  sub         TEXT    NOT NULL,
+  user_id     INTEGER NOT NULL,
+  username    TEXT,
+  avatar_url  TEXT,
+  created_at  INTEGER NOT NULL,
+  UNIQUE(provider, sub)
+);
+CREATE INDEX IF NOT EXISTS idx_oauth_bindings_user ON oauth_bindings(provider, user_id);
+
+-- state 一次性领取（DELETE RETURNING），10 分钟过期，挡 CSRF 与重放
+CREATE TABLE IF NOT EXISTS oauth_states (
+  state       TEXT PRIMARY KEY,
+  mode        TEXT    NOT NULL,       -- login | bind
+  user_id     INTEGER,
+  exp         INTEGER NOT NULL,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_oauth_states_exp ON oauth_states(exp);
+
+-- 默认关闭：管理员到 NodeLoc 创建应用、填入 Client ID / Secret 后再启用。
+-- 应用管理页 https://www.nodeloc.com/oauth-provider/applications （需 TL2 及以上）。
+INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_enabled', '0');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_client_id', '');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_client_secret', '');
+-- 首次用 NodeLoc 登录时自动建号（1）；改为 0 则只允许绑定到已有账号
+INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_auto_register', '1');
+-- 是否申请 email 权限（NodeLoc 侧需管理员审核应用后才能用，默认不申请）
+INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_scope_email', '0');
+-- 留空 = 按当前站点 origin 生成 /oauth/nodeloc/callback；多域名部署可填固定绝对地址
+INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_redirect_uri', '');

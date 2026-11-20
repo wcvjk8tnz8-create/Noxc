@@ -69,3 +69,11 @@ AVATAR_MAX_KB = "2048"
 # 以下敏感值用 secret 写入，不要写在这里：
 #   npx wrangler secret put CF_API_TOKEN
 #   npx wrangler secret put CF_ZONE_ID
+#
+# ── NodeLoc 第三方登录（可选）──
+# 推荐在「后台 → 站点设置 → 第三方登录 · NodeLoc」填写，只存数据库，后台只回掩码。
+# 也可用 Secret 注入（密钥绝不要写进本文件）：
+#   npx wrangler secret put NODELOC_CLIENT_ID
+#   npx wrangler secret put NODELOC_CLIENT_SECRET
+# 可选 Vars / Secret：NODELOC_ENABLED=1、NODELOC_AUTO_REGISTER=0、
+#   NODELOC_SCOPE_EMAIL=1、NODELOC_REDIRECT_URI=https://nic.299282.xyz/oauth/nodeloc/callback

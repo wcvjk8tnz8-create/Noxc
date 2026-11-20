@@ -62,6 +62,17 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
         const want = new URLSearchParams(location.search).get('root');
         if (want && ROOTS.indexOf(want) >= 0) sel.value = want;
       }
+      /* 站点公开数据：与 /api/config 同一次请求返回，不新增首屏往返，
+         也不会出现「先 0 后补数」的分阶段加载。 */
+      const st = cfg.publicStats;
+      if (st && typeof st === 'object') {
+        const fmt = (n) => {
+          const v = Number(n);
+          return Number.isFinite(v) ? v.toLocaleString('zh-CN') : '—';
+        };
+        document.querySelectorAll('[data-stat-users]').forEach((el) => { el.textContent = fmt(st.users); });
+        document.querySelectorAll('[data-stat-domains]').forEach((el) => { el.textContent = fmt(st.domains); });
+      }
       renderSuffix(ROOTS);
       renderTags();
       try {

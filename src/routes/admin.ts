@@ -18,6 +18,7 @@ import { EMAIL_RULES, emailRuleOf, type EmailRule } from '../lib/emailRule.js';
 import { DEFAULT_FOOTER_ICP_HTML } from '../lib/footerIcp.js';
 import { DEFAULT_FOOTER_CONTACT_HTML } from '../lib/footerContact.js';
 import { normalizeReservedExtra, reservedOverview } from '../lib/reserved.js';
+import { nodelocConfig, maskSecret, NODELOC_CALLBACK_PATH } from '../lib/nodeloc.js';
 
 const app = new Hono();
 
@@ -423,7 +424,7 @@ app.get('/settings', async (c) => {
   const raw = Object.fromEntries(results.map((r) => [r.key, r.value]));
 
   // 敏感项：不回传明文，只回传「是否已配置 + 尾号」，前端显示为占位符
-  const SENSITIVE = ['dnshe_api_key', 'dnshe_api_secret', 'dns_api_key', 'dns_api_secret', 'mail_api_key', 'spaceship_api_key', 'spaceship_api_secret', 'ai_api_key'];
+  const SENSITIVE = ['dnshe_api_key', 'dnshe_api_secret', 'dns_api_key', 'dns_api_secret', 'mail_api_key', 'spaceship_api_key', 'spaceship_api_secret', 'ai_api_key', 'nodeloc_client_secret'];
   const items = { ...raw };
   for (const k of SENSITIVE) delete items[k];
   // 未配置过时把默认备案号回填到输入框，避免「页脚明明有、后台却是空的」
@@ -437,12 +438,19 @@ app.get('/settings', async (c) => {
   // 滑块验证：老库没跑新迁移时显示实际生效的默认值（默认开启 + 四张图）
   if (raw.captcha_enabled === undefined) items.captcha_enabled = '1';
   if (raw.captcha_images === undefined) items.captcha_images = 'typhoon,meoy,miku,cloud';
+  // NodeLoc 第三方登录：老库没跑新迁移时显示实际生效值，不显示空白
+  if (raw.nodeloc_enabled === undefined) items.nodeloc_enabled = '0';
+  if (raw.nodeloc_client_id === undefined) items.nodeloc_client_id = '';
+  if (raw.nodeloc_auto_register === undefined) items.nodeloc_auto_register = '1';
+  if (raw.nodeloc_scope_email === undefined) items.nodeloc_scope_email = '0';
+  if (raw.nodeloc_redirect_uri === undefined) items.nodeloc_redirect_uri = '';
 
   const mask = (v) => {
     const s = String(v || '');
     if (!s) return '';
     return '••••••••' + s.slice(-4);
   };
+  const nodeloc = await nodelocConfig(c.env);
 
   // 自定义 DNS 提供商状态（URL 可回显，Key/Secret 只给掩码）
   const prov = await dnsProvider(c.env);
@@ -520,6 +528,24 @@ app.get('/settings', async (c) => {
     applyPaused: String(raw.apply_paused || c.env.APPLY_PAUSED || '').trim() === '1',
     applyPausedFromEnv: String(c.env.APPLY_PAUSED || '').trim() === '1',
     applyPausedMessage: String(raw.apply_paused_message || '').trim(),
+
+    // NodeLoc 第三方登录：Secret 只回掩码，不下发明文；callbackUrl 供管理员
+    // 直接复制到 NodeLoc 应用管理页（必须逐字符一致，否则授权会被拒）
+    nodeloc: {
+      enabled: nodeloc.switchedOn,
+      ready: nodeloc.enabled,
+      clientId: nodeloc.clientId,
+      secretSet: !!nodeloc.clientSecret,
+      secretMasked: maskSecret(nodeloc.clientSecret),
+      autoRegister: nodeloc.autoRegister,
+      scopeEmail: nodeloc.scopeEmail,
+      fromEnv: nodeloc.fromEnv,
+      callbackPath: NODELOC_CALLBACK_PATH,
+      callbackUrl: (() => {
+        try { return new URL(NODELOC_CALLBACK_PATH, c.req.url).toString(); } catch { return NODELOC_CALLBACK_PATH; }
+      })(),
+      redirectUri: nodeloc.redirectUri,
+    },
 
     // R2 头像公网地址（留空则用 Worker 代理 /api/avatar/<key>）
     r2PublicUrl: String(raw.r2_public_url || c.env.R2_PUBLIC_URL || '').trim(),
@@ -787,6 +813,32 @@ app.post('/settings', async (c) => {
     const list = String(body.captchaImages || '').split(',')
       .map((x) => x.trim().toLowerCase()).filter((x) => ALLOWED.includes(x));
     await set('captcha_images', list.length ? list.join(',') : ALLOWED.join(','));
+  }
+
+  /* NodeLoc 第三方登录：开关 + 应用凭据 + 首次登录策略。
+     Secret 只在显式提交新值时写入；前端显示掩码，留空不覆盖已有密钥。 */
+  if (body.nodelocEnabled !== undefined) {
+    await set('nodeloc_enabled', body.nodelocEnabled ? '1' : '0');
+    await audit(c, u.id, 'admin.nodeloc', 'site', `enabled=${body.nodelocEnabled ? '1' : '0'}`);
+  }
+  if (body.nodelocClientId !== undefined) {
+    await set('nodeloc_client_id', String(body.nodelocClientId || '').trim().slice(0, 200));
+  }
+  if (String(body.nodelocClientSecret || '').trim()) {
+    await set('nodeloc_client_secret', String(body.nodelocClientSecret).trim().slice(0, 300));
+  } else if (body.nodelocClearSecret === true) {
+    await set('nodeloc_client_secret', '');
+  }
+  if (body.nodelocAutoRegister !== undefined) {
+    await set('nodeloc_auto_register', body.nodelocAutoRegister ? '1' : '0');
+  }
+  if (body.nodelocScopeEmail !== undefined) {
+    await set('nodeloc_scope_email', body.nodelocScopeEmail ? '1' : '0');
+  }
+  if (body.nodelocRedirectUri !== undefined) {
+    const r = String(body.nodelocRedirectUri || '').trim();
+    if (r && !/^https?:\/\//i.test(r)) return fail(c, '回调地址必须是以 http(s):// 开头的绝对地址');
+    await set('nodeloc_redirect_uri', r.slice(0, 300));
   }
 
   // 新域名申请开关（暂停后普通用户无法提交申请，管理员仍可自建）

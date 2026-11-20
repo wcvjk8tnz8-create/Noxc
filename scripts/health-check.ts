@@ -22,6 +22,7 @@ const css = [
   'src/app/styles/liquid-glass.css',
   'src/app/styles/reverie.css',
   'src/app/styles/captcha.css',
+  'src/app/styles/oauth.css',
 ];
 for (const p of css) {
   const t = read(p);
@@ -66,12 +67,16 @@ for (const p of srcFiles) {
 const main = read('src/app/main.tsx');
 const imports = [...main.matchAll(/import\s+['"]\.\/styles\/([^'"]+)['"]/g)].map((m) => m[1]);
 check(
-  imports.at(-1) === 'reverie.css' || imports.at(-1) === 'captcha.css',
+  ['reverie.css', 'captcha.css', 'oauth.css'].includes(String(imports.at(-1))),
   `视觉权威层为 Reverie，独立组件层可最后收口（实际 ${imports.at(-1)}）`
 );
 check(
   imports.indexOf('reverie.css') < imports.indexOf('captcha.css') || !imports.includes('captcha.css'),
   '滑块组件层在 Reverie 之后，不被全站色板回压'
+);
+check(
+  imports.indexOf('reverie.css') < imports.indexOf('oauth.css') || !imports.includes('oauth.css'),
+  '第三方登录按钮层在 Reverie 之后，不被全站按钮基线回压成直角'
 );
 check(
   imports.includes('motion.css') && imports.indexOf('motion.css') < imports.indexOf('liquid-glass.css'),
@@ -240,9 +245,10 @@ check(/bl-petals/.test(bloom) && /prefers-reduced-motion/.test(bloom), '花瓣�
 check(/\.bgswitch button[\s\S]{0,300}border-radius:\s*50%/.test(bloom), '壁纸切换器为圆形缩略点');
 check(/min-width:\s*620px\s*!important/.test(bloom), '窄屏表格不再竖排断字');
 check(
-  imports.includes('reverie.css') && imports.indexOf('reverie.css') < imports.length - 1
-    ? imports.at(-1) === 'captcha.css' : imports.at(-1) === 'reverie.css',
-  'Reverie 为视觉权威层，滑块组件层只在其后收口'
+  imports.includes('reverie.css') &&
+  ['captcha.css', 'oauth.css'].includes(String(imports.at(-1))) &&
+  imports.indexOf('reverie.css') < imports.indexOf('captcha.css'),
+  'Reverie 为视觉权威层，滑块 / 第三方登录组件层只在其后收口'
 );
 
 /* 12. 首屏一次性就绪：不再「一阶段 / 二阶段 / 三阶段慢慢加载出来」 */
@@ -560,11 +566,41 @@ check(/validateTrace/.test(cpCore) && /uniformT/.test(cpCore), '拖动轨迹做�
 check(/markUsed\(env, 'c:'/.test(cpCore) && /markUsed\(env, 'p:'/.test(cpCore), 'challenge 与 pass 各消耗一次 nonce（防重放）');
 check(/p\.scope !== captchaScope\(userId\)/.test(cpCore), 'pass 票据绑定用户 id，不能跨账号借用');
 check(/issueRateOk/.test(cpRoute) && /429/.test(cpRoute), '领取挑战有频控，挡住脚本无限刷票据');
-check(/app\.use\('\/api\/subdomains\/\*', requireAuth\)/.test(cpIndex), 'captcha 路由在 requireAuth 之后，未登录领不到挑战');
 check(
-  cpIndex.indexOf("app.route('/api/subdomains', captchaRoutes)") <
-  cpIndex.indexOf("app.route('/api/subdomains', subdomainRoutes)"),
-  'captcha 路由先于 /:id 挂载，否则会被当成域名 id 吃掉'
+  /app\.use\('\/api\/captcha', requireAuth\)/.test(cpIndex) &&
+  /app\.use\('\/api\/captcha\/\*', requireAuth\)/.test(cpIndex),
+  'captcha 独立前缀受 requireAuth 保护，未登录领不到挑战'
+);
+check(
+  cpIndex.indexOf("app.route('/api/captcha', captchaRoutes)") >= 0 &&
+  cpIndex.indexOf("app.route('/api/captcha', captchaRoutes)") < cpIndex.indexOf("app.route('/api', recordRoutes)"),
+  'captcha 挂独立前缀且早于 recordRoutes 的 /subdomains/:id/verify'
+);
+/* 旧写法挂在 /api/subdomains 下，POST /captcha/verify 会被 records 的
+   POST /subdomains/:id/verify 抢先命中，captcha 被当域名 id → 404「子域名不存在」，
+   前端拿不到票据 → 按钮一直锁 → 重新滑 → 又 404，形成死循环。 */
+check(
+  /app\.post\('\/subdomains\/:id\/verify'/.test(read('src/routes/records.ts')) &&
+  !/app\.route\('\/api\/subdomains', captchaRoutes\)/.test(cpIndex) &&
+  !/\/api\/subdomains\/captcha/.test(cpComp) &&
+  !/\/api\/subdomains\/captcha/.test(cpRoute),
+  '验证接口已避开 /subdomains/:id/verify 同形路由（死循环根因）'
+);
+check(
+  /\/api\/captcha\/challenge/.test(cpComp) && /\/api\/captcha\/verify/.test(cpComp) &&
+  /app\.get\('\/challenge'/.test(cpRoute) && /app\.post\('\/verify'/.test(cpRoute),
+  '前后端领取挑战 / 提交验证路径一致'
+);
+const brokenCaptcha = cpComp.replace('/api/captcha/verify', '/api/subdomains/captcha/verify');
+check(
+  !/\/api\/captcha\/verify/.test(brokenCaptcha) && brokenCaptcha !== cpComp,
+  '反向对照：改回旧路径就会撞上 :id/verify，断言必须失败'
+);
+check(
+  !/\/api\/subdomains\/mine/.test(cpLegacy) &&
+  cpSub.indexOf("app.get('/mine', listMine)") >= 0 &&
+  cpSub.indexOf("app.get('/mine', listMine)") < cpSub.indexOf("app.get('/:id'"),
+  '待审查询不再撞 /:id，/mine 别名注册在 /:id 之前'
 );
 check(/jpeg\|webp\|ico/.test(cpIndex), '静态资源放行 .webp（验证图不会被根域名重定向截走）');
 check(/captchaEnabled: await captchaEnabled\(c\.env\)/.test(cpIndex), '/api/config 下发开关，前后端同一份判定');
@@ -589,6 +625,66 @@ check(/prefers-reduced-motion/.test(cpCss) && /html\[data-theme="dark"\] \.tdcap
 check(/^[\s\S]*\.tdcap/.test(cpCss) && !/\.btn[^-]/.test(cpCss), '组件层只用 tdcap- 前缀，不回压全站按钮');
 check(/import '\.\/styles\/captcha\.css'/.test(cpMain), '组件样式层已挂载');
 check(cpServerDict.includes("'请先完成滑块验证'") && cpDict.includes("'安全验证'"), '服务端与前端英文词条齐，英文模式不夹生');
+
+/* 首页公开统计：注册人数 / 已开通域名，不新增首屏请求 */
+const stHome = read('src/app/pages/Home.tsx');
+const stLegacy = read('src/app/legacy/home.ts');
+const stCss = read('src/app/styles/reverie.css');
+const stLib = read('src/lib/publicStats.ts');
+check(/data-stat-users/.test(stHome) && /data-stat-domains/.test(stHome) && /rv-stats/.test(stHome), '首页有注册人数 / 域名数展示位');
+check(
+  /publicStats: await publicStats\(c\.env\)/.test(cpIndex) && /app\.get\('\/api\/stats'/.test(cpIndex),
+  '统计随 /api/config 同一次返回，另有独立只读接口（零新增首屏请求）'
+);
+check(
+  /SELECT COUNT\(\*\) AS n FROM users/.test(stLib) && /status = 'approved'/.test(stLib) && /Promise\.all/.test(stLib),
+  '口径：人数取 users 全量，域名数取 status=approved，两条 COUNT 并行'
+);
+check(
+  /querySelectorAll\('\[data-stat-users\]'\)/.test(stLegacy) && /toLocaleString/.test(stLegacy) &&
+  !/api\.get\('\/api\/stats'\)/.test(stLegacy),
+  '数字千分位，且首页不再额外拉统计接口'
+);
+check(cpDict.includes("'注册人数'") && cpDict.includes("'已开通域名'"), '统计英文词条齐，英文模式不夹生');
+check(/\.rv-stats/.test(stCss) && /max-width: 700px[\s\S]*\.rv-stats/.test(stCss), '手机断点覆盖统计区');
+
+/* NodeLoc OAuth 2.0 接入：把踩过的坑固化成阻断断言 */
+const nlSchema = read('schema.sql');
+const nlLib = read('src/lib/nodeloc.ts');
+const nlRoute = read('src/routes/nodeloc.ts');
+const nlIndex = read('src/index.ts');
+const nlAdminApi = read('src/routes/admin.ts');
+const nlAdminUi = read('src/app/legacy/admin.ts');
+const nlLogin = read('src/app/pages/Login.tsx');
+const nlLoginCtrl = read('src/app/legacy/index.ts');
+const nlProfile = read('src/app/pages/Profile.tsx');
+const nlProfileCtrl = read('src/app/legacy/profile.ts');
+const nlCss = read('src/app/styles/oauth.css');
+const nlDict = read('src/app/lib/dict.en.ts');
+const nlServerDict = read('src/lib/i18nServer.ts');
+
+check(/CREATE TABLE IF NOT EXISTS oauth_bindings/.test(nlSchema) && /UNIQUE\(provider, sub\)/.test(nlSchema), 'D1 建绑定表且 provider+sub 唯一');
+check(/CREATE TABLE IF NOT EXISTS oauth_states/.test(nlSchema) && /'nodeloc_enabled', '0'/.test(nlSchema), 'D1 建一次性 state 表且默认关闭');
+check(/www\.nodeloc\.com\/oauth-provider\/authorize/.test(nlLib) && /oauth-provider\/token/.test(nlLib) && /oauth-provider\/userInfo/.test(nlLib), '三个端点与官方对接文档一致');
+check(/openid profile/.test(nlLib) && /scopeEmailOn \? ' email' : ''/.test(nlLib), '默认不申请需审核的 email 权限，做成可选项');
+check(/state !== cookieState\(c\)/.test(nlRoute) && /consumeState\(c, state\)/.test(nlRoute), 'state 同时校验 Cookie 与 D1，挡 CSRF');
+check(/DELETE FROM oauth_states WHERE state = \? AND exp >= \? RETURNING/.test(nlRoute), 'state 一次性原子领取，挡重放');
+check(/client_secret: cfg\.clientSecret/.test(nlRoute) && /Authorization: `Basic/.test(nlRoute), 'Secret 只在服务端换 token，且兼容 Basic 认证');
+check(/if \(!sub \|\| sub\.length > 200\) return null/.test(nlRoute), 'userinfo 必须带合法 sub');
+check(/防账号接管/.test(nlRoute) && /st\.mode === 'bind'/.test(nlRoute), '不拿 userinfo 邮箱认领已有账号，绑定只由本人发起');
+check(/oauth:disabled:/.test(nlRoute) && /pseudoEmail/.test(nlRoute), '自动建号用内部邮箱 + 不可登录密码');
+check(
+  nlIndex.indexOf("app.route('/api/auth/nodeloc', nodelocRoutes)") < nlIndex.indexOf("app.route('/api/auth', authRoutes)"),
+  'OAuth 路由先于 /api/auth 挂载，否则会被子应用吞成 404'
+);
+check(/nodelocEnabled: await nodelocEnabled\(c\.env\)/.test(nlIndex) && !/clientSecret:/.test(nlIndex), '公开配置只下发开关，不下发任何密钥');
+check(/'nodeloc_client_secret'\]/.test(nlAdminApi) && /body\.nodelocClientSecret/.test(nlAdminApi), '后台 Secret 只回掩码、留空不覆盖');
+check(/id="sNodelocEnabled"/.test(nlAdminUi) && /id="sNodelocClientId"/.test(nlAdminUi) && /id="sNodelocClientSecret"/.test(nlAdminUi), '后台有开关与两个凭据输入框');
+check(/nodelocClientId: document\.getElementById\('sNodelocClientId'\)\.value/.test(nlAdminUi), '后台「保存设置」提交凭据，开关不会改不动');
+check(/id="nodelocWrap" hidden/.test(nlLogin) && /cfg\.nodelocEnabled/.test(nlLoginCtrl), '登录按钮默认隐藏，只有开关齐备才显示');
+check(/id="btnNodelocBind"/.test(nlProfile) && /start\?bind=1/.test(nlProfileCtrl), '个人资料可绑定 / 解绑 NodeLoc');
+check(/使用 NodeLoc 登录/.test(nlDict) && /回调地址必须是以 http\(s\)/.test(nlServerDict), '前后端英文词条齐，不夹生');
+check(/min-height: 44px/.test(nlCss) && /data-theme="dark"/.test(nlCss) && /prefers-reduced-motion/.test(nlCss), '按钮 ≥44px、深色与减少动态都覆盖');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);

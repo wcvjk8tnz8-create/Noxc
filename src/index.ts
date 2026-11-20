@@ -7,12 +7,15 @@ import { emailRuleHint, emailRuleOf } from './lib/emailRule.js';
 import { DEFAULT_FOOTER_ICP_HTML } from './lib/footerIcp.js';
 import { DEFAULT_FOOTER_CONTACT_HTML } from './lib/footerContact.js';
 import { reservedLabelsOf } from './lib/reserved.js';
+import { publicStats } from './lib/publicStats.js';
+import { nodelocEnabled } from './lib/nodeloc.js';
 import { rootPageFor } from './html/rootPages.js';
 import { Hono } from 'hono';
 import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
 import { ok, fail, defaultQuotaOf } from './lib/util.js';
 import { RECORD_TYPES, TTL_CHOICES, VERIFY_PRESETS, TYPE_NAMES } from './lib/records.js';
 import authRoutes from './routes/auth.js';
+import nodelocRoutes from './routes/nodeloc.js';
 import termsRoutes from './routes/terms.js';
 import whoisRoutes from './routes/whois.js';
 import delegationRoutes from './routes/delegation.js';
@@ -136,7 +139,7 @@ app.get('/api/avatar/:key', async (c) => {
  * 该接口只读、不含任何密钥或用户信息，允许任意来源读取；
  * 其余 /api/* 接口保持同源，不受影响。
  */
-app.use('/api/config', async (c, next) => {
+const publicCors = async (c, next) => {
   const origin = c.req.header('Origin') || '*';
   const hdrs: Record<string, string> = {
     'Access-Control-Allow-Origin': origin,
@@ -148,7 +151,9 @@ app.use('/api/config', async (c, next) => {
   if (c.req.method === 'OPTIONS') return new Response(null, { status: 204, headers: hdrs });
   await next();
   try { for (const [k, v] of Object.entries(hdrs)) c.res.headers.set(k, v); } catch { /* 响应不可写时忽略 */ }
-});
+};
+app.use('/api/config', publicCors);
+app.use('/api/stats', publicCors);
 
 // 前端初始化配置
 // 公开配置（含站点品牌，登录页也要用）
@@ -177,6 +182,8 @@ app.get('/api/config', async (c) => {
     reservedLabels: [...(await reservedLabelsOf(c.env))],
     // 注册滑块验证：前端据此决定是否渲染，后端注册接口用同一份判定
     captchaEnabled: await captchaEnabled(c.env),
+    // NodeLoc 第三方登录：只有后台开启且凭据齐备才显示按钮，不下发任何密钥
+    nodelocEnabled: await nodelocEnabled(c.env),
     // 注册页后缀菜单据此显示每个后缀的积分（0 = Free，未配置 = 按全局规则）
     rootPointCosts: parseRootCosts(s.root_point_costs),
     pointRules: {
@@ -198,6 +205,8 @@ app.get('/api/config', async (c) => {
     fontDisplay: s.font_display || 'system',
     // 首页展示的额度跟着后台「站点设置」走，与注册同一逐级回落口径
     defaultQuota: await defaultQuotaOf(c.env),
+    // 首页「注册人数 / 已开通域名」：随 /api/config 一次返回，不新增首屏请求
+    publicStats: await publicStats(c.env),
     // 页脚备案链接：首次部署即显示（审核要求），后台可覆盖；管理员主动清空则隐藏
     footerIcpHtml: s.footer_icp_html === undefined ? DEFAULT_FOOTER_ICP_HTML : String(s.footer_icp_html),
     // 页脚联系方式：首次部署即显示（Telegram 邀请链接），后台可覆盖；管理员主动清空则隐藏
@@ -220,7 +229,15 @@ app.get('/api/config', async (c) => {
   });
 });
 
+// 公开统计（与 /api/config 同源同口径，便于根域名静态页 / 第三方读取）
+app.get('/api/stats', async (c) => ok(c, await publicStats(c.env)));
+
 // 认证
+/* NodeLoc OAuth 必须先于 /api/auth 挂载：Hono 按注册顺序匹配，
+   否则 /api/auth 子应用会先把 /nodeloc/start 吞成 404。
+   同时注册 /oauth/nodeloc 前缀，便于在 NodeLoc 应用里登记直观的回调地址。 */
+app.route('/api/auth/nodeloc', nodelocRoutes);
+app.route('/oauth/nodeloc', nodelocRoutes);
 app.route('/api/auth', authRoutes);
 // 第三方邮箱注册申请：公开，不需要登录（管理员审批接口在 /api/admin 下）
 app.route('/api', emailRequestRoutes);
@@ -230,6 +247,9 @@ app.route('/api', termsRoutes);
 app.route('/api', whoisRoutes);
 
 // 需要登录的接口
+// 滑块验证独立前缀也要登录：未登录领不到挑战，也就没法为别人刷票据
+app.use('/api/captcha', requireAuth);
+app.use('/api/captcha/*', requireAuth);
 app.use('/api/subdomains/*', requireAuth);
 app.use('/api/points/*', requireAuth);
 app.use('/api/delegation/*', requireAuth);
@@ -242,13 +262,14 @@ app.use('/api/profile/*', requireAuth);
 app.use('/api/tickets/*', requireAuth);
 app.use('/api/transfer/*', requireAuth);
 
+// 独立前缀，且必须早于 recordRoutes 的 /subdomains/:id/verify：
+// 旧 /api/subdomains/captcha/verify 会被 :id 当成域名查库，回「子域名不存在」
+app.route('/api/captcha', captchaRoutes);
 app.route('/api', recordRoutes);
 app.route('/api/profile', profileRoutes);
 app.route('/api/tickets', ticketRoutes);
 app.route('/api/transfer', transferRoutes);
 app.route('/api/points', pointRoutes);
-// 必须先挂：subdomainRoutes 里的 /:id 会把 /captcha 当成域名 id 吃掉
-app.route('/api/subdomains', captchaRoutes);
 app.route('/api/subdomains', subdomainRoutes);
 // NS 委派：/api/delegation/providers 与 /api/subdomains/:id/delegation
 app.route('/api/delegation', delegationRoutes);

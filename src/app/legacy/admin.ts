@@ -469,6 +469,22 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <div class="hint">可选 typhoon / meoy / miku / cloud，逗号分隔，随机抽一张；留空恢复全部。管理员自建域名不经过验证，关闭后全链路放行。</div>
             </div>
             <div class="field">
+              <label>第三方登录 · NodeLoc</label>
+              <div><label class="check" style="margin-top:2px"><input type="checkbox" id="sNodelocEnabled" ${String(s.nodeloc_enabled ?? '0') === '1' ? 'checked' : ''}> 登录页显示「使用 NodeLoc 登录」</label></div>
+              <div class="grid2" style="margin-top:8px">
+                <div><span class="dim">Client ID</span><input id="sNodelocClientId" type="text" autocomplete="off" placeholder="应用管理页复制" value="${esc(s.nodeloc_client_id || '')}" ${d.nodeloc?.fromEnv ? 'disabled' : ''}></div>
+                <div><span class="dim">Client Secret</span><input id="sNodelocClientSecret" type="password" autocomplete="new-password" placeholder="${d.nodeloc?.secretSet ? '已配置 ' + esc(d.nodeloc.secretMasked) + '（留空不修改）' : '留空则不修改'}" ${d.nodeloc?.fromEnv ? 'disabled' : ''}></div>
+              </div>
+              <div class="hint">在 <a href="https://www.nodeloc.com/oauth-provider/applications" target="_blank" rel="noopener">NodeLoc 应用管理页</a> 创建应用（需黄金会员 TL2 及以上）。回调 URI 必须逐字符填：<b>${esc(d.nodeloc?.callbackUrl || '/oauth/nodeloc/callback')}</b></div>
+              <div style="margin-top:8px">
+                <label class="check"><input type="checkbox" id="sNodelocAutoRegister" ${String(s.nodeloc_auto_register ?? '1') !== '0' ? 'checked' : ''}> 首次登录自动创建本地账号</label>
+                <label class="check" style="margin-top:4px"><input type="checkbox" id="sNodelocScopeEmail" ${String(s.nodeloc_scope_email ?? '0') === '1' ? 'checked' : ''}> 申请 email 权限（需 NodeLoc 侧审核应用）</label>
+              </div>
+              <div style="margin-top:8px"><span class="dim">自定义回调地址（可选）</span><input id="sNodelocRedirectUri" type="text" autocomplete="off" placeholder="留空则使用上方地址" value="${esc(s.nodeloc_redirect_uri || '')}"></div>
+              <div class="hint">关闭自动建号后，访客需先用邮箱注册，再到「个人资料 → 第三方账号」绑定。状态：<span>${d.nodeloc?.ready ? '已就绪' : '未就绪（需开启并填齐 Client ID / Secret）'}</span>${d.nodeloc?.fromEnv ? ' · 凭据来自 Worker 环境变量，后台只读' : ''}</div>
+              <div class="hint">Secret 只保存在服务端，页面只显示掩码。</div>
+            </div>
+            <div class="field">
               <label>用户配额</label>
               <div class="grid2">
                 <div><span class="dim">新用户默认配额</span><input id="sDefaultQuota" type="number" min="-1" max="10000" step="1" value="${esc(s.default_quota ?? '5')}"></div>
@@ -692,6 +708,14 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             reservedLabels: document.getElementById('sReservedLabels').value,
             captchaEnabled: (document.getElementById('sCaptchaEnabled') as HTMLInputElement).checked,
             captchaImages: (document.getElementById('sCaptchaImages') as HTMLInputElement).value,
+            nodelocEnabled: (document.getElementById('sNodelocEnabled') as HTMLInputElement).checked,
+            ...(d.nodeloc?.fromEnv ? {} : {
+              nodelocClientId: document.getElementById('sNodelocClientId').value,
+              nodelocClientSecret: document.getElementById('sNodelocClientSecret').value,
+              nodelocRedirectUri: document.getElementById('sNodelocRedirectUri').value,
+            }),
+            nodelocAutoRegister: (document.getElementById('sNodelocAutoRegister') as HTMLInputElement).checked,
+            nodelocScopeEmail: (document.getElementById('sNodelocScopeEmail') as HTMLInputElement).checked,
             maxAccountsPerIp: document.getElementById('sIpLimit').value,
             emailRule: document.getElementById('sEmailRule').value,
             whoisHolder: document.getElementById('sWhois').value,

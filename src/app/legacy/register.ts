@@ -221,7 +221,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     var btn = document.getElementById('btnApply');
     var labelEl = document.getElementById('label');
     try {
-      var d = await api.get('/api/subdomains/mine?limit=200');
+      var d = await api.get('/api/subdomains');
       var pending = (d.items || []).filter(function(s){ return s.status === 'pending'; });
       if (!pending.length) {
         box.innerHTML = '';

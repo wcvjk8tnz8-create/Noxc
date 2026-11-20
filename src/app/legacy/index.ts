@@ -133,13 +133,51 @@ export async function mountLogin(_root: HTMLElement | null): Promise<void> {
       `我已阅读并同意<a href="/terms" target="_blank">《服务条款与免责声明》</a>，了解并接受禁止滥用与免责条款`;
   }).catch((e) => console.error("初始化失败", e));
   
-  // 后台开启「注册需要验证码」时才显示验证码输入框
+  // 后台开启「注册需要验证码」时才显示验证码输入框；
+  // NodeLoc 第三方登录同样只在开关 + 凭据齐备时显示，避免点了 404。
   api.get('/api/config').then((cfg) => {
     if (cfg && (cfg.mailVerifyRequired || cfg.verifyRequired)) {
       const f = document.getElementById('rCodeField');
       if (f) f.style.display = '';
     }
+    if (cfg && cfg.nodelocEnabled) {
+      const w = document.getElementById('nodelocWrap');
+      if (w) w.hidden = false;
+    }
   }).catch((e) => console.error("初始化失败", e));
+
+  /* NodeLoc 授权回跳的错误码：只带状态、不带任何用户资料或令牌。
+     文案走前端词典，英文模式不会中英夹生。 */
+  const OAUTH_MSG: Record<string, string> = {
+    disabled: '站点尚未启用 NodeLoc 登录',
+    denied: '你已取消 NodeLoc 授权',
+    provider_error: 'NodeLoc 返回了错误，请稍后重试',
+    bad_request: '授权参数不完整，请重新发起',
+    state_failed: '无法发起授权，请稍后重试',
+    state_mismatch: '授权校验失败，请重新发起',
+    state_expired: '授权已过期，请重新发起',
+    token_failed: 'NodeLoc 令牌换取失败，请稍后重试',
+    userinfo_failed: '无法读取 NodeLoc 用户资料',
+    signin_failed: '登录失败，请稍后重试',
+    register_failed: '创建账号失败，请稍后重试',
+    already_bound: '该 NodeLoc 账号已绑定其它账号',
+    bind_login: '请先登录，再到个人资料绑定 NodeLoc',
+    bind_required: '请先用邮箱注册并登录，再到个人资料绑定 NodeLoc',
+    banned: '该账号已被封禁',
+    ip_banned: '该网络环境已被封禁',
+    ip_limit: '同一网络注册账号数已达上限',
+  };
+  const oauthCode = new URLSearchParams(location.search).get('oauth');
+  if (oauthCode) {
+    const msg = OAUTH_MSG[oauthCode] || '第三方登录未完成，请重试';
+    toast(msg, 'err');
+    // 清掉地址栏里的错误码，刷新页面不会反复弹同一条
+    try {
+      const u = new URL(location.href);
+      u.searchParams.delete('oauth');
+      history.replaceState(null, '', u.pathname + (u.search ? u.search : '') + u.hash);
+    } catch { /* 忽略 */ }
+  }
   
   // 登录态探测已由 head 脚本完成（命中则直接跳控制台），这里不再重复请求
   

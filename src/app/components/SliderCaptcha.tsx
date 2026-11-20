@@ -74,7 +74,7 @@ export default function SliderCaptcha({ onPass }: Props) {
     traceRef.current = [];
     passRef.current(null);
     try {
-      const res = await fetch('/api/subdomains/captcha', { credentials: 'same-origin', headers: langHeader() });
+      const res = await fetch('/api/captcha/challenge', { credentials: 'same-origin', headers: langHeader() });
       const d: any = await res.json().catch(() => ({}));
       if (!aliveRef.current) return;
       if (!d.success) {
@@ -152,7 +152,7 @@ export default function SliderCaptcha({ onPass }: Props) {
     setStatus('verifying');
     setMsg('正在验证…');
     try {
-      const res = await fetch('/api/subdomains/captcha/verify', {
+      const res = await fetch('/api/captcha/verify', {
         method: 'POST', credentials: 'same-origin', headers: langHeader(),
         body: JSON.stringify({
           id: ch.id, token: ch.token, x: baseX,

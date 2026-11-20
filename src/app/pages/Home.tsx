@@ -86,6 +86,12 @@ export default function HomePage() {
             <a className="rv-pill ink lg" href="/register">开始注册 <Ico name="arrow" size={17} /></a>
             <a className="rv-pill line lg" href="/dashboard">管理控制台 <Ico name="arrowUp" size={15} /></a>
           </div>
+          {/* 站点公开数据：随 /api/config 一次返回，首屏同一帧填好 */}
+          <div className="rv-stats" id="siteStats" aria-label="站点数据">
+            <div className="rv-stat"><b data-stat-users>—</b><span>注册人数</span></div>
+            <i className="rv-stat-rule" aria-hidden="true"></i>
+            <div className="rv-stat"><b data-stat-domains>—</b><span>已开通域名</span></div>
+          </div>
           <p className="rv-hero-foot">Kept open all day by small studios and long-form writers</p>
         </section>
 

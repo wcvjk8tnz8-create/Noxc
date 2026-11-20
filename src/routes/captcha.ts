@@ -1,10 +1,12 @@
 /**
- * GET  /api/subdomains/captcha         领取一次挑战（缺口图 + 签名 token）
- * POST /api/subdomains/captcha/verify  提交对齐坐标与拖动轨迹，换取一次性 passToken
+ * GET  /api/captcha/challenge  领取一次挑战（缺口图 + 签名 token）
+ * POST /api/captcha/verify     提交对齐坐标与拖动轨迹，换取一次性 passToken
  *
- * 挂在 /api/subdomains 前缀下，因此天然受 requireAuth 保护：
- * 未登录领不到挑战，也就没法为别人刷票据。
- * 注意：本路由必须在 subdomainRoutes 之前挂载，否则 `/:id` 会先吃掉 /captcha。
+ * 独立前缀，不能挂回 /api/subdomains：recordRoutes 先注册了
+ * POST /api/subdomains/:id/verify（平台验证），形状与旧 /captcha/verify 完全相同，
+ * `captcha` 会被当成域名 id 查库 → 404「子域名不存在」→ 永远拿不到票据。
+ * 换到 /api/captcha 后，任何 /:id 路由都不可能再吃掉验证接口。
+ * 由 /api/captcha 与 /api/captcha/* 上的 requireAuth 保护：未登录领不到挑战。
  */
 import { Hono } from 'hono';
 import { ok, fail } from '../lib/util.js';
@@ -14,7 +16,7 @@ import {
 
 const app = new Hono();
 
-app.get('/captcha', async (c) => {
+app.get('/challenge', async (c) => {
   const u: any = c.get('user');
   if (!(await captchaEnabled(c.env))) {
     // 后台关掉验证时不给图也不给票据，前端直接隐藏组件、注册接口同步放行
@@ -27,7 +29,7 @@ app.get('/captcha', async (c) => {
   return ok(c, { enabled: true, ...ch });
 });
 
-app.post('/captcha/verify', async (c) => {
+app.post('/verify', async (c) => {
   const u: any = c.get('user');
   if (!(await captchaEnabled(c.env))) return fail(c, '滑块验证已关闭', 400);
   const body = await c.req.json().catch(() => ({}));

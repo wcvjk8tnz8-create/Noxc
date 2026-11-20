@@ -14,7 +14,39 @@ export async function mountProfile(_root: HTMLElement | null): Promise<void> {
     applyBranding(await loadBranding());
     await load();
   }).catch((e) => console.error("初始化失败", e));
-  
+
+  /* NodeLoc 第三方账号：站点启用后才显示；绑定 / 解绑都不影响邮箱密码登录 */
+  function refreshNodelocState() {
+    api.get('/api/auth/nodeloc/status').then((st) => {
+      const state = document.getElementById('nodelocState');
+      const btn = document.getElementById('btnNodelocBind') as HTMLButtonElement | null;
+      if (state) state.textContent = st && st.linked ? '已绑定' : '未绑定';
+      if (btn) btn.textContent = st && st.linked ? '解除绑定' : '绑定';
+    }).catch(() => { /* 接口不可用时保持「未绑定」，不打断页面 */ });
+  }
+  api.get('/api/config').then((cfg) => {
+    if (!cfg || !cfg.nodelocEnabled) return;
+    const row = document.getElementById('nodelocRow');
+    if (row) row.hidden = false;
+    refreshNodelocState();
+  }).catch(() => {});
+
+  const nlBtn = document.getElementById('btnNodelocBind');
+  if (nlBtn) nlBtn.onclick = async () => {
+    try {
+      const st = await api.get('/api/auth/nodeloc/status');
+      if (st && st.linked) {
+        if (!window.confirm('确定要解除 NodeLoc 账号绑定吗？解除后仍可用邮箱密码登录。')) return;
+        await api.post('/api/auth/nodeloc/unbind', {});
+        toast('已解除 NodeLoc 绑定');
+        refreshNodelocState();
+      } else {
+        location.href = '/api/auth/nodeloc/start?bind=1';
+      }
+    } catch (e) { toast(e.message, 'err'); }
+  };
+  if (new URLSearchParams(location.search).get('oauth') === 'bound') toast('NodeLoc 账号已绑定');
+
   async function load() {
     try {
       data = await api.get('/api/profile');

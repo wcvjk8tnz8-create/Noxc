@@ -99,6 +99,16 @@ export default function LoginPage() {
             </div>
 
             <button className="btn primary block" id="btnLogin">登录账户</button>
+
+            {/* 第三方登录：后端开启且凭据齐备时才由控制器去掉 hidden，
+                用 <a> 整页跳转，保证无 JS 也能发起授权、且能触发跳页过渡。 */}
+            <div className="td-oauth-wrap" id="nodelocWrap" hidden>
+              <div className="td-oauth-sep">OR</div>
+              <a className="td-oauth-btn" id="btnNodeloc" href="/api/auth/nodeloc/start">
+                <span className="td-oauth-mark">NL</span>
+                <span>使用 NodeLoc 登录</span>
+              </a>
+            </div>
           </div>
 
           {/* 忘记密码：邮箱验证码重置 */}

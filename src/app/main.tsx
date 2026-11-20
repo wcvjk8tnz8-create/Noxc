@@ -22,6 +22,8 @@ import './styles/reverie.css';
 /* 滑块拼图验证是独立组件层：类名全部 tdcap- 前缀，不参与全站色板，
    放在 Reverie 之后收口，避免被按钮/圆角基线回压成直角。 */
 import './styles/captcha.css';
+/* NodeLoc 第三方登录按钮：独立前缀，最后加载以免被按钮基线回压。 */
+import './styles/oauth.css';
 /* 切页过渡：Miku 冒出来 + 跳转中气泡。挂在 body 上，不随 SPA 页面卸载。 */
 import { mountTransition } from './lib/pageTransition';
 
