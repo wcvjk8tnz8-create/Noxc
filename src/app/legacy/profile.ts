@@ -20,7 +20,8 @@ export async function mountProfile(_root: HTMLElement | null): Promise<void> {
     api.get('/api/auth/nodeloc/status').then((st) => {
       const state = document.getElementById('nodelocState');
       const btn = document.getElementById('btnNodelocBind') as HTMLButtonElement | null;
-      if (state) state.textContent = st && st.linked ? '已绑定' : '未绑定';
+      // 已绑定时直接显示读到的邮箱（纯 ASCII，中英模式都不会夹生）
+      if (state) state.textContent = st && st.linked ? (st.email || '已绑定') : '未绑定';
       if (btn) btn.textContent = st && st.linked ? '解除绑定' : '绑定';
     }).catch(() => { /* 接口不可用时保持「未绑定」，不打断页面 */ });
   }
@@ -45,7 +46,11 @@ export async function mountProfile(_root: HTMLElement | null): Promise<void> {
       }
     } catch (e) { toast(e.message, 'err'); }
   };
-  if (new URLSearchParams(location.search).get('oauth') === 'bound') toast('NodeLoc 账号已绑定');
+  const oauthQ = new URLSearchParams(location.search);
+  if (oauthQ.get('oauth') === 'bound') {
+    const bonus = Number(oauthQ.get('bonus') || 0);
+    toast(bonus > 0 ? `NodeLoc 账号已绑定，配额 +${bonus}` : 'NodeLoc 账号已绑定');
+  }
 
   async function load() {
     try {

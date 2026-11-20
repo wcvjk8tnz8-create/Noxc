@@ -442,7 +442,7 @@ app.get('/settings', async (c) => {
   if (raw.nodeloc_enabled === undefined) items.nodeloc_enabled = '0';
   if (raw.nodeloc_client_id === undefined) items.nodeloc_client_id = '';
   if (raw.nodeloc_auto_register === undefined) items.nodeloc_auto_register = '1';
-  if (raw.nodeloc_scope_email === undefined) items.nodeloc_scope_email = '0';
+  if (raw.nodeloc_scope_email === undefined) items.nodeloc_scope_email = '1';
   if (raw.nodeloc_redirect_uri === undefined) items.nodeloc_redirect_uri = '';
 
   const mask = (v) => {

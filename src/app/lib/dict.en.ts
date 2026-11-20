@@ -30,6 +30,7 @@ export const EXTRA_DICT: Record<string, string> = {
   'NodeLoc 账号': 'NodeLoc account',
   '绑定': 'Link', '解除绑定': 'Unlink',
   'NodeLoc 账号已绑定': 'NodeLoc account linked',
+  'NodeLoc 账号已绑定，配额 +5': 'NodeLoc linked, quota +5',
   '已解除 NodeLoc 绑定': 'NodeLoc account unlinked',
   '站点尚未启用 NodeLoc 登录': 'NodeLoc sign-in is not enabled on this site',
   '你已取消 NodeLoc 授权': 'You cancelled the NodeLoc authorization',

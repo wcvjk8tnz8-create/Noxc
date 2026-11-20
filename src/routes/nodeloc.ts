@@ -18,6 +18,7 @@ import { createSession, setSessionCookie } from '../middleware/auth.js';
 import { ok, fail, now, audit, clientIp, defaultQuotaOf } from '../lib/util.js';
 import {
   NODELOC_PROVIDER, NODELOC_AUTHORIZE, NODELOC_TOKEN, NODELOC_USERINFO,
+  NODELOC_USERINFO_LEGACY, NODELOC_BIND_QUOTA_BONUS,
   NODELOC_STATE_TTL_MS, NODELOC_STATE_COOKIE,
   nodelocConfig, redirectUriOf,
 } from '../lib/nodeloc.js';
@@ -107,20 +108,120 @@ async function exchangeToken(cfg: any, code: string, redirectUri: string): Promi
   return String(j?.access_token || '').trim();
 }
 
-async function fetchUserinfo(token: string): Promise<any | null> {
-  const r = await fetch(NODELOC_USERINFO, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-  });
+/** 按点路径取值，支持数组下标，如 emails[0].email */
+function atPath(obj: any, path: string): unknown {
+  let cur: any = obj;
+  for (const seg of path.split('.')) {
+    const m = seg.match(/^([A-Za-z0-9_$]+)\[(\d+)\]$/);
+    if (m) cur = Array.isArray(cur?.[m[1]]) ? cur[m[1]][Number(m[2])] : undefined;
+    else cur = cur?.[seg];
+    if (cur === undefined || cur === null) return undefined;
+  }
+  return cur;
+}
+
+function firstText(obj: any, paths: string[], max = 200): string {
+  for (const p of paths) {
+    const v = atPath(obj, p);
+    if (v === undefined || v === null) continue;
+    const s = String(v).trim();
+    if (s && s.length <= max) return s;
+  }
+  return '';
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** 只要读到邮箱就够了：兼容扁平 / 嵌套 / 数组三种常见 userInfo 结构 */
+function extractEmail(obj: any): string {
+  const raw = firstText(obj, [
+    'email', 'mail', 'user_email', 'email_address', 'data.email', 'user.email',
+    'profile.email', 'attributes.email', 'emails[0].email', 'emails[0]',
+    'response[0].email', 'data.user.email', 'userinfo.email',
+  ], 160).toLowerCase();
+  return EMAIL_RE.test(raw) ? raw : '';
+}
+
+/** 没有 sub / id 时，用邮箱派生一个稳定标识，避免同一账号重复建号 */
+async function emailSub(email: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`nodeloc:email:${email}`));
+  return 'email:' + [...new Uint8Array(buf)].slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function readUserinfo(url: string, token: string, viaQuery = false): Promise<any | null> {
+  const target = viaQuery ? `${url}?access_token=${encodeURIComponent(token)}` : url;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (!viaQuery) headers.Authorization = `Bearer ${token}`;
+  const r = await fetch(target, { headers });
   if (!r.ok) return null;
-  const info: any = await r.json().catch(() => null);
-  const sub = String(info?.sub ?? info?.id ?? '').trim();
+  const text = await r.text();
+  let j: any;
+  try { j = JSON.parse(text); } catch { return null; }
+  if (typeof j === 'string') { try { j = JSON.parse(j); } catch { return null; } }
+  return j && typeof j === 'object' ? j : null;
+}
+
+async function fetchUserinfo(token: string): Promise<any | null> {
+  // 官方端点是全小写 userinfo；旧拼写与 ?access_token= 各兜底一次，避免整份资料 404
+  const attempts: [string, boolean][] = [
+    [NODELOC_USERINFO, false],
+    [NODELOC_USERINFO_LEGACY, false],
+    [NODELOC_USERINFO, true],
+  ];
+  let info: any = null;
+  for (const [url, viaQuery] of attempts) {
+    try { info = await readUserinfo(url, token, viaQuery); } catch { info = null; }
+    if (info) break;
+  }
+  if (!info) return null;
+
+  const email = extractEmail(info);
+  // 有 provider 自带 id/sub 就沿用（兼容已有绑定）；只有邮箱时由邮箱派生
+  let sub = firstText(info, ['sub', 'id', 'user_id', 'uid', 'data.id', 'data.user.id', 'user.id']);
+  if (!sub && email) sub = await emailSub(email);
   if (!sub || sub.length > 200) return null;
   return {
     sub,
-    username: String(info?.preferred_username ?? info?.username ?? info?.name ?? '').trim().slice(0, 80),
-    avatar: String(info?.avatar_url ?? info?.picture ?? info?.avatar ?? '').trim().slice(0, 500),
-    email: String(info?.email ?? '').trim().toLowerCase().slice(0, 160),
+    email,
+    username: firstText(info, ['preferred_username', 'username', 'name', 'data.username', 'user.username'], 80),
+    avatar: firstText(info, ['avatar_url', 'picture', 'avatar', 'data.avatar_url'], 500),
+    source: email ? 'email' : 'id',
   };
+}
+
+/**
+ * 绑定奖励：每个本地账号只领一次 +5 配额。
+ * 解绑再绑、换 NodeLoc 账号、重复回调都不再叠加；管理员与 -1 不限量不加，10000 封顶。
+ * 领取记录同时保存这次读到的邮箱，供 /status 展示「读到了什么」。
+ */
+async function grantBindQuota(c: any, uid: number, info: any): Promise<{ added: number; after: number }> {
+  const db = c.env.DB;
+  let claimed = false;
+  try {
+    const ins: any = await db.prepare(
+      'INSERT OR IGNORE INTO oauth_quota_grants (provider, user_id, email, amount, created_at) VALUES (?,?,?,?,?)'
+    ).bind(NODELOC_PROVIDER, uid, String(info?.email || ''), 0, now()).run();
+    claimed = Number(ins?.meta?.changes || 0) > 0;
+  } catch {
+    return { added: 0, after: 0 }; // 老库尚未建表：不影响绑定主流程
+  }
+  if (!claimed) return { added: 0, after: 0 };
+  try {
+    const u: any = await db.prepare('SELECT id, role, quota FROM users WHERE id = ?').bind(uid).first();
+    if (!u || String(u.role) === 'admin' || Number(u.quota) < 0) {
+      return { added: 0, after: Number(u?.quota ?? 0) };
+    }
+    const before = Number(u.quota);
+    const after = Math.min(10000, before + NODELOC_BIND_QUOTA_BONUS);
+    const added = after - before;
+    await db.prepare('UPDATE users SET quota = ? WHERE id = ?').bind(after, uid).run();
+    await db.prepare('UPDATE oauth_quota_grants SET amount = ? WHERE provider = ? AND user_id = ?')
+      .bind(added, NODELOC_PROVIDER, uid).run();
+    await audit(c, uid, 'user.oauth_bind_quota', '', `NodeLoc 绑定奖励配额 +${added}（${before} → ${after}）`);
+    return { added, after };
+  } catch {
+    return { added: 0, after: 0 };
+  }
 }
 
 /** 给 OAuth 用户生成一个稳定、唯一、不含特殊字符的内部邮箱 */
@@ -241,6 +342,8 @@ app.get('/callback', async (c) => {
   if (binding) {
     // 已绑定：直接登录；若本次是 bind 模式且绑的是别人，明确报错
     if (st.mode === 'bind' && Number(binding.user_id) !== Number(st.user_id)) return back(c, 'already_bound');
+    // 幂等补领：迁移前就绑过的账号也能拿到一次奖励
+    await grantBindQuota(c, Number(binding.user_id), info);
     try { await signIn(c, Number(binding.user_id), `NodeLoc ${info.username || info.sub}`); }
     catch (e: any) { return back(c, e?.message === 'banned' ? 'banned' : 'signin_failed'); }
     clearCookie(c);
@@ -250,14 +353,16 @@ app.get('/callback', async (c) => {
   if (st.mode === 'bind') {
     const uid = Number(st.user_id);
     if (!uid) return back(c, 'bind_login');
+    let bonus = 0;
     try {
       await db.prepare(
         'INSERT INTO oauth_bindings (provider, sub, user_id, username, avatar_url, created_at) VALUES (?,?,?,?,?,?)'
       ).bind(NODELOC_PROVIDER, info.sub, uid, info.username, info.avatar, now()).run();
-      await audit(c, uid, 'user.oauth_bind', '', `NodeLoc sub=${info.sub}`);
+      await audit(c, uid, 'user.oauth_bind', '', `NodeLoc sub=${info.sub} email=${info.email || '-'}`);
+      bonus = (await grantBindQuota(c, uid, info)).added;
     } catch { return back(c, 'already_bound'); }
     clearCookie(c);
-    return c.redirect('/profile?oauth=bound', 302);
+    return c.redirect(`/profile?oauth=bound&bonus=${bonus}`, 302);
   }
 
   // 首次登录：自动建号，或按后台策略要求先绑定已有账号
@@ -272,6 +377,7 @@ app.get('/callback', async (c) => {
     await db.prepare(
       'INSERT INTO oauth_bindings (provider, sub, user_id, username, avatar_url, created_at) VALUES (?,?,?,?,?,?)'
     ).bind(NODELOC_PROVIDER, info.sub, userId, info.username, info.avatar, now()).run();
+    await grantBindQuota(c, userId, info);
     await signIn(c, userId, `NodeLoc ${info.username || info.sub}（首次）`);
   } catch {
     return back(c, 'signin_failed');
@@ -287,7 +393,16 @@ app.get('/status', async (c) => {
   const row: any = await c.env.DB.prepare(
     'SELECT username, created_at FROM oauth_bindings WHERE provider = ? AND user_id = ?'
   ).bind(NODELOC_PROVIDER, u.id).first();
-  return ok(c, { linked: !!row, username: String(row?.username || ''), linkedAt: Number(row?.created_at || 0) });
+  const grant: any = await c.env.DB.prepare(
+    'SELECT email, amount FROM oauth_quota_grants WHERE provider = ? AND user_id = ?'
+  ).bind(NODELOC_PROVIDER, u.id).first().catch(() => null);
+  return ok(c, {
+    linked: !!row,
+    username: String(row?.username || ''),
+    linkedAt: Number(row?.created_at || 0),
+    email: String(grant?.email || ''),
+    quotaBonus: Number(grant?.amount || 0),
+  });
 });
 
 /** 登录态：解除绑定（不影响账号本身与其它登录方式） */

@@ -661,16 +661,20 @@ const nlProfile = read('src/app/pages/Profile.tsx');
 const nlProfileCtrl = read('src/app/legacy/profile.ts');
 const nlCss = read('src/app/styles/oauth.css');
 const nlDict = read('src/app/lib/dict.en.ts');
+const nlI18n = read('src/app/lib/i18n.ts');
 const nlServerDict = read('src/lib/i18nServer.ts');
 
 check(/CREATE TABLE IF NOT EXISTS oauth_bindings/.test(nlSchema) && /UNIQUE\(provider, sub\)/.test(nlSchema), 'D1 建绑定表且 provider+sub 唯一');
 check(/CREATE TABLE IF NOT EXISTS oauth_states/.test(nlSchema) && /'nodeloc_enabled', '0'/.test(nlSchema), 'D1 建一次性 state 表且默认关闭');
-check(/www\.nodeloc\.com\/oauth-provider\/authorize/.test(nlLib) && /oauth-provider\/token/.test(nlLib) && /oauth-provider\/userInfo/.test(nlLib), '三个端点与官方对接文档一致');
-check(/openid profile/.test(nlLib) && /scopeEmailOn \? ' email' : ''/.test(nlLib), '默认不申请需审核的 email 权限，做成可选项');
+check(/www\.nodeloc\.com\/oauth-provider\/authorize/.test(nlLib) && /oauth-provider\/token/.test(nlLib) && /oauth-provider\/userinfo/.test(nlLib), '三个端点与官方对接文档一致');
+check(/NODELOC_USERINFO_LEGACY/.test(nlLib) && /NODELOC_USERINFO_LEGACY/.test(nlRoute), '官方小写 userinfo 优先，旧拼写 userInfo 兜底');
+check(/NODELOC_SCOPE_EMAIL, '1'/.test(nlLib) && /scopeEmailOn \? ' email' : ''/.test(nlLib), '默认申请 email 权限，后台仍可关');
+check(/nodeloc_scope_email_v2/.test(nlSchema) && /nodeloc_scope_email', '1'/.test(nlSchema), '旧库 email 权限 0 一次性升级，不覆盖管理员手动关闭');
 check(/state !== cookieState\(c\)/.test(nlRoute) && /consumeState\(c, state\)/.test(nlRoute), 'state 同时校验 Cookie 与 D1，挡 CSRF');
 check(/DELETE FROM oauth_states WHERE state = \? AND exp >= \? RETURNING/.test(nlRoute), 'state 一次性原子领取，挡重放');
 check(/client_secret: cfg\.clientSecret/.test(nlRoute) && /Authorization: `Basic/.test(nlRoute), 'Secret 只在服务端换 token，且兼容 Basic 认证');
-check(/if \(!sub \|\| sub\.length > 200\) return null/.test(nlRoute), 'userinfo 必须带合法 sub');
+check(/function extractEmail/.test(nlRoute) && /async function emailSub/.test(nlRoute) && /只有邮箱时由邮箱派生/.test(nlRoute),
+  '资料读取只必需 email：多路径取值、缺 sub 由邮箱派生稳定标识');
 check(/防账号接管/.test(nlRoute) && /st\.mode === 'bind'/.test(nlRoute), '不拿 userinfo 邮箱认领已有账号，绑定只由本人发起');
 check(/oauth:disabled:/.test(nlRoute) && /pseudoEmail/.test(nlRoute), '自动建号用内部邮箱 + 不可登录密码');
 check(
@@ -685,6 +689,16 @@ check(/id="nodelocWrap" hidden/.test(nlLogin) && /cfg\.nodelocEnabled/.test(nlLo
 check(/id="btnNodelocBind"/.test(nlProfile) && /start\?bind=1/.test(nlProfileCtrl), '个人资料可绑定 / 解绑 NodeLoc');
 check(/使用 NodeLoc 登录/.test(nlDict) && /回调地址必须是以 http\(s\)/.test(nlServerDict), '前后端英文词条齐，不夹生');
 check(/min-height: 44px/.test(nlCss) && /data-theme="dark"/.test(nlCss) && /prefers-reduced-motion/.test(nlCss), '按钮 ≥44px、深色与减少动态都覆盖');
+check(/CREATE TABLE IF NOT EXISTS oauth_quota_grants/.test(nlSchema) && /UNIQUE\(provider, user_id\)/.test(nlSchema),
+  'D1 建绑定奖励领取表，provider+user_id 唯一');
+check(/NODELOC_BIND_QUOTA_BONUS = 5/.test(nlLib), '绑定奖励固定为 +5 配额');
+check(/INSERT OR IGNORE INTO oauth_quota_grants/.test(nlRoute) && /meta\?\.changes \|\| 0\) > 0/.test(nlRoute),
+  '奖励用 INSERT OR IGNORE 原子领取，只发一次');
+check(/UPDATE users SET quota = \? WHERE id = \?/.test(nlRoute) && /role\) === 'admin' \|\| Number\(u\.quota\) < 0/.test(nlRoute),
+  '配额累加，且跳过管理员与 -1 不限量账号');
+check(/oauth=bound&bonus=/.test(nlRoute) && /配额 \+/.test(nlProfileCtrl), '绑定成功把实际奖励数带回页面并提示');
+check(/NodeLoc 账号已绑定，配额 \\\+\(\\d\+\)/.test(nlI18n) && /st\.email/.test(nlProfileCtrl),
+  '动态奖励文案有英文映射，个人资料页显示读到的邮箱');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);

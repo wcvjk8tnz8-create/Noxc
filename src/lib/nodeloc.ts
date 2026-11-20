@@ -5,10 +5,11 @@
  *   https://www.nodeloc.com/oauth-provider/applications
  *   authorize : https://www.nodeloc.com/oauth-provider/authorize
  *   token     : https://www.nodeloc.com/oauth-provider/token
- *   userinfo  : https://www.nodeloc.com/oauth-provider/userInfo
+ *   userinfo  : https://www.nodeloc.com/oauth-provider/userinfo  ← 全小写
  *
- * scope 只用 openid profile；email 需要 NodeLoc 管理员审核应用后才能用，
- * 所以做成后台可选项，默认不申请。
+ * 官方 userInfo 响应只有 { id, username, name, avatar_url, trust_level, email }，
+ * 没有 sub，且 email 仅在 scope 含 email 时返回。所以默认申请 email 权限，
+ * 并把「读到邮箱」作为唯一必需资料；id / sub 有就用、没有则由邮箱派生。
  *
  * 配置优先级：后台「站点设置」 > Worker 环境变量 > 关闭。
  * Client Secret 只在服务端使用，绝不下发到 /api/config 或前端。
@@ -17,10 +18,15 @@
 export const NODELOC_PROVIDER = 'nodeloc';
 export const NODELOC_AUTHORIZE = 'https://www.nodeloc.com/oauth-provider/authorize';
 export const NODELOC_TOKEN = 'https://www.nodeloc.com/oauth-provider/token';
-export const NODELOC_USERINFO = 'https://www.nodeloc.com/oauth-provider/userInfo';
+/** 官方文档拼写：全小写 userinfo（旧版代码误写成 userInfo，会 404 → 读不到资料） */
+export const NODELOC_USERINFO = 'https://www.nodeloc.com/oauth-provider/userinfo';
+/** 兼容极少数仍只认旧拼写的部署，作为兜底再试一次 */
+export const NODELOC_USERINFO_LEGACY = 'https://www.nodeloc.com/oauth-provider/userInfo';
 export const NODELOC_CALLBACK_PATH = '/oauth/nodeloc/callback';
 export const NODELOC_STATE_TTL_MS = 10 * 60 * 1000;
 export const NODELOC_STATE_COOKIE = 'td_oauth_state';
+/** 成功绑定 NodeLoc 后一次性奖励的域名配额 */
+export const NODELOC_BIND_QUOTA_BONUS = 5;
 
 async function setting(env: any, key: string): Promise<string | undefined> {
   try {
@@ -71,7 +77,9 @@ export async function nodelocConfig(env: any): Promise<NodelocConfig> {
   const csec = pick(secret, envSecret);
   const configured = !!(cid && csec);
   const switchedOn = pick(enabled, env?.NODELOC_ENABLED, '0') === '1';
-  const scopeEmailOn = pick(scopeEmail, env?.NODELOC_SCOPE_EMAIL, '0') === '1';
+  // 默认申请 email：否则 userInfo 不返回邮箱，绑定就只能拿到 id。
+  // 后台显式关成 0 仍尊重（NodeLoc 应用未获 email 授权时可手动关）。
+  const scopeEmailOn = pick(scopeEmail, env?.NODELOC_SCOPE_EMAIL, '1') !== '0';
   return {
     enabled: switchedOn && configured,
     switchedOn,

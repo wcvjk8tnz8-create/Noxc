@@ -474,6 +474,7 @@ const PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
   [/^版本 (.+) · 注册即视为同意本条款$/, m => `Version ${m[1]} · Signing up means you accept these terms`],
   [/^已永久化 (.+)$/, m => `Made perpetual: ${m[1]}`],
   [/^配额 \+(\d+)，当前 (\d+)$/, m => `Quota +${m[1]}, now ${m[2]}`],
+  [/^NodeLoc 账号已绑定，配额 \+(\d+)$/, m => `NodeLoc linked, quota +${m[1]}`],
   [/^已清空 (\d+) 张券$/, m => `Cleared ${m[1]} codes`],
   [/^查询 (.+) 下二级子域名的注册状态$/, m => `Check subdomain availability under ${m[1]}`],
   [/^(.+?)需要 (\d+) 分$/, m => `${m[1]} needs ${m[2]} points`],

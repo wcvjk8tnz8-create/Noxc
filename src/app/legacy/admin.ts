@@ -478,7 +478,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <div class="hint">在 <a href="https://www.nodeloc.com/oauth-provider/applications" target="_blank" rel="noopener">NodeLoc 应用管理页</a> 创建应用（需黄金会员 TL2 及以上）。回调 URI 必须逐字符填：<b>${esc(d.nodeloc?.callbackUrl || '/oauth/nodeloc/callback')}</b></div>
               <div style="margin-top:8px">
                 <label class="check"><input type="checkbox" id="sNodelocAutoRegister" ${String(s.nodeloc_auto_register ?? '1') !== '0' ? 'checked' : ''}> 首次登录自动创建本地账号</label>
-                <label class="check" style="margin-top:4px"><input type="checkbox" id="sNodelocScopeEmail" ${String(s.nodeloc_scope_email ?? '0') === '1' ? 'checked' : ''}> 申请 email 权限（需 NodeLoc 侧审核应用）</label>
+                <label class="check" style="margin-top:4px"><input type="checkbox" id="sNodelocScopeEmail" ${String(s.nodeloc_scope_email ?? '1') === '1' ? 'checked' : ''}> 申请 email 权限（绑定需读取邮箱；关闭后仅按 NodeLoc ID 识别）</label>
               </div>
               <div style="margin-top:8px"><span class="dim">自定义回调地址（可选）</span><input id="sNodelocRedirectUri" type="text" autocomplete="off" placeholder="留空则使用上方地址" value="${esc(s.nodeloc_redirect_uri || '')}"></div>
               <div class="hint">关闭自动建号后，访客需先用邮箱注册，再到「个人资料 → 第三方账号」绑定。状态：<span>${d.nodeloc?.ready ? '已就绪' : '未就绪（需开启并填齐 Client ID / Secret）'}</span>${d.nodeloc?.fromEnv ? ' · 凭据来自 Worker 环境变量，后台只读' : ''}</div>

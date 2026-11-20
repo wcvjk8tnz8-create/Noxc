@@ -15,7 +15,7 @@ type Row = Record<string, any>;
 type Store = {
   settings: Map<string, string>;
   users: Row[]; registrations: Row[]; oauth_states: Row[];
-  oauth_bindings: Row[]; sessions: Row[]; audit_log: Row[];
+  oauth_bindings: Row[]; oauth_quota_grants: Row[]; sessions: Row[]; audit_log: Row[];
   ip_bans: Row[]; notifications: Row[]; seq: number;
 };
 let S: Store;
@@ -25,7 +25,8 @@ let lastArgs: any[] = [];
 function fresh(): Store {
   return {
     settings: new Map(), users: [], registrations: [], oauth_states: [],
-    oauth_bindings: [], sessions: [], audit_log: [], ip_bans: [], notifications: [], seq: 0,
+    oauth_bindings: [], oauth_quota_grants: [], sessions: [], audit_log: [],
+    ip_bans: [], notifications: [], seq: 0,
   };
 }
 
@@ -52,6 +53,24 @@ function exec(sql: string, args: any[]): { rows: Row[]; lastRowId: number; chang
   } else if (/^SELECT \* FROM users WHERE id = \?/.test(s)) {
     const u = S.users.find((x) => x.id === Number(args[0]));
     if (u) rows.push({ ...u });
+  } else if (/^SELECT id, role, quota FROM users WHERE id = \?/.test(s)) {
+    const u = S.users.find((x) => x.id === Number(args[0]));
+    if (u) rows.push({ id: u.id, role: u.role, quota: u.quota });
+  } else if (/^SELECT email, amount FROM oauth_quota_grants WHERE provider = \? AND user_id = \?/.test(s)) {
+    const g = S.oauth_quota_grants.find((x) => x.provider === args[0] && x.user_id === Number(args[1]));
+    if (g) rows.push({ email: g.email, amount: g.amount });
+  } else if (/^INSERT OR IGNORE INTO oauth_quota_grants /.test(s)) {
+    if (S.oauth_quota_grants.some((x) => x.provider === args[0] && x.user_id === Number(args[1]))) changes = 0;
+    else {
+      S.oauth_quota_grants.push({ provider: args[0], user_id: Number(args[1]), email: args[2], amount: args[3], created_at: args[4] });
+      changes = 1;
+    }
+  } else if (/^UPDATE oauth_quota_grants SET amount = \? WHERE provider = \? AND user_id = \?/.test(s)) {
+    const g = S.oauth_quota_grants.find((x) => x.provider === args[1] && x.user_id === Number(args[2]));
+    if (g) { g.amount = Number(args[0]); changes = 1; }
+  } else if (/^UPDATE users SET quota = \? WHERE id = \?/.test(s)) {
+    const u = S.users.find((x) => x.id === Number(args[1]));
+    if (u) { u.quota = Number(args[0]); changes = 1; }
   } else if (/^SELECT user_id FROM oauth_bindings WHERE provider = \? AND sub = \?/.test(s)) {
     const b = S.oauth_bindings.find((x) => x.provider === args[0] && x.sub === args[1]);
     if (b) rows.push({ user_id: b.user_id });
@@ -120,7 +139,9 @@ function makeDb() {
 
 /* ───────── mock NodeLoc 端点 ───────── */
 let tokenMode: 'ok' | 'fail' | 'basic' = 'ok';
-let userinfoBody: any = { sub: 'nl-001', preferred_username: 'tester' };
+let userinfoBody: any = { sub: 'nl-001', preferred_username: 'tester', email: 'tester@example.com' };
+let userinfoLowerStatus = 200; // 模拟旧部署只认驼峰 userInfo
+let userinfoUrls: string[] = [];
 let tokenForms: string[] = [];
 const json = (obj: any, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
@@ -134,8 +155,12 @@ const json = (obj: any, status = 200) =>
       return json({ error: 'client_auth_required' }, 401);
     return json({ access_token: 'AT-1', token_type: 'bearer', expires_in: 3600 });
   }
-  if (url.includes('/oauth-provider/userInfo')) {
-    if (!String(init.headers?.Authorization || '').startsWith('Bearer ')) return json({}, 401);
+  const isLower = url.includes('/oauth-provider/userinfo') && !url.includes('userInfo');
+  if (isLower || url.includes('/oauth-provider/userInfo')) {
+    userinfoUrls.push(url);
+    if (isLower && userinfoLowerStatus !== 200) return json({}, userinfoLowerStatus);
+    const bearer = String(init.headers?.Authorization || '').startsWith('Bearer ');
+    if (!bearer && !url.includes('access_token=')) return json({}, 401);
     return json(userinfoBody || {});
   }
   return json({});
@@ -155,7 +180,9 @@ function reset(settings: Record<string, string> = {}, envVars: Record<string, st
   env = { DB: makeDb(), DEFAULT_QUOTA: '5', ...envVars };
   currentUser = null;
   tokenMode = 'ok';
-  userinfoBody = { sub: 'nl-001', preferred_username: 'tester' };
+  userinfoBody = { sub: 'nl-001', preferred_username: 'tester', email: 'tester@example.com' };
+  userinfoLowerStatus = 200;
+  userinfoUrls = [];
   tokenForms = [];
 }
 const CTX: any = { waitUntil() {}, passThroughOnException() {} };
@@ -188,7 +215,7 @@ async function start() {
 reset();
 let cfg = await nodelocConfig(env);
 check(!cfg.enabled && !cfg.switchedOn && !cfg.configured, '默认关闭：无凭据且不启用');
-check(cfg.scope === 'openid profile' && cfg.autoRegister === true, '默认 scope 不含 email、默认自动建号');
+check(cfg.scope === 'openid profile email' && cfg.autoRegister === true, '默认申请 email 权限、默认自动建号');
 
 reset({ ...CONFIG, nodeloc_scope_email: '1', nodeloc_auto_register: '0' });
 cfg = await nodelocConfig(env);
@@ -204,7 +231,7 @@ check(r.status === 302 && loc(r).includes('oauth=disabled'), '未启用时 /star
 reset(CONFIG);
 let st = await start();
 check(st.res.status === 302 && st.url.origin === 'https://www.nodeloc.com' && st.url.pathname === '/oauth-provider/authorize', '/start 跳到官方授权端点');
-check(st.url.searchParams.get('client_id') === 'CID-1' && st.url.searchParams.get('response_type') === 'code' && st.url.searchParams.get('scope') === 'openid profile', '授权参数 client_id / response_type / scope 正确');
+check(st.url.searchParams.get('client_id') === 'CID-1' && st.url.searchParams.get('response_type') === 'code' && st.url.searchParams.get('scope') === 'openid profile email', '授权参数 client_id / response_type / scope 正确');
 check(!st.url.toString().includes('SECRET-VERY-LONG-1234'), 'Client Secret 绝不出现在浏览器可见的授权 URL 里');
 check(!!cookieVal(st.res, 'td_oauth_state') && cookies(st.res).some((x) => /HttpOnly/i.test(x) && /SameSite=Lax/i.test(x)), 'state 写入 HttpOnly / SameSite=Lax Cookie');
 check(S.oauth_states.length === 1 && S.oauth_states[0].mode === 'login', 'state 同时落 D1，模式为 login');
@@ -246,9 +273,36 @@ check(loc(r).includes('oauth=denied'), '用户拒绝授权回登录页提示');
 reset(CONFIG); st = await start(); tokenMode = 'fail';
 r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
 check(loc(r).includes('oauth=token_failed'), '两次换 token 都失败 → 明确报错');
-reset(CONFIG); st = await start(); userinfoBody = { preferred_username: 'no-sub' };
+/* 资料读取：只要能读到 email 就够了，端点拼写与字段结构都容错 */
+reset(CONFIG); st = await start();
+userinfoBody = { id: 123, username: 'user1', name: 'user1', trust_level: 2, email: 'user1@example.com' };
 r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
-check(loc(r).includes('oauth=userinfo_failed'), 'userinfo 缺 sub 被拒');
+check(loc(r) === '/dashboard' && S.oauth_bindings[0]?.sub === '123', '官方响应只有 id、没有 sub 也能绑定');
+
+reset(CONFIG); st = await start();
+userinfoBody = { email: 'only@example.com' };
+r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
+check(loc(r) === '/dashboard' && String(S.oauth_bindings[0]?.sub).startsWith('email:'),
+  'userInfo 只返回 email 也能登录，不再要求 sub');
+check(S.oauth_quota_grants[0]?.email === 'only@example.com', '读到的邮箱写入领取记录，/status 可查');
+
+reset(CONFIG); st = await start();
+userinfoBody = { data: { user: { email: 'Nested@Example.com' } } };
+r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
+check(S.oauth_quota_grants[0]?.email === 'nested@example.com', '嵌套结构也能取出邮箱并统一小写');
+
+reset(CONFIG); st = await start();
+userinfoBody = { username: 'ghost' };
+r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
+check(loc(r).includes('oauth=userinfo_failed'), '既没有邮箱也没有 ID 才拒绝');
+
+reset(CONFIG); st = await start();
+userinfoLowerStatus = 404; userinfoUrls = [];
+r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
+check(loc(r) === '/dashboard'
+  && userinfoUrls[0]?.endsWith('/oauth-provider/userinfo')
+  && userinfoUrls[1]?.endsWith('/oauth-provider/userInfo'),
+  '小写 userinfo 404 时自动回退旧拼写，仍能读到资料');
 reset(CONFIG); st = await start(); tokenMode = 'basic';
 r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
 check(loc(r) === '/dashboard' && tokenForms.length === 2, 'Provider 只收 Basic 时自动回退并成功');
@@ -281,6 +335,44 @@ const bsState = new URL(loc(bs)).searchParams.get('state') || '';
 const bsCookie = `td_oauth_state=${cookieVal(bs, 'td_oauth_state')}`;
 const br = await call(`/oauth/nodeloc/callback?code=X&state=${bsState}`, bsCookie);
 check(loc(br).includes('oauth=already_bound'), '同一 NodeLoc 账号不能绑到第二个本地账号');
+
+/* 绑定奖励配额：+5，且每个本地账号只领一次 */
+async function bindFlow(uid: number) {
+  currentUser = { id: uid, email: `u${uid}@example.com`, role: 'user', status: 'active' };
+  const s = await call('/api/auth/nodeloc/start?bind=1');
+  const state = new URL(loc(s)).searchParams.get('state') || '';
+  const cookie = `td_oauth_state=${cookieVal(s, 'td_oauth_state')}`;
+  return call(`/oauth/nodeloc/callback?code=X&state=${state}`, cookie);
+}
+const mkUser = (id: number, quota: number, role = 'user') => ({
+  id, email: `u${id}@example.com`, password_hash: 'pbkdf2$x', role, status: 'active',
+  quota, created_at: Date.now(), last_login_at: null,
+});
+
+reset(CONFIG);
+S.users.push(mkUser(42, 5));
+r = await bindFlow(42);
+check(loc(r).includes('oauth=bound&bonus=5'), '绑定成功回个人资料页并带回 +5');
+check(S.users.find((u) => u.id === 42)?.quota === 10, '绑定后配额 5 → 10');
+check(S.oauth_quota_grants.length === 1 && S.oauth_quota_grants[0].amount === 5, '领取记录只写一条、金额 5');
+check(S.oauth_quota_grants[0].email === 'tester@example.com', '领取记录保存读到的 NodeLoc 邮箱');
+r = await call('/api/auth/nodeloc/status');
+const qStatus: any = await r.json();
+check(qStatus.email === 'tester@example.com' && qStatus.quotaBonus === 5, '/status 返回邮箱与已领奖励');
+
+await app.fetch(new Request('https://nic.test/api/auth/nodeloc/unbind', { method: 'POST' }), env, CTX);
+r = await bindFlow(42);
+check(loc(r).includes('bonus=0') && S.users.find((u) => u.id === 42)?.quota === 10, '解绑再绑不重复 +5');
+
+reset(CONFIG);
+S.users.push(mkUser(43, -1));
+r = await bindFlow(43);
+check(loc(r).includes('bonus=0') && S.users.find((u) => u.id === 43)?.quota === -1, '-1 不限量不叠加');
+
+reset(CONFIG);
+S.users.push(mkUser(44, 100, 'admin'));
+r = await bindFlow(44);
+check(loc(r).includes('bonus=0') && S.users.find((u) => u.id === 44)?.quota === 100, '管理员不叠加');
 
 /* 状态 / 解绑 / 封禁 */
 reset(CONFIG);

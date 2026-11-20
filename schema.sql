@@ -555,6 +555,18 @@ CREATE TABLE IF NOT EXISTS oauth_states (
 );
 CREATE INDEX IF NOT EXISTS idx_oauth_states_exp ON oauth_states(exp);
 
+-- 绑定奖励领取记录：provider + user_id 唯一，保证 +5 只发一次
+-- （解绑再绑、换 NodeLoc 账号、重复回调都不会再叠加）
+CREATE TABLE IF NOT EXISTS oauth_quota_grants (
+  provider    TEXT    NOT NULL,
+  user_id     INTEGER NOT NULL,
+  email       TEXT,
+  amount      INTEGER NOT NULL DEFAULT 0,
+  created_at  INTEGER NOT NULL,
+  UNIQUE(provider, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_oauth_quota_grants_user ON oauth_quota_grants(user_id);
+
 -- 默认关闭：管理员到 NodeLoc 创建应用、填入 Client ID / Secret 后再启用。
 -- 应用管理页 https://www.nodeloc.com/oauth-provider/applications （需 TL2 及以上）。
 INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_enabled', '0');
@@ -562,7 +574,11 @@ INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_client_id', '');
 INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_client_secret', '');
 -- 首次用 NodeLoc 登录时自动建号（1）；改为 0 则只允许绑定到已有账号
 INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_auto_register', '1');
--- 是否申请 email 权限（NodeLoc 侧需管理员审核应用后才能用，默认不申请）
-INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_scope_email', '0');
+-- email 是唯一必需资料：默认申请（NodeLoc 应用需带 email 权限）
+INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_scope_email', '1');
+-- 旧库里系统初始写入的 '0' 一次性升级为 '1'；管理员之后手动关成 0 不会再被改回
+UPDATE settings SET value = '1' WHERE key = 'nodeloc_scope_email' AND value = '0'
+  AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'nodeloc_scope_email_v2');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_scope_email_v2', '1');
 -- 留空 = 按当前站点 origin 生成 /oauth/nodeloc/callback；多域名部署可填固定绝对地址
 INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_redirect_uri', '');
