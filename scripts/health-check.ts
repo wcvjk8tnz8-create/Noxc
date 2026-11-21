@@ -765,9 +765,9 @@ check(
 );
 const mdDelegation = read('src/lib/delegation.ts');
 check(
-  /ns: \['ns1\.dnshe\.org', 'ns2\.dnshe\.org'\]/.test(mdDelegation) &&
-  !/ns1\.dnshe\.com/.test(mdDelegation),
-  'NS 委派页与一键预设使用同一组 DNSHE 名称服务器'
+  /ns: \['ns1\.dnshe\.com', 'ns2\.dnshe\.com'\]/.test(mdDelegation) &&
+  /api005\.dnshe\.com/.test(mdDelegation) && /注册分发|专属于/.test(mdDelegation),
+  '委派页保留 .com：专属于 DNSHE 注册域名的 NS / API 端点；一键托管的 .org 预设另算'
 );
 check(
   /NS: \{/.test(mdRec) && /case 'NS'/.test(mdRec) &&
