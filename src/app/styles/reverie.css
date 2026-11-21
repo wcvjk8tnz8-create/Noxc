@@ -27,7 +27,7 @@
   --rv-ink: #1c221d;
   --rv-body: #4a5148;
   --rv-muted: #8a8f83;
-  --rv-fern: #2f5d45;
+  --rv-fern: #0b47c4;
   --rv-fern-deep: #1f4634;
   --rv-fern-soft: #e6efe6;
   --rv-hair: rgba(38, 58, 44, .16);
@@ -43,9 +43,9 @@
   --rv-r-lg: 30px;
 
   /* 收口前六层的色板：玻璃结构不动，只把材质换成羊皮纸 + 蕨绿 */
-  --lg-green: #2f5d45;
+  --lg-green: #0b47c4;
   --lg-green-deep: #1f4634;
-  --lg-green-bright: #4c7f61;
+  --lg-green-bright: #4a8bff;
   --lg-green-soft: rgba(47, 93, 69, .10);
   --lg-ink: #1c221d;
   --lg-muted: #6f776c;
@@ -68,17 +68,17 @@
   --td-muted: #7b8276;
   --td-line: rgba(38, 58, 44, .16);
   --td-line-2: rgba(38, 58, 44, .09);
-  --td-accent: #2f5d45;
+  --td-accent: #0b47c4;
   --td-accent-soft: #e6efe6;
   --td-serif: var(--rv-serif);
   --td-shadow: none;
   --td-radius: 18px;
   --primary: 145 32% 27%;
   --ring: 145 32% 27%;
-  --blue: #2f5d45;
-  --blue2: #4c7f61;
+  --blue: #0b47c4;
+  --blue2: #4a8bff;
   --blue-soft: #e6efe6;
-  --c1: #2f5d45;
+  --c1: #0b47c4;
   --radius: 18px;
   --shadow: none;
 }
@@ -90,15 +90,15 @@
   --rv-ink: #f1eee3;
   --rv-body: #bfc7ba;
   --rv-muted: #8b9689;
-  --rv-fern: #9dc9a8;
-  --rv-fern-deep: #b8dfc1;
+  --rv-fern: #7fb0ff;
+  --rv-fern-deep: #7fb0ff;
   --rv-fern-soft: #1c3024;
   --rv-hair: rgba(214, 232, 216, .16);
   --rv-hair-2: rgba(214, 232, 216, .09);
 
-  --lg-green: #9dc9a8;
-  --lg-green-deep: #b8dfc1;
-  --lg-green-bright: #76b48c;
+  --lg-green: #7fb0ff;
+  --lg-green-deep: #7fb0ff;
+  --lg-green-bright: #5b93ff;
   --lg-green-soft: rgba(157, 201, 168, .14);
   --lg-ink: #f1eee3;
   --lg-muted: #9aa69a;
@@ -115,15 +115,15 @@
   --td-muted: #9aa69a;
   --td-line: rgba(214, 232, 216, .16);
   --td-line-2: rgba(214, 232, 216, .09);
-  --td-accent: #9dc9a8;
+  --td-accent: #7fb0ff;
   --td-accent-soft: #1c3024;
   --td-shadow: none;
   --primary: 135 32% 68%;
   --ring: 135 32% 68%;
-  --blue: #9dc9a8;
-  --blue2: #76b48c;
+  --blue: #7fb0ff;
+  --blue2: #5b93ff;
   --blue-soft: #1c3024;
-  --c1: #9dc9a8;
+  --c1: #7fb0ff;
   --shadow: none;
 }
 

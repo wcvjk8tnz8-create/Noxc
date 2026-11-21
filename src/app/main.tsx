@@ -26,6 +26,9 @@ import './styles/noxc-node.css';
 import './styles/captcha.css';
 /* NodeLoc 第三方登录按钮：独立前缀，最后加载以免被按钮基线回压。 */
 import './styles/oauth.css';
+/* Zerexa 简约收口层：去绿色毛玻璃、logo 色、衬线标题、英文 Redaction 35。
+   必须在所有历史层之后，才能压过写死的绿色渐变与 backdrop-filter。 */
+import './styles/zerexa-simple.css';
 /* 切页过渡：Miku 冒出来 + 跳转中气泡。挂在 body 上，不随 SPA 页面卸载。 */
 import { mountTransition } from './lib/pageTransition';
 

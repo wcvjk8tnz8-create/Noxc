@@ -11,6 +11,7 @@ import { applyGate } from '../lib/applyGate.js';
 import { aiReviewDetailed } from '../lib/aiReview.js';
 import { ensureAiColumns, queueAiBatch } from '../lib/aiBatch.js';
 import { captchaEnabled, consumePass } from '../lib/captcha.js';
+import { ensureShowcaseColumns, cleanShowcaseInput } from '../lib/showcase.js';
 
 const app = new Hono();
 
@@ -403,6 +404,8 @@ app.post('/', createMine);
 // 子域名详情（含 DNS 记录）
 app.get('/:id', async (c) => {
   const id = Number(c.req.param('id'));
+  // 旧库补齐展示列：必须在 SELECT * 之前，详情页开关才能读到 showcase* 字段
+  await ensureShowcaseColumns(c.env);
   const { row, error } = await loadSubdomain(c, id);
   if (error) return fail(c, error, 404);
   const { results } = await c.env.DB.prepare(
@@ -413,14 +416,28 @@ app.get('/:id', async (c) => {
   return ok(c, { subdomain: row, records: results });
 });
 
-// 编辑备注
+// 编辑备注 / 用户案例展示设置（全部是可选字段，未传的不覆盖）
 app.patch('/:id', async (c) => {
   const id = Number(c.req.param('id'));
   const { row, error } = await loadSubdomain(c, id);
   if (error) return fail(c, error, 404);
-  const { note } = await c.req.json().catch(() => ({}));
-  await c.env.DB.prepare('UPDATE subdomains SET note = ?, updated_at = ? WHERE id = ?')
-    .bind(String(note || '').slice(0, 300), now(), id)
+  const body = await c.req.json().catch(() => ({}));
+  await ensureShowcaseColumns(c.env);
+  const showcase = cleanShowcaseInput(body);
+  const sets: string[] = [];
+  const vals: any[] = [];
+  if (body.note !== undefined) {
+    sets.push('note = ?');
+    vals.push(String(body.note || '').slice(0, 300));
+  }
+  // 键来自白名单映射，不拼接用户输入，避免 SQL 注入
+  for (const k of ['showcase', 'showcase_title', 'showcase_desc', 'showcase_emoji']) {
+    if (showcase[k] !== undefined) { sets.push(`${k} = ?`); vals.push(showcase[k]); }
+  }
+  sets.push('updated_at = ?');
+  vals.push(now(), id);
+  await c.env.DB.prepare(`UPDATE subdomains SET ${sets.join(', ')} WHERE id = ?`)
+    .bind(...vals)
     .run();
   return ok(c, {});
 });

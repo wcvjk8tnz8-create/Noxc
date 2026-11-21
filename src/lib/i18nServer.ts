@@ -44,7 +44,16 @@ export const SERVER_DICT: Record<string, string> = {
   '角色不合法': 'Invalid role', '缺少 IP': 'Missing IP',
   '缺少 label': 'Missing label', '没有要更新的内容': 'Nothing to update',
   '缺少通知 id': 'Missing notification id',
-  /* 注册邮箱规则（默认：白名单 ∪ 任意含 edu 的邮箱） */
+  /* 注册邮箱规则（默认：白名单 ∪ 教育网邮箱，域名含 edu） */
+  '支持白名单邮箱，以及教育网邮箱（域名含 edu）注册': 'Whitelisted mail, plus academic addresses (domain contains edu)',
+  '仅支持教育网邮箱（域名含 edu）注册': 'Academic addresses only (domain contains edu)',
+  '该邮箱不符合注册规则：仅支持白名单邮箱或教育网邮箱（域名含 edu）':
+    'This email is not allowed: use a whitelisted address or an academic domain',
+  '该邮箱不符合注册规则：仅支持教育网邮箱（域名含 edu）':
+    'This email is not allowed: academic domains only',
+  '该邮箱域名已被封禁（一次性邮箱 / 非公开域名），不可用于注册或登录':
+    'This email domain is blocked (disposable / non-public domain) and cannot be used to sign up or sign in',
+  /* 旧句式保留，兼容尚未强刷的缓存响应 */
   '支持白名单邮箱，以及任何包含 "edu" 的邮箱注册': 'Whitelisted mail, plus any email containing "edu"',
   '仅支持白名单邮箱注册': 'Whitelisted mail only',
   '仅支持包含 "edu" 的邮箱注册': 'Only emails containing "edu"',

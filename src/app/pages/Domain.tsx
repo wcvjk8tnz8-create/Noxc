@@ -1,6 +1,80 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { mountDomain } from '../legacy/domain';
-import { refreshRuntime, cleanupPage, navigate } from '../lib/runtime';
+import { api, refreshRuntime, cleanupPage, navigate } from '../lib/runtime';
+
+/**
+ * 用户案例展示设置：预设不展示，用户在本域名里自行开启。
+ * 与「用户案例」公开页共用 /api/showcase 的字段口径。
+ */
+function ShowcaseSettings() {
+  const [on, setOn] = useState(false);
+  const [title, setTitle] = useState('');
+  const [desc, setDesc] = useState('');
+  const [emoji, setEmoji] = useState('🌐');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const id = new URLSearchParams(window.location.search).get('id');
+
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    api.get(`/api/subdomains/${encodeURIComponent(id)}`)
+      .then((d: any) => {
+        if (!alive) return;
+        const s = d?.subdomain || {};
+        setOn(!!s.showcase);
+        setTitle(String(s.showcase_title || ''));
+        setDesc(String(s.showcase_desc || ''));
+        setEmoji(String(s.showcase_emoji || '🌐'));
+      })
+      .catch(() => { /* 读不到时保持预设「不展示」 */ });
+    return () => { alive = false; };
+  }, [id]);
+
+  const save = async () => {
+    if (!id || busy) return;
+    setBusy(true); setMsg('');
+    try {
+      await api.patch(`/api/subdomains/${encodeURIComponent(id)}`, {
+        showcase: on ? 1 : 0,
+        showcase_title: title,
+        showcase_desc: desc,
+        showcase_emoji: emoji,
+      });
+      setMsg(on ? '已开启展示，稍后会出现在用户案例页' : '已关闭展示');
+    } catch (e: any) {
+      setMsg(e?.message || '保存失败');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="card flat showcase-settings">
+      <h3>用户案例展示</h3>
+      <label className="showcase-toggle">
+        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+        <span>在「用户案例」页展示这个域名</span>
+      </label>
+      <p className="hint">预设不展示。只有你主动开启、且域名已开通时才会公开显示；不会展示邮箱。</p>
+      <div className="field">
+        <label>展示标题</label>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="留空则用域名前缀" maxLength={60} />
+      </div>
+      <div className="field">
+        <label>一句话描述</label>
+        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="这个站点是做什么的" maxLength={160} rows={2} />
+      </div>
+      <div className="field">
+        <label>图标（emoji）</label>
+        <input value={emoji} onChange={(e) => setEmoji(e.target.value)} placeholder="🌐" maxLength={8} />
+      </div>
+      <div className="row between" style={{ alignItems: 'center' }}>
+        <a href="/showcase" className="showcase-preview-link">查看展示页 ↗</a>
+        <button className="btn primary sm" onClick={save} disabled={busy}>{busy ? '保存中…' : '保存'}</button>
+      </div>
+      {msg && <p className="hint showcase-msg">{msg}</p>}
+    </div>
+  );
+}
 
 /** Domain —— 由 domain.html 迁移，页面结构与交互逻辑 100% 保留 */
 export default function DomainPage() {
@@ -156,6 +230,7 @@ export default function DomainPage() {
                 <button className="op-btn" data-act="ssl"><span>🔒</span>SSL 证书</button>
               </div>
             </div>
+            <ShowcaseSettings />
             <div className="card flat">
               <h3>小提示</h3>
               <div style={{color: "var(--text-2)", fontSize: "12px", lineHeight: "1.8"}}>

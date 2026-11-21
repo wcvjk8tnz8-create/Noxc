@@ -7,7 +7,7 @@
    2) 全站卡片 / 表格 / 弹窗 / 输入 / 徽章统一液态玻璃（半透 + 背景模糊 +
       内高光 + 极柔阴影），但保留 Zerexa 的衬线品牌字、等宽小标、细线分栏、
       大留白与克制排版 —— 只换材质与色彩，不换成卡通气泡；
-   3) 主题色统一为墨绿（#2f7d5b 系），深色同步；
+   3) 主题色统一为 Noxc 蓝（#4a8bff 系），深色同步；
    4) 不动任何 JS / DOM / 交互 id，所有历史绑定保持有效。
 
    为什么仍要用 !important：components.css / index.css / responsive.css /
@@ -17,9 +17,9 @@
 
 :root {
   /* ── 绿色主题 ── */
-  --lg-green: #2f7d5b;
-  --lg-green-deep: #1f5b43;
-  --lg-green-bright: #3d9a6e;
+  --lg-green: #4a8bff;
+  --lg-green-deep: #0b47c4;
+  --lg-green-bright: #4a8bff;
   --lg-green-soft: rgba(47, 125, 91, .11);
   --lg-ink: #16201b;
   --lg-muted: #6c7a72;
@@ -51,9 +51,9 @@
   --lg-r-lg: 28px;
 
   /* 覆盖历史令牌，让没有单独收口到的边角也变成绿色系 */
-  --td-accent: #2f7d5b;
+  --td-accent: #4a8bff;
   --td-accent-soft: rgba(47, 125, 91, .10);
-  --td-ok: #22805a;
+  --td-ok: #4a8bff;
   --td-warn: #96701f;
   --td-bad: #a8464e;
   --td-line: rgba(31, 91, 67, .12);
@@ -69,9 +69,9 @@
   --ring: 154 45% 34%;
   --info: 154 45% 34%;
   --success: 154 52% 32%;
-  --c1: #2f7d5b;
-  --blue: #2f7d5b;
-  --blue2: #58ab80;
+  --c1: #4a8bff;
+  --blue: #4a8bff;
+  --blue2: #5b93ff;
   --blue-soft: #e8f3ec;
   --radius: 20px;
   --shadow: 0 18px 44px rgba(22, 62, 44, .10);
@@ -80,9 +80,9 @@
 }
 
 [data-theme="dark"] {
-  --lg-green: #8ed7af;
-  --lg-green-deep: #a9e6c5;
-  --lg-green-bright: #4aa978;
+  --lg-green: #7fb0ff;
+  --lg-green-deep: #7fb0ff;
+  --lg-green-bright: #5b93ff;
   --lg-green-soft: rgba(122, 205, 160, .14);
   --lg-ink: #eef4ef;
   --lg-muted: #9aaca1;
@@ -96,9 +96,9 @@
   --lg-shadow-sm: 0 10px 26px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .08);
   --lg-active: linear-gradient(140deg, rgba(122, 205, 160, .22), rgba(122, 205, 160, .10));
   --lg-th: rgba(28, 44, 36, .72);
-  --td-accent: #8ed7af;
+  --td-accent: #7fb0ff;
   --td-accent-soft: rgba(122, 205, 160, .14);
-  --td-ok: #7fd0a6;
+  --td-ok: #7fb0ff;
   --td-warn: #dfb469;
   --td-bad: #ef949a;
   --td-line: rgba(190, 230, 205, .13);
@@ -113,9 +113,9 @@
   --ring: 150 50% 62%;
   --info: 150 50% 62%;
   --success: 150 48% 58%;
-  --c1: #8ed7af;
-  --blue: #8ed7af;
-  --blue2: #5fb98c;
+  --c1: #7fb0ff;
+  --blue: #7fb0ff;
+  --blue2: #5b93ff;
   --blue-soft: #1b3027;
   --shadow: 0 18px 44px rgba(0, 0, 0, .40);
 }
@@ -451,7 +451,7 @@ input:focus, select:focus, textarea:focus {
 }
 .btn.ghost, .btn.sm.ghost { color: var(--lg-ink) !important; }
 /* 历史层给 [data-theme=dark] .btn 刷过蓝色渐变，specificity 高于 .btn，
-   这里用同等 specificity 收口回玻璃材质（ primary 仍由下方规则保持墨绿）。 */
+   这里用同等 specificity 收口回玻璃材质（ primary 仍由下方规则保持Noxc 蓝）。 */
 [data-theme="dark"] .btn {
   background: var(--lg-glass) !important;
   color: var(--lg-green-deep) !important;
@@ -463,7 +463,7 @@ input:focus, select:focus, textarea:focus {
 .btn.primary, .btn.sm.primary, .zx-search-btn, .home-top .btn.primary,
 [data-theme="dark"] .home-top .btn.primary, [data-theme="dark"] .zx-search-btn,
 .zx-nav-cta, .checker button.check, .switch.on, .step.active i {
-  background: linear-gradient(150deg, #3d9a6e, #24704f) !important;
+  background: linear-gradient(150deg, #4a8bff, #0b47c4) !important;
   color: #fff !important;
   border: 1px solid rgba(255, 255, 255, .34) !important;
   box-shadow: 0 12px 26px rgba(36, 112, 79, .26), inset 0 1px 0 rgba(255, 255, 255, .32) !important;
@@ -921,7 +921,7 @@ body.topbar-hidden .sidebar {
 }
 .td-bubble-dots { display: inline-flex; gap: 3px; align-items: flex-end; height: 10px; }
 .td-bubble-dots i {
-  width: 4px; height: 4px; border-radius: 50%; background: #2f7d5b;
+  width: 4px; height: 4px; border-radius: 50%; background: #4a8bff;
   animation: td-dot 1.05s ease-in-out infinite;
 }
 .td-bubble-dots i:nth-child(2) { animation-delay: .14s; }
@@ -978,7 +978,7 @@ body.topbar-hidden .sidebar {
 }
 .td-trans-bar span {
   position: absolute; top: 0; left: 0; width: 42%; height: 100%;
-  border-radius: 2px; background: linear-gradient(90deg, transparent, #2f7d5b, transparent);
+  border-radius: 2px; background: linear-gradient(90deg, transparent, #4a8bff, transparent);
   animation: td-scan 1.35s ease-in-out infinite;
 }
 @keyframes td-scan { 0% { transform: translateX(-110%); } 100% { transform: translateX(250%); } }
@@ -996,10 +996,10 @@ body.topbar-hidden .sidebar {
   background: rgba(28, 54, 43, .94); border-color: rgba(120, 200, 160, .24);
   color: #e8f3ec; box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
 }
-[data-theme="dark"] .td-bubble-dots i { background: #8fd3ae; }
+[data-theme="dark"] .td-bubble-dots i { background: #7fb0ff; }
 [data-theme="dark"] .td-trans-hint { color: rgba(220, 240, 229, .6); }
 [data-theme="dark"] .td-trans-bar { background: rgba(143, 211, 174, .18); }
-[data-theme="dark"] .td-trans-bar span { background: linear-gradient(90deg, transparent, #8fd3ae, transparent); }
+[data-theme="dark"] .td-trans-bar span { background: linear-gradient(90deg, transparent, #7fb0ff, transparent); }
 
 @media (prefers-reduced-motion: reduce) {
   .td-trans, .td-trans-panel, .td-trans-bubble { transition: opacity .18s linear !important; }
@@ -1050,7 +1050,7 @@ html:not([data-theme="dark"]) {
   --lg-active: linear-gradient(140deg, rgba(47, 143, 131, .18), rgba(111, 201, 195, .11));
   --td-accent: #2f8f83;
   --td-accent-soft: rgba(47, 143, 131, .10);
-  --td-ok: #228573;
+  --td-ok: #4a8bff;
   --td-warn: #b07a33;
   --td-bad: #c05b62;
   --td-line: rgba(31, 107, 98, .12);
@@ -1497,7 +1497,7 @@ html[data-theme="dark"] body:not(.page-home) .top-search kbd {
 .sf-contact a:hover,
 [data-icp-slot] a:hover,
 [data-contact-slot] a:hover {
-  color: var(--td-accent, #1f7a55);
+  color: var(--td-accent, #4a8bff);
   border-bottom-color: currentColor;
 }
 .nk-ficp:empty,

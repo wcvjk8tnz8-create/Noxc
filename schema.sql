@@ -119,7 +119,12 @@ CREATE TABLE IF NOT EXISTS subdomains (
   ai_attempts   INTEGER NOT NULL DEFAULT 0,
   ai_last_error TEXT,
   ai_last_try_at INTEGER,
-  ai_claim_at   INTEGER
+  ai_claim_at   INTEGER,
+  -- 用户案例展示：默认不展示（0），由域名详情页自行开启
+  showcase       INTEGER NOT NULL DEFAULT 0,
+  showcase_title TEXT,
+  showcase_desc  TEXT,
+  showcase_emoji TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_subdomains_user    ON subdomains(user_id);
 CREATE INDEX IF NOT EXISTS idx_subdomains_status  ON subdomains(status);
@@ -583,3 +588,32 @@ UPDATE settings SET value = '1' WHERE key = 'nodeloc_scope_email' AND value = '0
 INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_scope_email_v2', '1');
 -- 留空 = 按当前站点 origin 生成 /oauth/nodeloc/callback；多域名部署可填固定绝对地址
 INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_redirect_uri', '');
+
+-- ============================================================
+--  安全修订：封锁利用「邮箱任意位置含 edu」漏洞批量注册的一次性邮箱
+--  oauth.local 是实际来源；其余为常见临时邮箱域。
+--  幂等：只处理尚未封禁的非管理员账号，管理员手动解封不受覆盖
+--  （如需恢复某个账号，请改用真实邮箱重新注册）。
+--  运行时另有兜底：登录时命中封禁域名会就地标记，见 routes/auth.ts。
+-- ============================================================
+UPDATE users SET status = 'banned',
+                 ban_reason = '违规注册：一次性 / 非公开邮箱域名'
+WHERE status <> 'banned' AND role <> 'admin' AND (
+     lower(email) LIKE '%@oauth.local'
+  OR lower(email) LIKE '%@%.oauth.local'
+  OR lower(email) LIKE '%@mailinator.com'
+  OR lower(email) LIKE '%@guerrillamail.com'
+  OR lower(email) LIKE '%@10minutemail.com'
+  OR lower(email) LIKE '%@temp-mail.org'
+  OR lower(email) LIKE '%@yopmail.com'
+  OR lower(email) LIKE '%@trashmail.com'
+  OR lower(email) LIKE '%@dispostable.com'
+  OR lower(email) LIKE '%@mailnesia.com'
+  OR lower(email) LIKE '%@getnada.com'
+  OR lower(email) LIKE '%@emailondeck.com'
+);
+
+-- ============================================================
+--  用户案例展示列：旧库由 src/lib/showcase.ts 的 PRAGMA + ALTER 补齐，
+--  这里不写 ALTER（SQLite 无 IF NOT EXISTS，重复部署会直接报错）。
+-- ============================================================

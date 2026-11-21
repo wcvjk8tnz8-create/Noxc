@@ -1,0 +1,344 @@
+/* ══════════════════════════════════════════════════════════════
+   Noxc · Zerexa Simple —— 收口层（最后加载）
+   ──────────────────────────────────────────────────────────────
+   目标：
+     · 移除任何绿色与毛玻璃元素：backdrop-filter 全清、玻璃渐变改实色；
+     · 只保留 logo 三色：冷白 / 近黑墨 / 一颗 Noxc 蓝 #1667f2；
+     · 侧边栏、顶栏的「形状」完全不动（不写 position/left/top/width/border-radius），
+       只换材质：实色面 + 1px 发丝线 + 零阴影；
+     · 回到 Zerexa 骨架：超大衬线标题、等宽小标、细线分栏、单屏留白；
+     · 英文模式全部走 Redaction 35；中文标题走衬线、正文走系统无衬线。
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── 设计令牌：logo 色 ── */
+  --zx-paper: #ffffff;
+  --zx-paper-2: #f7f9fc;
+  --zx-ink: #111318;
+  --zx-body: #49525f;
+  --zx-muted: #8b94a3;
+  --zx-hair: rgba(17, 19, 24, .13);
+  --zx-hair-2: rgba(17, 19, 24, .07);
+  --zx-blue: #1667f2;
+  --zx-blue-deep: #0b47c4;
+  --zx-blue-soft: #e8f0ff;
+
+  /* ── 字体：英文 Redaction 35，中文标题衬线 / 正文无衬线 ── */
+  --zx-serif: "Redaction 35", "Noto Serif CJK SC", "Source Han Serif SC",
+    "Songti SC", "STSong", Georgia, "Times New Roman", serif;
+  --zx-sans: "Redaction 35", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --zx-mono: "Redaction 35", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* ── 历史层的绿色令牌一律换成 logo 蓝 ── */
+  --rv-fern: var(--zx-blue);
+  --rv-fern-deep: var(--zx-blue-deep);
+  --rv-fern-soft: var(--zx-blue-soft);
+  --rv-blue: var(--zx-blue);
+  --rv-blue-soft: var(--zx-blue-soft);
+  --rv-paper: var(--zx-paper);
+  --rv-paper-2: var(--zx-paper-2);
+  --rv-card: #ffffff;
+  --rv-ink: var(--zx-ink);
+  --rv-body: var(--zx-body);
+  --rv-muted: var(--zx-muted);
+  --rv-hair: var(--zx-hair);
+  --rv-hair-2: var(--zx-hair-2);
+  --rv-serif: var(--zx-serif);
+  --rv-sans: var(--zx-sans);
+  --rv-mono: var(--zx-mono);
+
+  --lg-green: var(--zx-blue);
+  --lg-green-deep: var(--zx-blue-deep);
+  --lg-green-bright: #4a8bff;
+  --lg-green-soft: rgba(22, 103, 242, .10);
+  --lg-ink: var(--zx-ink);
+  --lg-muted: var(--zx-muted);
+  --lg-hair: var(--zx-hair);
+  --lg-paper: var(--zx-paper);
+  --lg-glass: #ffffff;
+  --lg-glass-soft: #ffffff;
+  --lg-stroke: var(--zx-hair);
+  --lg-input-line: var(--zx-hair);
+  --lg-active: rgba(22, 103, 242, .08);
+  --lg-shadow: none;
+  --lg-shadow-sm: none;
+  --lg-blur: none;
+  --lg-blur-sm: none;
+
+  --td-paper: var(--zx-paper);
+  --td-surface: var(--zx-paper);
+  --td-side: var(--zx-paper-2);
+  --td-ink: var(--zx-ink);
+  --td-muted: var(--zx-muted);
+  --td-line: var(--zx-hair);
+  --td-line-2: var(--zx-hair-2);
+  --td-accent: var(--zx-blue);
+  --td-accent-soft: var(--zx-blue-soft);
+  --td-serif: var(--zx-serif);
+  --td-mono: var(--zx-mono);
+  --blue: var(--zx-blue);
+  --blue2: #4a8bff;
+  --blue-soft: var(--zx-blue-soft);
+  --c1: var(--zx-blue);
+}
+
+[data-theme="dark"] {
+  --zx-paper: #0b0d11;
+  --zx-paper-2: #141922;
+  --zx-ink: #f5f7fb;
+  --zx-body: #b6c0cf;
+  --zx-muted: #7c8798;
+  --zx-hair: rgba(226, 235, 250, .16);
+  --zx-hair-2: rgba(226, 235, 250, .085);
+  --zx-blue: #5b93ff;
+  --zx-blue-deep: #8ab4ff;
+  --zx-blue-soft: #16233c;
+  --rv-card: #141922;
+  --lg-glass: #10151d;
+  --lg-glass-soft: #10151d;
+  --lg-active: rgba(91, 147, 255, .14);
+}
+
+/* ── 1. 毛玻璃：任何元素都不再模糊背景（侧栏 / 顶栏形状不动） ── */
+html body *,
+html body *::before,
+html body *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── 2. 玻璃材质 → 实色简约面：只换材质，不动几何 ── */
+html body .sidebar,
+html body .side-dock,
+html body .topbar,
+html body .rv-head,
+html body .rv-head-in,
+html body .glass,
+html body .liquid-glass,
+html body .card,
+html body .pane,
+html body .reg-card,
+html body .auth-card,
+html body .notice,
+html body .modal-card,
+html body .modal .box,
+html body .rv-col,
+html body .rv-ask,
+html body .rv-frame,
+html body .rv-art-cap,
+html body .rv-term,
+html body .tabpane,
+html body .detail-side .card,
+html body .dropdown,
+html body .popover,
+html body .rv-pill.line {
+  background-image: none !important;
+  background-color: var(--zx-paper) !important;
+  border-color: var(--zx-hair) !important;
+  box-shadow: none !important;
+  color: var(--zx-ink) !important;
+}
+html[data-theme="dark"] body .sidebar,
+html[data-theme="dark"] body .side-dock,
+html[data-theme="dark"] body .topbar,
+html[data-theme="dark"] body .rv-head,
+html[data-theme="dark"] body .card,
+html[data-theme="dark"] body .pane,
+html[data-theme="dark"] body .modal .box,
+html[data-theme="dark"] body .rv-col,
+html[data-theme="dark"] body .rv-ask,
+html[data-theme="dark"] body .rv-frame,
+html[data-theme="dark"] body .rv-art-cap,
+html[data-theme="dark"] body .detail-side .card {
+  background-color: var(--zx-paper-2) !important;
+}
+
+/* 历史层里写死的绿色渐变 / 绿色描边 / 绿色阴影，统一压成中性 */
+html body .btn.primary,
+html body button.primary,
+html body .btn-primary,
+html body .rv-pill.ink,
+html body .zx-nav-cta,
+html body .zx-search-btn,
+html body .rv-ask-btn,
+html body .home-top .btn.primary {
+  background-image: none !important;
+  background-color: var(--zx-ink) !important;
+  border-color: var(--zx-ink) !important;
+  color: var(--zx-paper) !important;
+  box-shadow: none !important;
+}
+html[data-theme="dark"] body .btn.primary,
+html[data-theme="dark"] body .rv-pill.ink {
+  background-color: var(--zx-ink) !important;
+  color: var(--zx-paper) !important;
+}
+html body .btn.primary:hover,
+html body .rv-pill.ink:hover {
+  background-color: var(--zx-blue-deep) !important;
+  border-color: var(--zx-blue-deep) !important;
+}
+html body .rv-nav a:hover,
+html body .rv-foot a:hover,
+html body .showcase-fqdn,
+html body .showcase-preview-link,
+html body .rv-sec-lede a,
+html body .rv-lede a,
+html body .badge.ok,
+html body .tag.ok { color: var(--zx-blue); }
+html body .rv-sec-no,
+html body .rv-eyebrow,
+html body .rv-eyebrow::before,
+html body .rv-sec-no::before { color: var(--zx-muted); }
+html body .rv-eyebrow::before,
+html body .rv-sec-no::before {
+  background: var(--zx-blue) !important;
+  box-shadow: none !important;
+}
+
+/* 顶栏 / 侧栏的 1px 发丝线（形状不变，只换线色） */
+html body .topbar,
+html body .rv-head { border-bottom: 1px solid var(--zx-hair) !important; }
+html body .sidebar,
+html body .side-dock { border-right: 1px solid var(--zx-hair) !important; }
+
+/* ── 3. Zerexa 骨架：超大衬线标题 / 等宽小标 / 细线分栏 / 单屏留白 ── */
+html body h1,
+html body h2,
+html body .rv-title,
+html body .rv-h2,
+html body .zx-title,
+html body .brand b,
+html body .side-brand b,
+html body .rv-brand b,
+html body .rv-fbrand,
+html body .rv-quote p,
+html body .auth-lead,
+html body .head-row h3,
+html body .card h2 {
+  font-family: var(--zx-serif) !important;
+  font-style: normal !important;
+  letter-spacing: -.025em;
+}
+html body h3,
+html body .rv-col h3,
+html body .showcase-title { font-family: var(--zx-sans) !important; }
+html body .rv-title {
+  font-size: clamp(42px, 6.6vw, 88px) !important;
+  line-height: 1.08 !important;
+  font-weight: 700 !important;
+}
+html body .rv-h2 { font-size: clamp(28px, 3.4vw, 44px) !important; }
+html body .rv-eyebrow,
+html body .rv-sec-no,
+html body .rv-art-cap,
+html body .rv-stat,
+html body .rv-hero-foot {
+  font-family: var(--zx-mono) !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+}
+/* Zerexa 是细线，不是圆头粗线 */
+html body .rv-title::after {
+  height: 1px !important;
+  width: 88px !important;
+  border-radius: 0 !important;
+  background: var(--zx-hair) !important;
+  margin-top: 28px !important;
+}
+html body .rv-title em::after { height: 1px !important; border-radius: 0 !important; }
+html body .rv-main { max-width: 1180px; }
+html body .rv-hero { min-height: 58vh; }
+html body .rv-foot-in,
+html body .rv-fbottom { border-top: 1px solid var(--zx-hair) !important; }
+html body .rv-ask,
+html body .rv-frame { border-radius: 18px !important; }
+
+/* ── 4. 英文模式：全部采用 Redaction 35（中文字符自然回退中文字体） ── */
+html[data-lang="en"] body,
+html[data-lang="en"] body * {
+  font-family: "Redaction 35", "Noto Sans SC", "PingFang SC", "Microsoft YaHei",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+html[data-lang="en"] body h1,
+html[data-lang="en"] body h2,
+html[data-lang="en"] body .rv-title,
+html[data-lang="en"] body .rv-h2,
+html[data-lang="en"] body .zx-title,
+html[data-lang="en"] body .brand b,
+html[data-lang="en"] body .side-brand b,
+html[data-lang="en"] body .rv-quote p {
+  font-family: "Redaction 35", Georgia, serif !important;
+}
+
+/* ── 5. 用户案例页（对齐参考图：三列圆角白卡） ── */
+.showcase-main { margin: 0 auto; padding: 64px 24px 96px; max-width: 1180px; }
+.showcase-head { text-align: center; padding: 24px 0 52px; }
+.showcase-spark { color: var(--zx-blue); font-size: .62em; vertical-align: .18em; margin-right: .18em; }
+.showcase-head .rv-lede { margin-top: 12px; }
+.showcase-note { margin-top: 16px; color: var(--zx-muted); font-size: 13.5px; }
+.showcase-note a { color: var(--zx-blue); text-decoration: underline; text-underline-offset: 3px; }
+.showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.showcase-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 236px;
+  padding: 26px 24px;
+  border: 1px solid var(--zx-hair);
+  border-radius: 18px;
+  background: var(--zx-paper);
+  color: var(--zx-ink);
+  text-decoration: none;
+  transition: border-color .18s ease, transform .18s ease;
+}
+.showcase-card:hover,
+.showcase-card:focus-visible { border-color: var(--zx-blue); transform: translateY(-2px); }
+.showcase-emoji { font-size: 34px; line-height: 1.2; }
+.showcase-title { margin: 14px 0 4px; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.showcase-owner { margin: 0; color: var(--zx-muted); font-size: 13px; }
+.showcase-desc { margin: 12px 0 18px; color: var(--zx-body); font-size: 13.5px; line-height: 1.75; flex: 1; }
+.showcase-fqdn { color: var(--zx-blue); font-size: 14px; font-weight: 600; word-break: break-all; }
+.showcase-empty {
+  text-align: center; padding: 72px 20px; color: var(--zx-muted);
+  border: 1px dashed var(--zx-hair); border-radius: 18px; font-size: 14px;
+}
+.showcase-empty > span { display: block; font-size: 30px; color: var(--zx-blue); margin-bottom: 12px; }
+.showcase-fbottom { flex-wrap: wrap; gap: 12px; }
+
+/* ── 6. 域名详情里的展示设置卡片 ── */
+.showcase-settings .showcase-toggle {
+  display: flex; align-items: center; gap: 10px;
+  margin: 12px 0 6px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+.showcase-settings input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--zx-blue); }
+.showcase-settings .field { margin: 10px 0; }
+.showcase-settings textarea { min-height: 58px; }
+.showcase-preview-link { font-size: 12.5px; color: var(--zx-blue); }
+.showcase-msg { margin-top: 8px; color: var(--zx-blue); }
+
+/* ── 7. 手机：三列 → 两列 → 单列，触控目标不小于 44px ── */
+@media (max-width: 900px) { .showcase-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .showcase-main { padding: 36px 16px 72px; }
+  .showcase-head { padding: 12px 0 32px; }
+  .showcase-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .showcase-card { min-height: 0; padding: 22px 20px; }
+  html body .rv-hero { min-height: 0; }
+  html body .rv-title { font-size: clamp(36px, 10vw, 52px) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .showcase-card { transition: none !important; }
+}
+
+/* ── 8. 触控目标收口 ──
+   历史层 .rv-pill.sm 是双类选择器，特异性压过 reverie.css 的 44px 兜底，
+   实测登录 / 注册 / 查询按钮仍停在 38–42px。收口层最后加载，用更高特异性拉齐。 */
+html body a.rv-pill.sm,
+html body button.rv-pill.sm,
+html body .rv-ask-btn { min-height: 44px !important; }
+

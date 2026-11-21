@@ -68,8 +68,14 @@ for (const p of srcFiles) {
 const main = read('src/app/main.tsx');
 const imports = [...main.matchAll(/import\s+['"]\.\/styles\/([^'"]+)['"]/g)].map((m) => m[1]);
 check(
-  ['reverie.css', 'captcha.css', 'oauth.css'].includes(String(imports.at(-1))),
-  `视觉权威层为 Reverie，独立组件层可最后收口（实际 ${imports.at(-1)}）`
+  imports.at(-1) === 'zerexa-simple.css',
+  `Zerexa 简约收口层最后加载，压过所有历史绿色/毛玻璃（实际 ${imports.at(-1)}）`
+);
+check(
+  imports.indexOf('reverie.css') < imports.indexOf('zerexa-simple.css') &&
+  imports.indexOf('captcha.css') < imports.indexOf('zerexa-simple.css') &&
+  imports.indexOf('oauth.css') < imports.indexOf('zerexa-simple.css'),
+  'Reverie 骨架与独立组件层都在简约收口层之前'
 );
 check(
   imports.indexOf('reverie.css') < imports.indexOf('captcha.css') || !imports.includes('captcha.css'),
@@ -258,9 +264,9 @@ check(/\.bgswitch button[\s\S]{0,300}border-radius:\s*50%/.test(bloom), '壁纸�
 check(/min-width:\s*620px\s*!important/.test(bloom), '窄屏表格不再竖排断字');
 check(
   imports.includes('reverie.css') &&
-  ['captcha.css', 'oauth.css'].includes(String(imports.at(-1))) &&
+  imports.at(-1) === 'zerexa-simple.css' &&
   imports.indexOf('reverie.css') < imports.indexOf('captcha.css'),
-  'Reverie 为视觉权威层，滑块 / 第三方登录组件层只在其后收口'
+  'Zerexa 收口层为视觉权威层，Reverie 骨架与组件层都在其之前'
 );
 
 /* 12. 首屏一次性就绪：不再「一阶段 / 二阶段 / 三阶段慢慢加载出来」 */
@@ -385,10 +391,10 @@ const rvIcons = read('src/app/lib/icons.ts');
 const rvLegacy = read('src/app/legacy/home.ts');
 const rvDict = read('src/app/lib/dict.en.ts');
 const rvPkg = read('package.json');
-check(/--rv-paper:\s*#f6f2e8/.test(rv) && /--rv-fern:\s*#2f5d45/.test(rv), 'Reverie 羊皮纸与深蕨绿令牌就位');
-check(/\[data-theme="dark"\]/.test(rv) && /--rv-fern:\s*#9dc9a8/.test(rv), '深色模式有独立蕨绿 / 纸面色板');
+check(/--rv-paper:\s*#f6f2e8/.test(rv) && /--rv-fern:\s*#0b47c4/.test(rv), 'Reverie 骨架令牌就位；色板由简约收口层改为 logo 蓝');
+check(/\[data-theme="dark"\]/.test(rv) && /--rv-fern:\s*#7fb0ff/.test(rv), '深色模式有独立 logo 蓝 / 纸面色板');
 check(/\.rv-pill\.ink\s*\{[^}]*background:\s*var\(--rv-ink\)/s.test(rv), '墨黑药丸按钮（dark ink pill）');
-check(/\.rv-title em\s*\{[^}]*font-style:\s*italic[^}]*color:\s*var\(--rv-fern\)/s.test(rv), '标题只留一处绿色斜体强调');
+check(/\.rv-title em\s*\{[^}]*font-style:\s*italic[^}]*color:\s*var\(--rv-fern\)/s.test(rv), '标题只留一处 logo 蓝斜体强调');
 check(/\.rv-art\s*\{[^}]*background-image:\s*url\('\/img\/wallpaper\//s.test(rv), '画意卡承载壁纸，查询框浮在风景上');
 check(/html body\.page-home\.page-reverie\.has-cloud #bg\s*\{[^}]*opacity:\s*\.14 !important/s.test(rv), '首页壁纸仍满铺，只是退成纸面底纹（压住手机端 !important 规则）');
 check(/\.rv-head a\.rv-mobile-cta \{ display: none; \}/.test(rv) && /\.rv-head a\.rv-mobile-cta \{ display: inline-flex;/.test(rv), '桌面顶栏不出现重复「注册」药丸，手机端才显示');

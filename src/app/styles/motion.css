@@ -238,7 +238,7 @@ body.side-open::after {
 
   /* 键盘可达性：焦点环柔和出现 */
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--td-accent, #2f7d5b) !important;
+    outline: 2px solid var(--td-accent, #4a8bff) !important;
     outline-offset: 3px !important;
     border-radius: 6px;
   }
@@ -306,7 +306,7 @@ body.side-open::after {
     animation: tdPulseSoft 2.4s var(--td-ease-in-out) infinite !important;
   }
   #docProgress {
-    background: linear-gradient(90deg, var(--td-accent, #2f7d5b), #6fb98c) !important;
+    background: linear-gradient(90deg, var(--td-accent, #4a8bff), #5b93ff) !important;
     transition: width 120ms var(--td-ease-soft) !important;
     border-radius: 0 2px 2px 0 !important;
   }

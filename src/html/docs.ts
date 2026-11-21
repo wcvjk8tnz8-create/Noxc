@@ -3,7 +3,8 @@
  *
  * 仓库不跟踪 .html：这份字符串由 src/index.ts 按路径 c.html() 直出，
  * 也能用 npm run emit:root-pages 导出 docs.html 挂任意静态托管。
- * 纯阅读页：零框架、零外部字体、零首屏接口，8 张截图全部 lazy + picture webp。
+ * 纯阅读页：零框架、零首屏接口，8 张截图全部 lazy + picture webp。
+ * 英文统一 Redaction 35（Google Fonts 异步，失败回退系统中文字体）；
  * 中英、深浅色、手机目录与表格横滑都在本文件内自洽，不依赖 SPA 运行时。
  */
 export const docsHtml = String.raw`<!doctype html>
@@ -18,28 +19,31 @@ export const docsHtml = String.raw`<!doctype html>
 <meta name="description" content="Noxc 服务文档：软件介绍、快速开始、账号与额度、DNS 记录、DNSHE 托管接入、站点设置与已知限制。">
 <meta property="og:title" content="服务文档 · Noxc">
 <meta property="og:description" content="二级域名分发与 DNS 管理系统的完整使用说明。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Redaction+35:ital,wght@0,400;0,700;1,400&display=swap" media="print" onload="this.media='all'">
 <style>
 /* ── Noxc · Node tokens（与 src/html/reverieRootCss.ts / src/app/styles/noxc-node.css 同一套） ── */
 .td-doc{
-  --paper:#ffffff;--paper2:#f4f7fc;--card:rgba(255,255,255,.90);
+  --paper:#ffffff;--paper2:#f7f9fc;--card:#ffffff;
   --ink:#111318;--body:#49525f;--muted:#8b94a3;
-  --line:rgba(17,19,24,.13);--line2:rgba(17,19,24,.065);
+  --line:rgba(17,19,24,.13);--line2:rgba(17,19,24,.07);
   --acc:#1667f2;--accSoft:#e8f0ff;--red:#d0464e;--warn:#b47a12;--warnSoft:#fff5e2;
-  --radius:24px;
-  --serif:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
-  --sans:var(--serif);
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --radius:18px;
+  --serif:"Redaction 35","Noto Serif CJK SC","Songti SC","STSong",Georgia,"Times New Roman",serif;
+  --sans:"Redaction 35",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --mono:"Redaction 35",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --ease:cubic-bezier(.22,1,.36,1);--dur2:280ms;--dur3:420ms;
 }
 html[data-theme="dark"] .td-doc{
-  --paper:#0b0d11;--paper2:#141922;--card:rgba(22,27,35,.90);
+  --paper:#0b0d11;--paper2:#141922;--card:#141922;
   --ink:#f5f7fb;--body:#b6c0cf;--muted:#7c8798;
   --line:rgba(226,235,250,.16);--line2:rgba(226,235,250,.085);
   --acc:#5b93ff;--accSoft:#16233c;--red:#f3979b;--warn:#e6bd72;--warnSoft:#2b2418;
 }
 @media (prefers-color-scheme: dark){
   html:not([data-theme="light"]):not([data-theme="dark"]) .td-doc{
-    --paper:#0b0d11;--paper2:#141922;--card:rgba(22,27,35,.90);
+    --paper:#0b0d11;--paper2:#141922;--card:#141922;
     --ink:#f5f7fb;--body:#b6c0cf;--muted:#7c8798;
     --line:rgba(226,235,250,.16);--line2:rgba(226,235,250,.085);
     --acc:#5b93ff;--accSoft:#16233c;--red:#f3979b;--warn:#e6bd72;--warnSoft:#2b2418;
@@ -247,9 +251,10 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
       <a href="#dns" data-en="04 · DNS records">04 · DNS 记录</a>
       <a href="#dnshe" data-en="05 · DNSHE hosting">05 · DNSHE 托管接入</a>
       <a href="#admin" data-en="06 · Site settings">06 · 站点设置</a>
-      <a href="#limits" data-en="07 · Limits & FAQ">07 · 已知限制 / FAQ</a>
+      <a href="#showcase" data-en="07 · User Showcase">07 · 用户案例展示</a>
+      <a href="#limits" data-en="08 · Limits & FAQ">08 · 已知限制 / FAQ</a>
     </nav>
-    <p class="toc-note" data-en="This page is a standalone TypeScript template — no framework, no external fonts, no extra API calls.">本页由 TypeScript 模板直出：无框架、无外部字体、不多发一个接口请求，刷新也不会误播跳页动画。</p>
+    <p class="toc-note" data-en="This page is a standalone TypeScript template — no framework, no extra API calls. English type is Redaction 35, loaded asynchronously with a system-font fallback.">本页由 TypeScript 模板直出：无框架、不多发一个接口请求；英文统一 Redaction 35，异步加载失败回退系统字体，刷新也不会误播跳页动画。</p>
   </aside>
 
   <main class="doc-body">
@@ -424,8 +429,21 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
     </section>
 
     <!-- 07 -->
+    <section class="doc-sec" id="showcase">
+      <div class="doc-sec-head"><span class="doc-sec-no">07</span><h2 data-en="User Showcase">用户案例展示</h2></div>
+      <p data-en="The /showcase page lists homepages their owners chose to share: each card shows an icon, a title, the owner, one line of description and a link to the domain.">/showcase 是公开的用户案例页：每张卡片展示图标、标题、站长、一句话描述与域名链接。</p>
+      <ul>
+        <li data-en="Hidden by default: every domain starts with showcase=0. Turn it on under Domain details → User Showcase.">预设不展示：所有域名默认不展示，必须在「域名详情 → 用户案例展示」里主动开启。</li>
+        <li data-en="Only approved domains on active accounts are listed. The API never returns emails or user IDs; the owner label prefers the profile nickname.">只有已开通且账号正常的域名会出现；公开接口不返回邮箱与用户 ID，站长名优先取个人资料昵称。</li>
+        <li data-en="Card title, one-line description and emoji are editable; blank title falls back to the domain label, blank emoji to a globe.">展示标题、描述与 emoji 都能改；标题留空回退到域名前缀，图标留空用地球。</li>
+        <li data-en="Switching it off removes the card immediately and never touches the domain or its DNS records.">关掉开关即从公开页移除，不影响域名本身与 DNS 记录。</li>
+      </ul>
+      <p><a href="/showcase" data-en="Open the User Showcase →">打开用户案例页 →</a></p>
+    </section>
+
+    <!-- 08 -->
     <section class="doc-sec" id="limits">
-      <div class="doc-sec-head"><span class="doc-sec-no">07</span><h2 data-en="Known limits & FAQ">已知限制 / FAQ</h2></div>
+      <div class="doc-sec-head"><span class="doc-sec-no">08</span><h2 data-en="Known limits & FAQ">已知限制 / FAQ</h2></div>
       <p data-en="These are real constraints, not polish notes.">以下是真实边界，不是「待优化」的客套话。</p>
       <ul>
         <li data-en="Nameservers for the root domains are spread across Spaceship and Cloudflare; there is no wildcard record issued for every subdomain. Only names that were explicitly created or delegated resolve.">两个根域名的 NS 分散在 Spaceship 与 Cloudflare，<strong>没有下发通配记录</strong>：只有显式创建或委派过的名字才解析，后台审核通过不等于 DNS 已生效。</li>

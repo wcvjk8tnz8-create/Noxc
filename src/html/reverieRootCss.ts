@@ -2,8 +2,9 @@
  * 两个根域名页（meoy.top / v-1.top）共用的 Noxc · Node 收口层。
  *
  * 它们仍是自包含静态页：把这段 CSS 拼进 <head> 末尾即可，
- * 不用引入官网的 Vite 构建产物，也不加载任何外部字体或脚本。
- * 变量覆盖 + 少量组件收口，保留原本「单屏 dnshe 式查询页」的骨架。
+ * 不用引入官网的 Vite 构建产物。英文统一 Redaction 35（Google Fonts 异步加载，
+ * 失败时回退系统中文字体），变量覆盖 + 少量组件收口，
+ * 保留原本「单屏 dnshe 式查询页」的骨架与 Zerexa 的衬线标题、等宽小标、细线。
  *
  * 与官网 src/app/styles/noxc-node.css 同一套令牌：
  *   冷白 #ffffff / 墨黑 #111318 / logo 蓝 #1667f2 / 节点点阵 / 圆头胶囊。
@@ -11,27 +12,31 @@
 export const reverieRootCss = String.raw`
 /* ── Noxc · Node (root domains) ───────────────────────────── */
 :root{
-  --paper:#ffffff;--paper2:#f4f7fc;--card:rgba(255,255,255,.90);
+  --paper:#ffffff;--paper2:#f7f9fc;--card:#ffffff;
   --ink:#111318;--body:#49525f;--muted:#8b94a3;
-  --line:rgba(17,19,24,.13);--line2:rgba(17,19,24,.065);
+  --line:rgba(17,19,24,.13);--line2:rgba(17,19,24,.07);
   --acc:#1667f2;--accSoft:#e8f0ff;--red:#d0464e;
-  --radius:24px;
-  --serif:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
-  --sans:var(--serif);
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --radius:18px;
+  --serif:"Redaction 35","Noto Serif CJK SC","Songti SC","STSong",Georgia,"Times New Roman",serif;
+  --sans:"Redaction 35",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --mono:"Redaction 35",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --ease:cubic-bezier(.22,1,.36,1);--dur2:280ms;--dur3:420ms;
   --rv-fern:#1667f2;--rv-ink:#111318;--rv-hair:rgba(17,19,24,.13);
   --blue:#1667f2;--blueSoft:#e8f0ff;
 }
 @media(prefers-color-scheme:dark){
   :root{
-    --paper:#0b0d11;--paper2:#141922;--card:rgba(22,27,35,.90);
+    --paper:#0b0d11;--paper2:#141922;--card:#141922;
     --ink:#f5f7fb;--body:#b6c0cf;--muted:#7c8798;
     --line:rgba(226,235,250,.16);--line2:rgba(226,235,250,.085);
     --acc:#5b93ff;--accSoft:#16233c;--red:#f3979b;
     --rv-fern:#5b93ff;--rv-ink:#f5f7fb;--rv-hair:rgba(226,235,250,.16);
     --blue:#5b93ff;--blueSoft:#16233c;
   }
+}
+/* 简约：任何元素都不再做毛玻璃模糊 */
+html body *,html body *::before,html body *::after{
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important
 }
 html,body{max-width:100%;overflow-x:clip}
 body{
@@ -46,8 +51,8 @@ body{
 .brand,h1,.rv-serif{font-family:var(--serif);letter-spacing:-.04em}
 /* 强调不再是绿色斜体，而是 logo 的蓝点与圆头粗线 */
 h1 em{font-style:normal;color:var(--acc);font-weight:700;position:relative}
-h1 em::after{content:'';position:absolute;left:0;right:0;bottom:.02em;height:4px;
-  border-radius:999px;background:var(--acc);opacity:.8;transform-origin:left;
+h1 em::after{content:'';position:absolute;left:0;right:0;bottom:.02em;height:1px;
+  border-radius:0;background:var(--line);opacity:1;transform-origin:left;
   animation:rvUnderline 900ms var(--ease) 380ms both}
 .brand i{border-radius:50%!important;transform:none!important;
   background:var(--acc)!important;box-shadow:0 0 0 4px var(--accSoft)}

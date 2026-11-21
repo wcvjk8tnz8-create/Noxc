@@ -4,7 +4,7 @@ import { ok, fail, now, audit, clientIp, defaultQuotaOf } from '../lib/util.js';
 import { createSession, setSessionCookie, clearSessionCookie, destroySession, UNLIMITED } from '../middleware/auth.js';
 import { notifyLoginIp, notify } from '../lib/notify.js';
 import { issueCode, checkCode, mailConfig, mailEnabled } from '../lib/mail.js';
-import { signupEmailOk, emailRuleReject } from '../lib/emailRule.js';
+import { signupEmailOk, emailRuleReject, blockedEmailDomain, BLOCKED_EMAIL_MESSAGE } from '../lib/emailRule.js';
 
 const app = new Hono();
 
@@ -32,8 +32,10 @@ app.post('/register', async (c) => {
   if (!password || String(password).length < 8) return fail(c, '密码至少 8 位');
   if (String(password).length > 128) return fail(c, '密码过长');
 
-  // 注册邮箱规则：默认白名单 ∪ 任意含 "edu" 的邮箱（不区分大小写）
+  /* 注册邮箱规则：封禁域名（一次性 / 非公开邮箱）优先于一切，
+     再判白名单 ∪ 教育网邮箱（域名含 edu，不再看本地部分）。 */
   const gate = await signupEmailOk(env, mail);
+  if (gate.blocked) return fail(c, BLOCKED_EMAIL_MESSAGE, 403);
   if (!gate.ok) return fail(c, emailRuleReject(gate.rule));
 
   // 必须同意服务条款
@@ -112,6 +114,18 @@ app.post('/login', async (c) => {
   const { email, password, remember } = await c.req.json().catch(() => ({}));
   const mail = String(email || '').trim().toLowerCase();
   if (!mail || !password) return fail(c, '请输入邮箱和密码');
+
+  /* 立即封锁：一次性 / 非公开邮箱域名（oauth.local 等）的存量账号，
+     不依赖 D1 迁移是否跑过 —— 只要有人拿它登录，当场标记为封禁。
+     管理员账号不动，避免把站点锁死。 */
+  if (blockedEmailDomain(mail)) {
+    try {
+      await c.env.DB.prepare(
+        "UPDATE users SET status = 'banned', ban_reason = ? WHERE email = ? AND role <> 'admin' AND status <> 'banned'"
+      ).bind('违规注册：一次性 / 非公开邮箱域名', mail).run();
+    } catch { /* 表结构异常时也不放行 */ }
+    return fail(c, BLOCKED_EMAIL_MESSAGE, 403);
+  }
 
   const ip = clientIp(c);
   if (ip) {
@@ -221,6 +235,7 @@ app.post('/verify/send', async (c) => {
   // 重置场景不校验 —— 已有账号不该因为规则变更而被挡在门外。
   if (scene === 'register') {
     const gate = await signupEmailOk(c.env, mail);
+    if (gate.blocked) return fail(c, BLOCKED_EMAIL_MESSAGE, 403);
     if (!gate.ok) return fail(c, emailRuleReject(gate.rule));
   }
 

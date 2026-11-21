@@ -63,6 +63,7 @@ export default function HomePage() {
           <nav className="rv-nav" aria-label="主导航">
             <a href="#suffix">后缀</a>
             <a href="#features">特性</a>
+            <a href="/showcase">用户案例</a>
             <a href="#faq">常见问题</a>
             {authed
               ? <a className="rv-pill line sm rv-login" href="/dashboard">→ 去往控制台</a>
@@ -203,7 +204,7 @@ export default function HomePage() {
               <div className="rv-fbrand"><img data-logo-img src="/img/logo.jpg" alt="" /><span data-site-name>Noxc</span></div>
               <p className="rv-fdesc">免费、开源的二级域名分发与 DNS 管理系统。<br />基于 Cloudflare Workers + D1。</p>
             </div>
-            <div className="rv-fcol"><h4>服务</h4><a href="/whois">WHOIS 查询</a><a href="/dashboard">域名管理</a><a href="/docs">服务文档</a><a href="/terms">服务条款</a><a href="/report">举报滥用</a></div>
+            <div className="rv-fcol"><h4>服务</h4><a href="/whois">WHOIS 查询</a><a href="/dashboard">域名管理</a><a href="/showcase">用户案例</a><a href="/docs">服务文档</a><a href="/terms">服务条款</a><a href="/report">举报滥用</a></div>
             <div className="rv-fcol"><h4>开源</h4><a href="https://github.com/wcvjk8tnz8-create/MeoyDomain" target="_blank" rel="noopener noreferrer">GitHub <Ico name="external" size={13} /></a><a href="https://github.com/wcvjk8tnz8-create/MeoyDomain/issues" target="_blank" rel="noopener noreferrer">问题反馈 <Ico name="external" size={13} /></a><span className="rv-fdim">MIT License</span></div>
           </div>
           <div className="rv-fbottom">

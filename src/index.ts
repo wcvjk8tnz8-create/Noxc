@@ -34,6 +34,7 @@ import ticketRoutes from './routes/tickets.js';
 import transferRoutes from './routes/transfer.js';
 import abuseRoutes from './routes/abuse.js';
 import emailRequestRoutes from './routes/emailRequests.js';
+import showcaseRoutes from './routes/showcase.js';
 
 const app = new Hono();
 
@@ -254,6 +255,8 @@ app.route('/api/notifications', notificationRoutes);
 app.route('/api', termsRoutes);
 // WHOIS 公开查询（无需登录）
 app.route('/api', whoisRoutes);
+// 用户案例展示：公开只读，默认不展示，只有用户主动开启的域名会出现
+app.route('/api', showcaseRoutes);
 
 // 需要登录的接口
 // 滑块验证独立前缀也要登录：未登录领不到挑战，也就没法为别人刷票据
@@ -305,10 +308,10 @@ const SPA_PATHS = new Set([
   '/', '/index.html', '/home.html', '/dashboard.html', '/domain.html',
   '/register.html', '/whois.html', '/admin.html', '/checkin.html',
   '/rewards.html', '/chat.html', '/tickets.html', '/transfer.html',
-  '/profile.html', '/terms.html', '/docs.html',
+  '/profile.html', '/terms.html', '/docs.html', '/showcase.html',
   '/login', '/login.html', '/home', '/dashboard', '/domain', '/register', '/whois',
   '/admin', '/checkin', '/rewards', '/chat', '/tickets', '/transfer',
-  '/profile', '/terms', '/docs',
+  '/profile', '/terms', '/docs', '/showcase',
 ]);
 app.all('*', async (c) => {
   const reqUrl = new URL(c.req.url);

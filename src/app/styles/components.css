@@ -1723,7 +1723,7 @@ h1, h2, h3, .page-title, .brand-name, .stat-v, .op-btn, .tab, .side-txt {
   background: linear-gradient(135deg, #5aa8ff, #7fc0ff);
 }
 .stat-card.sc-green {
-  background: linear-gradient(135deg, #54c895, #7fdcae);
+  background: linear-gradient(135deg, #7fb0ff, #7fb0ff);
 }
 .stat-card.sc-amber {
   background: linear-gradient(135deg, #ffb86b, #ffd28f);
@@ -2586,7 +2586,7 @@ input:focus, select:focus, textarea:focus {
   background: #d5a13b;
 }
 .nk-term-bar i:nth-child(3) {
-  background: #4faf5a;
+  background: #5b93ff;
 }
 .nk-term-bar span {
   margin-left: auto;
@@ -2612,7 +2612,7 @@ input:focus, select:focus, textarea:focus {
   color: #6ec3ff;
 }
 .c-str {
-  color: #9ad88f;
+  color: #7fb0ff;
 }
 .c-key {
   color: #7fb0e0;
@@ -4267,7 +4267,7 @@ body .site-foot {
   background: linear-gradient(135deg, #35709f, #5590c0);
 }
 [data-theme="dark"] .stat-card.sc-green {
-  background: linear-gradient(135deg, #2f7d5c, #4fa37a);
+  background: linear-gradient(135deg, #4a8bff, #5b93ff);
 }
 [data-theme="dark"] .stat-card.sc-amber {
   background: linear-gradient(135deg, #a8763f, #cc9860);
