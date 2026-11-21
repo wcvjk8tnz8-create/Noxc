@@ -684,9 +684,12 @@ check(/'nodeloc_client_secret'\]/.test(nlAdminApi) && /body\.nodelocClientSecret
 check(/id="sNodelocEnabled"/.test(nlAdminUi) && /id="sNodelocClientId"/.test(nlAdminUi) && /id="sNodelocClientSecret"/.test(nlAdminUi), '后台有开关与两个凭据输入框');
 check(/nodelocClientId: document\.getElementById\('sNodelocClientId'\)\.value/.test(nlAdminUi), '后台「保存设置」提交凭据，开关不会改不动');
 check(/id="nodelocWrap" hidden/.test(nlLogin) && /cfg\.nodelocEnabled/.test(nlLoginCtrl), '登录按钮默认隐藏，只有开关齐备才显示');
-check(/id="btnNodelocBind"/.test(nlProfile) && /start\?bind=1/.test(nlProfileCtrl), '个人资料可绑定 / 解绑 NodeLoc');
-check(/使用 NodeLoc 登录/.test(nlDict) && /回调地址必须是以 http\(s\)/.test(nlServerDict), '前后端英文词条齐，不夹生');
+check(/id="btnNodelocBind"/.test(nlProfile) && /nodelocStartUrl\('\?bind=1'\)/.test(nlProfileCtrl), '个人资料可绑定 / 解绑 NodeLoc');
+check(/使用 NodeLoc 登录/.test(nlDict) && /回调地址必须是以 https:\/\//.test(nlServerDict), '前后端英文词条齐，不夹生');
 check(/min-height: 44px/.test(nlCss) && /data-theme="dark"/.test(nlCss) && /prefers-reduced-motion/.test(nlCss), '按钮 ≥44px、深色与减少动态都覆盖');
+check(/html\[data-theme="dark"\][\s\S]{0,220}color:\s*var\(--zx-ink\)/.test(nlCss),
+  '深色按钮文字用浅墨而非深蓝底令牌，保证可读');
+
 check(/CREATE TABLE IF NOT EXISTS oauth_quota_grants/.test(nlSchema) && /UNIQUE\(provider, user_id\)/.test(nlSchema),
   'D1 建绑定奖励领取表，provider+user_id 唯一');
 check(/NODELOC_BIND_QUOTA_BONUS = 5/.test(nlLib), '绑定奖励固定为 +5 配额');
@@ -697,6 +700,28 @@ check(/UPDATE users SET quota = \? WHERE id = \?/.test(nlRoute) && /role\) === '
 check(/oauth=bound&bonus=/.test(nlRoute) && /配额 \+/.test(nlProfileCtrl), '绑定成功把实际奖励数带回页面并提示');
 check(/NodeLoc 账号已绑定，配额 \\\+\(\\d\+\)/.test(nlI18n) && /st\.email/.test(nlProfileCtrl),
   '动态奖励文案有英文映射，个人资料页显示读到的邮箱');
+
+/* HTTPS 强制 + 官方 logo：NodeLoc 只接受 HTTPS 回调，登录 / 绑定 / 回调全链路归一 */
+const nlUrl = read('src/app/lib/oauthUrl.ts');
+check(/nodelocStartUrl\(\)/.test(nlLogin) && /https:\/\/\$\{host\}/.test(nlUrl),
+  '登录按钮 href 为 https 绝对地址（仍走站内 /start 生成一次性 state）');
+check(/nodelocStartUrl\('\?bind=1'\)/.test(nlProfileCtrl), '个人资料绑定入口同为 https 绝对地址');
+check(!/href="\/api\/auth\/nodeloc\/start"/.test(nlLogin) &&
+      !/location\.href = '\/api\/auth\/nodeloc\/start/.test(nlProfileCtrl),
+  '登录 / 绑定不再留 http 相对路径明文');
+check(!/href="https:\/\/www\.nodeloc\.com\/oauth-provider\/authorize/.test(nlLogin),
+  '按钮不直连 provider authorize（否则 state / Cookie / D1 校验失效）');
+check(/u\.protocol = 'https:'/.test(nlLib) && /httpsCallbackUrl\(c\)/.test(nlAdminApi),
+  '回调地址在服务端强制 https，后台展示与授权请求同源');
+check(nlAdminApi.includes('!/^https:\\/\\//i.test(r)'),
+  '后台自定义回调只接受 https://，http:// 一律拒绝');
+check(!/http:\/\/www\.nodeloc\.com/.test(nlLib + nlRoute + nlAdminApi + nlAdminUi + nlIndex),
+  'NodeLoc 端点零 http 明文');
+check(/nodeloc-logo\.png/.test(nlLogin) &&
+      fs.existsSync(path.join(root, 'public/img/nodeloc-logo.png')),
+  '登录按钮使用官方 NodeLoc logo（透明 PNG 已入库）');
+check(!/td-oauth-mark">NL</.test(nlLogin) && /td-oauth-mark img/.test(nlCss),
+  'NL 文字占位移除，徽标样式改为图片');
 
 /* 提交后弹窗验证 + DNSHE 一键 NS：把这次两个真因固化成阻断断言 */
 const mdReg = read('src/app/pages/Register.tsx');

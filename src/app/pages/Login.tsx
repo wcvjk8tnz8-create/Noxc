@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { mountLogin } from '../legacy/index';
 import { refreshRuntime, cleanupPage } from '../lib/runtime';
+import { nodelocStartUrl } from '../lib/oauthUrl';
 
 /**
  * Login —— 登录 / 注册 / 找回密码三合一。
@@ -101,11 +102,15 @@ export default function LoginPage() {
             <button className="btn primary block" id="btnLogin">登录账户</button>
 
             {/* 第三方登录：后端开启且凭据齐备时才由控制器去掉 hidden，
-                用 <a> 整页跳转，保证无 JS 也能发起授权、且能触发跳页过渡。 */}
+                用 <a> 整页跳转，保证无 JS 也能发起授权、且能触发跳页过渡。
+                href 必须是 https 绝对地址（NodeLoc 只接受 HTTPS 回调）；
+                仍走站内 /start 生成一次性 state，不直连 provider authorize。 */}
             <div className="td-oauth-wrap" id="nodelocWrap" hidden>
               <div className="td-oauth-sep">OR</div>
-              <a className="td-oauth-btn" id="btnNodeloc" href="/api/auth/nodeloc/start">
-                <span className="td-oauth-mark">NL</span>
+              <a className="td-oauth-btn" id="btnNodeloc" href={nodelocStartUrl()}>
+                <span className="td-oauth-mark">
+                  <img src="/img/nodeloc-logo.png" alt="NodeLoc" width="20" height="20" />
+                </span>
                 <span>使用 NodeLoc 登录</span>
               </a>
             </div>

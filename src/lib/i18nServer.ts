@@ -38,7 +38,7 @@ export const SERVER_DICT: Record<string, string> = {
   '页面不存在': 'Page not found', '接口不存在': 'Endpoint not found',
   '需要管理员权限': 'Admin privileges required',
   '当前账号没有管理员权限。': 'This account does not have admin privileges.',
-  '回调地址必须是以 http(s):// 开头的绝对地址': 'The callback URL must be an absolute http(s):// URL',
+  '回调地址必须是以 https:// 开头的绝对地址': 'The callback URL must be an absolute https:// URL',
   '请求失败': 'Request failed', '操作成功': 'Done',
   '信息不完整': 'Incomplete information', '场景不合法': 'Invalid scene',
   '角色不合法': 'Invalid role', '缺少 IP': 'Missing IP',

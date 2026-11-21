@@ -18,7 +18,7 @@ import { EMAIL_RULES, emailRuleOf, type EmailRule } from '../lib/emailRule.js';
 import { DEFAULT_FOOTER_ICP_HTML } from '../lib/footerIcp.js';
 import { DEFAULT_FOOTER_CONTACT_HTML } from '../lib/footerContact.js';
 import { normalizeReservedExtra, reservedOverview } from '../lib/reserved.js';
-import { nodelocConfig, maskSecret, NODELOC_CALLBACK_PATH } from '../lib/nodeloc.js';
+import { nodelocConfig, maskSecret, NODELOC_CALLBACK_PATH, httpsCallbackUrl } from '../lib/nodeloc.js';
 
 const app = new Hono();
 
@@ -541,9 +541,8 @@ app.get('/settings', async (c) => {
       scopeEmail: nodeloc.scopeEmail,
       fromEnv: nodeloc.fromEnv,
       callbackPath: NODELOC_CALLBACK_PATH,
-      callbackUrl: (() => {
-        try { return new URL(NODELOC_CALLBACK_PATH, c.req.url).toString(); } catch { return NODELOC_CALLBACK_PATH; }
-      })(),
+      // 必须是 https：NodeLoc 应用管理页只登记 HTTPS 回调，逐字符一致才不会被拒
+      callbackUrl: httpsCallbackUrl(c),
       redirectUri: nodeloc.redirectUri,
     },
 
@@ -837,7 +836,8 @@ app.post('/settings', async (c) => {
   }
   if (body.nodelocRedirectUri !== undefined) {
     const r = String(body.nodelocRedirectUri || '').trim();
-    if (r && !/^https?:\/\//i.test(r)) return fail(c, '回调地址必须是以 http(s):// 开头的绝对地址');
+    // NodeLoc 只接受 HTTPS 回调，http:// 一律拒绝，避免授权被 provider 拒掉
+    if (r && !/^https:\/\//i.test(r)) return fail(c, '回调地址必须是以 https:// 开头的绝对地址');
     await set('nodeloc_redirect_uri', r.slice(0, 300));
   }
 

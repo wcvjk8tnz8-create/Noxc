@@ -104,17 +104,40 @@ export async function nodelocEnabled(env: any): Promise<boolean> {
 }
 
 /**
- * 回调地址必须与 NodeLoc 应用管理页登记的一致。
- * 默认按当前请求 origin 生成；多域名部署可在后台填固定绝对地址覆盖。
+ * 生成 https 绝对回调地址。
+ * NodeLoc 只接受 HTTPS 回调；反代 / 本地调试里 c.req.url 可能带 http:，
+ * 这里一律把协议归一成 https，避免后台给管理员复制出 http:// 的地址，
+ * 导致「应用管理页登记的回调 URI」与授权请求里的不一致而被拒。
  */
-export function redirectUriOf(c: any, cfg: NodelocConfig): string {
-  const fixed = String(cfg.redirectUri || '').trim();
-  if (fixed) return fixed;
+export function httpsCallbackUrl(c: any): string {
   try {
-    return new URL(NODELOC_CALLBACK_PATH, c.req.url).toString();
+    const u = new URL(NODELOC_CALLBACK_PATH, c.req.url);
+    u.protocol = 'https:';
+    return u.toString();
   } catch {
     return NODELOC_CALLBACK_PATH;
   }
+}
+
+/**
+ * 回调地址必须与 NodeLoc 应用管理页登记的一致。
+ * 默认按当前请求 origin 生成（强制 https）；多域名部署可在后台填固定
+ * 的 https 绝对地址覆盖。
+ */
+export function redirectUriOf(c: any, cfg: NodelocConfig): string {
+  const fixed = String(cfg.redirectUri || '').trim();
+  if (fixed) {
+    // 旧库可能残留 http:// 的自定义地址，保存端已拦截新增，这里再兜底归一，
+    // 保证授权请求里发给 NodeLoc 的 redirect_uri 一定是 https。
+    try {
+      const u = new URL(fixed);
+      u.protocol = 'https:';
+      return u.toString();
+    } catch {
+      return fixed;
+    }
+  }
+  return httpsCallbackUrl(c);
 }
 
 export function maskSecret(v: unknown): string {

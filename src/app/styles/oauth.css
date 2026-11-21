@@ -52,25 +52,29 @@ button.td-oauth-btn:focus-visible {
   outline-offset: 3px;}
 .td-oauth-btn[disabled] { opacity: .55; cursor: not-allowed; transform: none;}
 
+/* NodeLoc 官方 logo（绿四叶结 + 四颗橙点），透明底，不再用「NL」文字占位。
+   品牌资产保持原色，不随主题反色；深色下只轻微提亮绿色线条。 */
 .td-oauth-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 7px;
-  background: var(--zx-blue);
-  color: var(--zx-paper);
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1;
+  width: 22px;
+  height: 22px;
   flex: none;}
+.td-oauth-mark img {
+  display: block;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;}
+html[data-theme="dark"] .td-oauth-mark img {
+  filter: brightness(1.14) saturate(1.04);}
 
 html[data-theme="dark"] a.td-oauth-btn,
 html[data-theme="dark"] button.td-oauth-btn {
   border-color: var(--zx-blue-a16);
   background: var(--zx-paper);
-  color: var(--zx-blue-soft);
+  /* 深色纸面上不能用 --zx-blue-soft（深色模式它是深蓝底），否则文字几乎隐形 */
+  color: var(--zx-ink);
   box-shadow: none;}
 html[data-theme="dark"] a.td-oauth-btn:hover,
 html[data-theme="dark"] button.td-oauth-btn:hover {

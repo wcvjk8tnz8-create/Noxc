@@ -3,6 +3,7 @@
  * 外部符号由 runtime 提供；DOM 查询作用于当前挂载的页面。
  */
 import { api, esc, fmtTime, toast, openModal, closeModal, loadBranding, applyBranding, mountShell, MeoyRenderAvatars } from '../lib/runtime';
+import { nodelocStartUrl } from '../lib/oauthUrl';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -42,7 +43,7 @@ export async function mountProfile(_root: HTMLElement | null): Promise<void> {
         toast('已解除 NodeLoc 绑定');
         refreshNodelocState();
       } else {
-        location.href = '/api/auth/nodeloc/start?bind=1';
+        location.href = nodelocStartUrl('?bind=1');
       }
     } catch (e) { toast(e.message, 'err'); }
   };
