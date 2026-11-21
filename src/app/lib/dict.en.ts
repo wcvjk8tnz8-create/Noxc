@@ -24,6 +24,8 @@ export const EXTRA_DICT: Record<string, string> = {
   '已有相同 NS 记录，已跳过': 'Matching NS records already exist, skipped',
   '托管 NS 预设不可用': 'Hosting NS preset is unavailable',
   'NS 记录也是普通 DNS 记录，添加后会出现在上方列表，可编辑或删除': 'NS records are regular DNS records — they appear in the list above and can be edited or deleted',
+  '托管服务名称服务器：': 'Hosting nameservers:',
+  '只想写入 DNSHE 的 NS 记录、不转移解析权？': 'Just add DNSHE NS records without transferring delegation?',
   /* ── NodeLoc 第三方登录 ── */
   '使用 NodeLoc 登录': 'Continue with NodeLoc',
   '第三方登录 · NodeLoc': 'Third-party sign-in · NodeLoc',

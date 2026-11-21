@@ -27,6 +27,16 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
   
   async function loadAll() {
     cfg = await api.get('/api/config');
+    // 兜底：即使 /api/config 未下发预设，DNSHE 的两台 NS 也始终可用（口径 dnshe.org）
+    const nsList = Array.isArray(cfg.hostingNsPresets) ? cfg.hostingNsPresets : [];
+    if (!nsList.some((p) => p && p.key === 'dnshe')) {
+      nsList.push({
+        key: 'dnshe', label: 'DNSHE 托管 NS',
+        ns: ['ns1.dnshe.org', 'ns2.dnshe.org'],
+        note: 'dnshe.org 托管服务的两台名称服务器',
+      });
+    }
+    cfg.hostingNsPresets = nsList;
     presets = cfg.verifyPresets;
     await loadMyDomains();
     const d = await api.get('/api/subdomains/' + subId);
@@ -270,6 +280,10 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
     });
     document.querySelectorAll('[data-ns-preset]').forEach((b) => {
       b.onclick = () => addHostingNs(b.dataset.nsPreset);
+    });
+    // DNS 记录卡片 / NS 委派页顶部的显眼按钮，与模板区共用同一条写入链路
+    document.querySelectorAll('[data-ns-dnshe]').forEach((b) => {
+      b.onclick = () => addHostingNs('dnshe');
     });
   }
 

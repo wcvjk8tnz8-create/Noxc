@@ -98,8 +98,12 @@ export default function DomainPage() {
         <div className="card">
           <div className="row between" style={{marginBottom: "10px"}}>
             <h2 style={{margin: "0"}}>DNS 记录</h2>
-            <button className="btn primary sm" id="btnAdd">添加记录</button>
+            <div className="row" style={{gap: "8px", flexWrap: "wrap", justifyContent: "flex-end"}}>
+              <button className="btn sm" data-ns-dnshe title="ns1.dnshe.org / ns2.dnshe.org">一键添加 DNSHE NS</button>
+              <button className="btn primary sm" id="btnAdd">添加记录</button>
+            </div>
           </div>
+          <div className="hint" style={{marginBottom: "10px"}}>托管服务名称服务器：<span className="mono">ns1.dnshe.org</span> · <span className="mono">ns2.dnshe.org</span></div>
           <div className="tablewrap">
             <table>
               <thead><tr><th>类型</th><th>主机名</th><th>记录值</th><th>TTL</th><th>状态</th><th className="right">操作</th></tr></thead>
@@ -122,6 +126,10 @@ export default function DomainPage() {
           <div className="sub" style={{marginBottom: "12px"}}>
             把该子域名的解析权整体交给第三方 DNS（anyns.io / DNSHE / Cloudflare 等）。
             系统会在父区域写入 NS 记录，之后该域名下的全部记录由目标服务商负责，本站不再接管解析。
+          </div>
+          <div className="row between" style={{marginBottom: "12px", gap: "10px", flexWrap: "wrap"}}>
+            <div className="hint" style={{margin: 0}}>只想写入 DNSHE 的 NS 记录、不转移解析权？</div>
+            <button className="btn sm" data-ns-dnshe title="ns1.dnshe.org / ns2.dnshe.org">一键添加 DNSHE NS</button>
           </div>
           <div id="delegationBox"><div className="empty">加载中…</div></div>
         </div>
