@@ -27,9 +27,9 @@ export const DELEGATION_PROVIDERS = [
     key: 'dnshe',
     name: 'DNSHE',
     desc: '免费域名注册 + DNS 解析（托管服务 dnshe.org），Global Anycast，开放 REST API',
-    // 托管服务主域是 dnshe.org，名称服务器与之一致：ns1/ns2.dnshe.org。
-    // 注意 api005.dnshe.com 只是 WHOIS / DNS REST API 的技术端点，与 NS 主机名是两回事，保留 .com。
-    ns: ['ns1.dnshe.org', 'ns2.dnshe.org'],
+    // 托管服务主域是 dnshe.org；在其注册分发的后缀才是 .com。
+    // NS 与 API 是官方技术端点，仍沿用 .com，改掉会直接调不通。
+    ns: ['ns1.dnshe.com', 'ns2.dnshe.com'],
     panel: 'https://my.dnshe.org',
     addPath: '',
     api: {
