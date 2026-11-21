@@ -165,6 +165,19 @@ export const VERIFY_PRESETS = [
   { key: 'custom', host: '', label: '自定义', hint: '手动填写主机名与 TXT 值', valueHint: '' },
 ];
 
+/* 托管服务 NS 预设。
+   NS 就是普通 DNS 记录：这里只提供「一键填好两条」的快捷值，
+   写入仍走 POST /subdomains/:id/records → buildRecord('NS') → cfCreate，
+   落在 dns_records 表，出现在普通记录列表里，可编辑、可删除、同样计入上限。 */
+export const HOSTING_NS_PRESETS = [
+  {
+    key: 'dnshe',
+    label: 'DNSHE 托管 NS',
+    ns: ['ns1.dnshe.org', 'ns2.dnshe.org'],
+    note: 'dnshe.org 托管服务的两台名称服务器',
+  },
+];
+
 // ------------------------- 校验工具 -------------------------
 
 const LABEL_RE = /^[A-Za-z0-9_*](?:[A-Za-z0-9_-]*[A-Za-z0-9_*])?$/;

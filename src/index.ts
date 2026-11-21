@@ -13,7 +13,7 @@ import { rootPageFor } from './html/rootPages.js';
 import { Hono } from 'hono';
 import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
 import { ok, fail, defaultQuotaOf } from './lib/util.js';
-import { RECORD_TYPES, TTL_CHOICES, VERIFY_PRESETS, TYPE_NAMES } from './lib/records.js';
+import { RECORD_TYPES, TTL_CHOICES, VERIFY_PRESETS, HOSTING_NS_PRESETS, TYPE_NAMES } from './lib/records.js';
 import authRoutes from './routes/auth.js';
 import nodelocRoutes from './routes/nodeloc.js';
 import termsRoutes from './routes/terms.js';
@@ -198,6 +198,8 @@ app.get('/api/config', async (c) => {
     recordTypes: TYPE_NAMES.map((k) => ({ key: k, ...RECORD_TYPES[k] })),
     ttlChoices: TTL_CHOICES,
     verifyPresets: VERIFY_PRESETS,
+    // 托管服务 NS 预设：NS 也是普通 DNS 记录，前端不写死服务器名
+    hostingNsPresets: HOSTING_NS_PRESETS,
     siteName: s.site_name || 'TerraDomain',
     logoUrl: s.logo_url || '/img/logo.jpg',
     faviconUrl: s.favicon_url || '/favicon.ico',

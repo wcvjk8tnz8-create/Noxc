@@ -256,8 +256,10 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
   }
   
   function renderTpl() {
+    const nsPresets = (cfg.hostingNsPresets || []).map((p) =>
+      `<button class="btn sm" data-ns-preset="${esc(p.key)}" title="${esc(p.note || '')}">${esc(p.label)}（一键）</button>`).join('');
     document.getElementById('tpls').innerHTML = TEMPLATES
-      .map((t, i) => `<button class="btn sm" data-tpl="${i}">${esc(t.n)}</button>`).join('');
+      .map((t, i) => `<button class="btn sm" data-tpl="${i}">${esc(t.n)}</button>`).join('') + nsPresets;
     document.querySelectorAll('[data-tpl]').forEach((b) => {
       b.onclick = () => {
         const t = TEMPLATES[b.dataset.tpl];
@@ -266,6 +268,34 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
         openRecordForm(null, body);
       };
     });
+    document.querySelectorAll('[data-ns-preset]').forEach((b) => {
+      b.onclick = () => addHostingNs(b.dataset.nsPreset);
+    });
+  }
+
+  /* 一键把托管服务的 NS 写成两条普通 DNS 记录。
+     不建独立表、不走另一套接口：和手动添加 NS 完全同一条链路，
+     所以会出现在上方记录列表里，可编辑、可删除、同样计入条数上限。 */
+  async function addHostingNs(key) {
+    const p = (cfg.hostingNsPresets || []).find((x) => x.key === key);
+    if (!p || !Array.isArray(p.ns) || !p.ns.length) return toast('托管 NS 预设不可用', 'err');
+    let added = 0;
+    for (const ns of p.ns) {
+      const target = String(ns).trim().toLowerCase();
+      const dup = records.some((r) => String(r.type).toUpperCase() === 'NS'
+        && String(r.content || '').trim().toLowerCase() === target
+        && (r.host === '@' || r.name === sub.fqdn));
+      if (dup) continue;   // 幂等：重复点击不会写出重复 NS
+      try {
+        await api.post('/api/subdomains/' + subId + '/records', {
+          type: 'NS', host: '@', content: ns, ttl: 1,
+          comment: p.label + '（一键添加）',
+        });
+        added++;
+      } catch (e) { toast(e.message, 'err'); break; }
+    }
+    if (added) { toast(`已添加 ${added} 条 NS 记录`, 'ok'); loadAll(); }
+    else toast('已有相同 NS 记录，已跳过', 'info');
   }
   
   function renderRecords() {

@@ -110,7 +110,8 @@ export default function DomainPage() {
       
         <div className="card flat">
           <h3>常用模板</h3>
-          <div className="row" id="tpls" style={{gap: "6px"}}></div>
+          <div className="row" id="tpls" style={{gap: "6px", flexWrap: "wrap"}}></div>
+          <div className="hint" style={{marginTop: "8px"}}>NS 记录也是普通 DNS 记录，添加后会出现在上方列表，可编辑或删除</div>
         </div>
             </div>
       

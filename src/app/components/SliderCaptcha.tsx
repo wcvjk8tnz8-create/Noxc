@@ -11,7 +11,10 @@ const IMAGE_NAMES = ['typhoon', 'meoy', 'miku', 'cloud'];
  *  · 坐标用 320×180 基准，渲染按舞台实际宽度等比缩放 → 手机不跑位；
  *  · pointer events 统一鼠标 / 触屏 / 触控笔，另给键盘 ←→ + Enter 通道；
  *  · 拖动轨迹真实采样（时间 + 坐标）随提交一起交给服务端，挡掉直接 POST 的脚本；
- *  · 成功后通过 window.__TD_CAPTCHA__ 把一次性票据交给 legacy 注册控制器。
+ *  · modal 模式：只在「点击提交注册」后挂载，此时容器可见、clientWidth 真实，
+ *    不再出现内联在隐藏 .reg-pane 里 scale=0 / 领图被卸载清掉的「有时显示不了」；
+ *  · 票据同时发布到 window.__TD_CAPTCHA_TICKET__（持久）与 __TD_CAPTCHA__（兼容）。
+ *    弹窗验证通过即卸载，legacy 提交仍能从持久对象读到一次性票据。
  */
 type Challenge = {
   id: string; token: string; img: string; x: number; y: number;
@@ -19,7 +22,12 @@ type Challenge = {
 };
 type Status = 'loading' | 'ready' | 'verifying' | 'ok' | 'fail' | 'error';
 
-type Props = { onPass: (token: string | null) => void };
+type Props = {
+  onPass: (token: string | null) => void;
+  modal?: boolean;
+  onClose?: () => void;
+  onSkip?: () => void;       // 后台把验证关掉了：无需验证，直接放行提交
+};
 
 const KNOB = 44;
 const MIN_SAMPLES = 4;
@@ -31,7 +39,7 @@ function langHeader(): Record<string, string> {
   return { 'Content-Type': 'application/json', 'X-Lang': lang };
 }
 
-export default function SliderCaptcha({ onPass }: Props) {
+export default function SliderCaptcha({ onPass, modal = false, onClose, onSkip }: Props) {
   const [ch, setCh] = useState<Challenge | null>(null);
   const [status, setStatus] = useState<Status>('loading');
   const [msg, setMsg] = useState('');
@@ -47,9 +55,13 @@ export default function SliderCaptcha({ onPass }: Props) {
   const posRef = useRef(0);          // 与 setPos 同步，避免 pointerup 读到旧 state
   const loadRef = useRef<() => void>(() => {});
   const passRef = useRef(onPass);
+  const closeRef = useRef(onClose);
+  const skipRef = useRef(onSkip);
   const aliveRef = useRef(true);
   const keyboardRef = useRef(false);
   passRef.current = onPass;
+  closeRef.current = onClose;
+  skipRef.current = onSkip;
 
   const setPosition = (v: number) => { posRef.current = v; setPos(v); };
 
@@ -57,22 +69,31 @@ export default function SliderCaptcha({ onPass }: Props) {
     c ? Math.min((c.w - c.piece) * s, Math.max(0, trackW - KNOB)) : 0;
 
   const publish = useCallback((_token: string | null, needed: boolean) => {
-    (window as any).__TD_CAPTCHA__ = {
+    const ticket = {
       required: needed,
       get: () => tokenRef.current,
-      reset: () => { tokenRef.current = ''; loadRef.current(); },
+      reset: () => {
+        tokenRef.current = '';
+        (window as any).__TD_CAPTCHA_TICKET__ = ticket;
+        loadRef.current();
+      },
     };
-    // btnApply 由 legacy 注册控制器持有，组件重新领图时也要同步它的禁用态：
-    // 否则首屏「组件已发布但按钮仍是可点」会让人以为点不动是坏了。
+    // 兼容旧读取口；持久票据单独挂一份，弹窗卸载后不清掉
+    (window as any).__TD_CAPTCHA__ = ticket;
+    (window as any).__TD_CAPTCHA_TICKET__ = ticket;
+    // btnApply 由 legacy 注册控制器持有：弹窗模式下按钮是「打开验证」的入口，
+    // 不预先锁死；内联模式仍同步禁用态，避免「看似可点却点不动」。
     const btn = document.getElementById('btnApply') as HTMLButtonElement | null;
-    if (btn) btn.disabled = !!(needed && !tokenRef.current);
-  }, []);
+    if (btn && !modal) btn.disabled = !!(needed && !tokenRef.current);
+  }, [modal]);
 
   const load = useCallback(async () => {
     setStatus('loading'); setMsg(''); setPosition(0);
     tokenRef.current = '';
     traceRef.current = [];
     passRef.current(null);
+    // 每次（重新）打开弹窗先把持久票据清空，绝不复用上一次的 passToken
+    publish(null, true);
     try {
       const res = await fetch('/api/captcha/challenge', { credentials: 'same-origin', headers: langHeader() });
       const d: any = await res.json().catch(() => ({}));
@@ -82,10 +103,12 @@ export default function SliderCaptcha({ onPass }: Props) {
         return;
       }
       if (d.enabled === false) {
-        // 后台关掉了验证：前端隐藏、后端注册接口同步放行，不制造死路
+        // 后台关掉了验证：前端不制造死路，弹窗直接放行提交
         setRequired(false); tokenRef.current = '';
-        publish(null, false); passRef.current('');
+        publish(null, false);
         setStatus('ok');
+        if (modal && skipRef.current) skipRef.current();
+        else passRef.current('');
         return;
       }
       setRequired(true);
@@ -100,14 +123,28 @@ export default function SliderCaptcha({ onPass }: Props) {
       if (!aliveRef.current) return;
       setStatus('error'); setMsg('验证载入失败，点击重试');
     }
-  }, [publish]);
+  }, [publish, modal]);
   loadRef.current = load;
 
   useEffect(() => {
     aliveRef.current = true;
     load();
-    return () => { aliveRef.current = false; delete (window as any).__TD_CAPTCHA__; };
+    return () => {
+      aliveRef.current = false;
+      delete (window as any).__TD_CAPTCHA__;
+      // __TD_CAPTCHA_TICKET__ 故意保留：弹窗关闭后 legacy 提交仍要读票据
+    };
   }, [load]);
+
+  // 弹窗：Esc / 点遮罩关闭，不提交
+  useEffect(() => {
+    if (!modal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && closeRef.current) closeRef.current();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [modal]);
 
   // 舞台宽度变化时重算缩放（手机旋转、侧栏折叠、窗口resize）
   useEffect(() => {
@@ -163,7 +200,7 @@ export default function SliderCaptcha({ onPass }: Props) {
       if (!aliveRef.current) return;
       if (d.success && d.passToken) {
         tokenRef.current = d.passToken;
-        setStatus('ok'); setMsg('验证通过');
+        setStatus('ok'); setMsg(modal ? '验证已通过，正在提交…' : '验证通过');
         publish(d.passToken, true);
         passRef.current(d.passToken);
       } else {
@@ -245,7 +282,7 @@ export default function SliderCaptcha({ onPass }: Props) {
   const imgUrl = ch ? `/img/captcha/${ch.img}.webp` : '';
   const stateCls = status === 'ok' ? 'is-ok' : status === 'fail' || status === 'error' ? 'is-bad' : '';
 
-  return (
+  const body = (
     <div className={`tdcap ${stateCls}`} data-captcha-state={status}>
       <div className="tdcap-head">
         <span className="tdcap-title">安全验证</span>
@@ -302,10 +339,29 @@ export default function SliderCaptcha({ onPass }: Props) {
       </div>
 
       <div className="tdcap-foot" aria-live="polite">
-        {status === 'ok' ? '验证通过，可以提交注册了'
+        {status === 'ok' ? (modal ? '验证已通过，正在提交…' : '验证通过，可以提交注册了')
           : status === 'fail' || status === 'error' ? (msg || '验证未通过，请重新完成')
             : status === 'verifying' ? '正在验证…'
               : '验证通过后才能提交注册申请'}
+      </div>
+    </div>
+  );
+
+  if (!modal) return body;
+
+  return (
+    <div className="tdcap-overlay"
+         onPointerDown={(e) => { if (e.target === e.currentTarget && closeRef.current) closeRef.current(); }}>
+      <div className="tdcap-dialog" role="dialog" aria-modal="true" aria-label="安全验证">
+        <div className="tdcap-dialog-head">
+          <div style={{ flex: 1 }}>
+            <span className="tdcap-dialog-eyebrow">提交前验证</span>
+            <h3>完成安全验证后自动提交</h3>
+          </div>
+          <button type="button" className="tdcap-close" onClick={() => closeRef.current?.()}
+                  aria-label="关闭验证">×</button>
+        </div>
+        {body}
       </div>
     </div>
   );

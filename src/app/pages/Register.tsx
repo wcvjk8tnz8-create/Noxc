@@ -24,6 +24,10 @@ export default function RegisterPage() {
   const [count, setCount] = useState(0);
   const [noteCount, setNoteCount] = useState(0);
   const [capToken, setCapToken] = useState('');
+  const [capOpen, setCapOpen] = useState(false);
+  const [capKey, setCapKey] = useState(0);
+  // legacy 点「提交注册」时把真正的提交函数暂存到这里，弹窗验证通过后再调用
+  const submitRef = useRef<(() => void) | null>(null);
   // 管理员是「开通」不是「申请」，后端同样豁免；缓存未命中时按普通用户处理（多点一下不影响）
   const isAdmin = (() => {
     const u: any = readUserCache();
@@ -33,8 +37,24 @@ export default function RegisterPage() {
   const onCapPass = (t: string | null) => {
     setCapToken(t || '');
     const btn = document.getElementById('btnApply') as HTMLButtonElement | null;
-    const cap = (window as any).__TD_CAPTCHA__;
-    if (btn) btn.disabled = !!(cap && cap.required && !t);
+    if (btn) btn.disabled = false;      // 弹窗模式：按钮不再被票据锁死
+    if (!t) return;                      // 领图 / 失败时的 null 不触发提交
+    const cont = submitRef.current;
+    submitRef.current = null;
+    setCapOpen(false);
+    if (cont) window.setTimeout(cont, 0);
+  };
+
+  const onCapSkip = () => {
+    const cont = submitRef.current;
+    submitRef.current = null;
+    setCapOpen(false);
+    if (cont) window.setTimeout(cont, 0);   // 后台关掉验证：无需票据，直接提交
+  };
+
+  const onCapClose = () => {
+    submitRef.current = null;
+    setCapOpen(false);
   };
 
   useEffect(() => {
@@ -42,6 +62,15 @@ export default function RegisterPage() {
     document.documentElement.setAttribute('data-skin', 'doc');
     (window as any).MEOY_PUBLIC_PAGE = false;
     let alive = true;
+
+    // 由 legacy 的 btnApply.onclick 调用：只有「真的点了提交」才打开验证弹窗。
+    // 同步注册，保证异步 mountRegister / setupRoots 还没跑完时按钮也不会走空。
+    (window as any).__TD_CAPTCHA_OPEN__ = (cont: () => void) => {
+      if (!alive || isAdmin) return;
+      submitRef.current = cont;
+      setCapKey((k) => k + 1);
+      setCapOpen(true);
+    };
 
     // legacy 提交成功后由这里接管，停在第四步展示结果（不再直接跳 dashboard）
     (window as any).__TD_WIZARD_DONE = (r: any) => {
@@ -64,7 +93,12 @@ export default function RegisterPage() {
       try { await mountRegister(ref.current); } catch (e) { console.error('[register] 页面初始化失败', e); }
       if (alive) refreshRuntime();
     })();
-    return () => { alive = false; delete (window as any).__TD_WIZARD_DONE; cleanupPage(); };
+    return () => {
+      alive = false;
+      delete (window as any).__TD_WIZARD_DONE;
+      delete (window as any).__TD_CAPTCHA_OPEN__;
+      cleanupPage();
+    };
   }, []);
 
   const readForm = (): Summary => {
@@ -181,10 +215,9 @@ export default function RegisterPage() {
               <input type="checkbox" id="agreeUse" />
               <span id="agreeUseLabel">我承诺不将域名用于钓鱼、恶意程序、垃圾邮件等违规用途，并已阅读<a href="/terms" target="_blank">《服务条款与免责声明》</a>：服务按「现状」提供，不对可用性、数据损失及第三方行为承担责任。</span>
             </label>
-            {/* 换域名时 key 变化 → 旧票据作废、重新出图，避免票据跨名称复用 */}
-            {!isAdmin && (
-              <SliderCaptcha key={`cap:${summary.fqdn}`} onPass={onCapPass} />
-            )}
+            {/* 验证改为「点提交后弹窗」：内联在隐藏 .reg-pane 里会量到
+                clientWidth=0，是「有时显示不了」的根因。这里只留一行说明。 */}
+            <div className="hint" style={{margin: "10px 0 0"}}>点击「提交注册」后完成滑块验证，验证通过会自动提交</div>
             <div className="reg-actions">
               <button className="btn ghost" onClick={() => setStep(2)}>← 上一步</button>
               <button className="btn primary" id="btnApply" data-captcha-ready={capToken ? '1' : '0'}>提交注册</button>
@@ -240,6 +273,11 @@ export default function RegisterPage() {
 
       </div></div></main>
       <div id="toast"></div>
+      {/* 只有点击提交才挂载；不在任何 .reg-pane 内，舞台可见、宽度真实 */}
+      {capOpen && !isAdmin && (
+        <SliderCaptcha key={`capmodal:${capKey}:${summary.fqdn}`} modal
+          onPass={onCapPass} onSkip={onCapSkip} onClose={onCapClose} />
+      )}
     </div>
   );
 }

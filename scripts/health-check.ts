@@ -700,6 +700,95 @@ check(/oauth=bound&bonus=/.test(nlRoute) && /配额 \+/.test(nlProfileCtrl), '�
 check(/NodeLoc 账号已绑定，配额 \\\+\(\\d\+\)/.test(nlI18n) && /st\.email/.test(nlProfileCtrl),
   '动态奖励文案有英文映射，个人资料页显示读到的邮箱');
 
+/* 提交后弹窗验证 + DNSHE 一键 NS：把这次两个真因固化成阻断断言 */
+const mdReg = read('src/app/pages/Register.tsx');
+const mdLegacy = read('src/app/legacy/register.ts');
+const mdComp = read('src/app/components/SliderCaptcha.tsx');
+const mdCss = read('src/app/styles/captcha.css');
+const mdRec = read('src/lib/records.ts');
+const mdIndex = read('src/index.ts');
+const mdDomain = read('src/app/legacy/domain.ts');
+const mdDomainPage = read('src/app/pages/Domain.tsx');
+const mdDict = read('src/app/lib/dict.en.ts');
+const mdI18n = read('src/app/lib/i18n.ts');
+
+check(
+  /__TD_CAPTCHA_OPEN__/.test(mdLegacy) && /open\(function\(\)\{ doSubmit\(\); \}/.test(mdLegacy) &&
+  mdLegacy.indexOf('__TD_CAPTCHA_OPEN__') > mdLegacy.indexOf("getElementById('btnApply').onclick"),
+  '只有点击「提交注册」且票据为空才打开弹窗，验证通过回调继续提交'
+);
+check(
+  mdReg.indexOf('{capOpen &&') > mdReg.indexOf('id="toast"') &&
+  mdReg.indexOf('{capOpen &&') > mdReg.indexOf('</main>'),
+  '弹窗挂在所有 reg-pane / main 之外，刷新与直接进页面都不会出现'
+);
+check(
+  /\{capOpen && !isAdmin && \(/.test(mdReg) && /<SliderCaptcha key=/.test(mdReg),
+  '管理员不渲染验证，每次打开用新 key 重新领图'
+);
+check(
+  /__TD_CAPTCHA_TICKET__/.test(mdComp) && /__TD_CAPTCHA_TICKET__/.test(mdLegacy) &&
+  !/delete \(window as any\)\.__TD_CAPTCHA_TICKET__/.test(mdComp),
+  '票据持久挂在 window，弹窗卸载后提交仍读得到，清理时只删旧读取口'
+);
+const brokenTicket = mdComp.replace(/__TD_CAPTCHA_TICKET__/g, '__TD_CAPTCHA__');
+check(
+  !/__TD_CAPTCHA_TICKET__/.test(brokenTicket) && brokenTicket !== mdComp,
+  '反向对照：票据不持久时弹窗一关就丢，断言必须失败'
+);
+check(
+  /enabled === false/.test(mdComp) && /onSkip/.test(mdComp) && /onSkip/.test(mdReg),
+  '后台关闭验证时弹窗直接放行，不制造死路'
+);
+check(
+  /modal/.test(mdComp) && /if \(btn && !modal\) btn\.disabled/.test(mdComp),
+  '弹窗模式不预先锁死提交按钮（按钮就是打开验证的入口）'
+);
+check(
+  /\.tdcap-overlay/.test(mdCss) && /\.tdcap-dialog/.test(mdCss) && /min-height: 44px/.test(mdCss),
+  '弹窗遮罩 / 对话框 / 44px 关闭按钮齐备，手机可点'
+);
+check(
+  /html\[data-theme="dark"\] \.tdcap-dialog/.test(mdCss) &&
+  /prefers-reduced-motion[\s\S]*\.tdcap-overlay/.test(mdCss),
+  '弹窗深色与减少动态都覆盖'
+);
+check(
+  /CAPTCHA_ENABLED/.test(mdLegacy) && /cfg\.captchaEnabled/.test(mdLegacy) &&
+  /captchaEnabled: await captchaEnabled\(c\.env\)/.test(mdIndex),
+  '是否弹窗与后端注册接口读同一份 /api/config 判定'
+);
+check(
+  /ns1\.dnshe\.org/.test(mdRec) && /ns2\.dnshe\.org/.test(mdRec) &&
+  /HOSTING_NS_PRESETS/.test(mdRec),
+  'DNSHE 托管 NS 预设为用户给出的两台服务器'
+);
+check(
+  /NS: \{/.test(mdRec) && /case 'NS'/.test(mdRec) &&
+  /TYPE_NAMES = Object\.keys\(RECORD_TYPES\)/.test(mdRec),
+  'NS 就是普通 DNS 记录类型，走同一套类型清单与校验'
+);
+check(/hostingNsPresets: HOSTING_NS_PRESETS/.test(mdIndex), '预设随 /api/config 下发，前端不写死服务器名');
+check(
+  /data-ns-preset/.test(mdDomain) && /type: 'NS', host: '@'/.test(mdDomain) &&
+  /\/api\/subdomains\/' \+ subId \+ '\/records/.test(mdDomain),
+  '一键按钮走同一个 DNS 记录接口，在 @ 写入两条 NS'
+);
+const mdSlice = mdDomain.slice(mdDomain.indexOf('async function addHostingNs'), mdDomain.indexOf('function renderRecords'));
+check(
+  mdSlice.length > 0 && !/delegation/.test(mdSlice),
+  '一键功能不另建托管表 / 不走独立接口，NS 记录可编辑可删除'
+);
+check(
+  /const dup = records\.some/.test(mdDomain) && /已有相同 NS 记录，已跳过/.test(mdDomain),
+  '幂等：重复点击不会写出重复 NS'
+);
+check(
+  /NS 记录也是普通 DNS 记录/.test(mdDomainPage) && /一键添加 DNSHE NS/.test(mdDict) &&
+  /已添加 \(\\d\+\) 条 NS 记录/.test(mdI18n),
+  '页面说明、英文词条与动态数量句式都齐，英文模式不夹生'
+);
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

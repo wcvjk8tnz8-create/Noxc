@@ -10,6 +10,20 @@
  * 长句整译优先；短词用于 translateText 的全匹配与「全中文可消费」判定。
  */
 export const EXTRA_DICT: Record<string, string> = {
+  /* ── 提交后弹窗滑块验证 ── */
+  '提交前验证': 'Before you submit',
+  '完成安全验证后自动提交': 'Verify once, then we submit automatically',
+  '关闭验证': 'Close verification',
+  '点击「提交注册」后完成滑块验证，验证通过会自动提交': 'Click "Submit" to verify with the slider; your request is sent as soon as it passes',
+  '验证已通过，正在提交…': 'Verified, submitting…',
+  '验证已关闭，正在提交…': 'Verification is off, submitting…',
+  /* ── DNSHE 一键 NS ── */
+  '一键添加 DNSHE NS': 'Add DNSHE NS records',
+  'DNSHE 托管 NS': 'DNSHE hosting NS',
+  '已添加 2 条 NS 记录': 'Added 2 NS records',
+  '已有相同 NS 记录，已跳过': 'Matching NS records already exist, skipped',
+  '托管 NS 预设不可用': 'Hosting NS preset is unavailable',
+  'NS 记录也是普通 DNS 记录，添加后会出现在上方列表，可编辑或删除': 'NS records are regular DNS records — they appear in the list above and can be edited or deleted',
   /* ── NodeLoc 第三方登录 ── */
   '使用 NodeLoc 登录': 'Continue with NodeLoc',
   '第三方登录 · NodeLoc': 'Third-party sign-in · NodeLoc',

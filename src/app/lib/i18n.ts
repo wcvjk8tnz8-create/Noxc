@@ -476,6 +476,7 @@ const PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
   [/^配额 \+(\d+)，当前 (\d+)$/, m => `Quota +${m[1]}, now ${m[2]}`],
   [/^NodeLoc 账号已绑定，配额 \+(\d+)$/, m => `NodeLoc linked, quota +${m[1]}`],
   [/^已清空 (\d+) 张券$/, m => `Cleared ${m[1]} codes`],
+  [/^已添加 (\d+) 条 NS 记录$/, m => `Added ${m[1]} NS record${Number(m[1]) === 1 ? '' : 's'}`],
   [/^查询 (.+) 下二级子域名的注册状态$/, m => `Check subdomain availability under ${m[1]}`],
   [/^(.+?)需要 (\d+) 分$/, m => `${m[1]} needs ${m[2]} points`],
   [/^AI 自动审核通过（模型 (.+)，耗时 (.+)），已即时开通$/,

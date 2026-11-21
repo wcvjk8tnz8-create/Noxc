@@ -30,6 +30,8 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   var APPLY_PAUSED = false;
   var APPLY_MSG = '';
   var IS_ADMIN = false;
+  // 与 /api/config、后端注册接口同一份判定；config 未回来前按「需要验证」处理
+  var CAPTCHA_ENABLED = true;
   
   function esc(s){ return String(s ?? '').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
   function currentRoot(){
@@ -99,6 +101,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   async function setupRoots(){
     try {
       var cfg = await api.get('/api/config');
+      if (typeof cfg.captchaEnabled === 'boolean') CAPTCHA_ENABLED = cfg.captchaEnabled;
       if (cfg.applyPaused) setApplyPaused(cfg.applyPausedMessage);
       var list = Array.isArray(cfg.rootDomains) && cfg.rootDomains.length
         ? cfg.rootDomains
@@ -226,9 +229,8 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       if (!pending.length) {
         box.innerHTML = '';
         if (APPLY_PAUSED) return;        // 暂停态优先，别把按钮重新启用
-        var cap = window.__TD_CAPTCHA__;
-        // 验证未通过时按钮保持锁定，别被「无待审申请」重新放开
-        btn.disabled = !!(cap && cap.required && !cap.get());
+        // 弹窗模式：按钮是「打开验证」的入口，不再被票据预先锁死
+        btn.disabled = false;
         labelEl.disabled = false; btn.textContent = '提交注册';
         return;
       }
@@ -260,15 +262,11 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     checkTimer = setTimeout(function(){ runCheck(v); }, 350);
   });
   
-  document.getElementById('btnApply').onclick = async function(){
-    if (APPLY_PAUSED) return toast(APPLY_MSG, 'err');
+  /* 真正的注册提交：弹窗验证通过后由回调调用，票据从持久对象读取 */
+  async function doSubmit(){
     var label = document.getElementById('label').value.trim();
     var note = document.getElementById('note').value.trim();
-    if (!label) return toast('请输入子域名', 'err');
-    var agree = document.getElementById('agreeUse');
-    if (agree && !agree.checked) return toast('请先勾选免责与使用承诺', 'err');
-    var cap = window.__TD_CAPTCHA__;
-    if (cap && cap.required && !cap.get()) return toast('请先完成滑块验证', 'err');
+    var cap = window.__TD_CAPTCHA_TICKET__ || window.__TD_CAPTCHA__;
     try {
       localStorage.setItem('meoy_agree_use', '1');
       var r = await api.post('/api/subdomains', {
@@ -327,10 +325,26 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
         setTimeout(function(){ location.href = '/dashboard'; }, 900);
       }
     } catch (e: any) {
-      var cap = window.__TD_CAPTCHA__;
+      var cap = window.__TD_CAPTCHA_TICKET__ || window.__TD_CAPTCHA__;
       if (e && e.data && e.data.captchaRequired && cap && typeof cap.reset === 'function') cap.reset();
       toast(e.message, 'err');
     }
+  };
+
+  /* 点击「提交注册」：表单校验 → 需要验证就弹窗 → 验证通过回调才真正提交。
+     刷新 / 直接进页面 / 只是走到第三步，都不会挂载验证，也不会弹窗。 */
+  document.getElementById('btnApply').onclick = async function(){
+    if (APPLY_PAUSED) return toast(APPLY_MSG, 'err');
+    var label = document.getElementById('label').value.trim();
+    if (!label) return toast('请输入子域名', 'err');
+    var agree = document.getElementById('agreeUse');
+    if (agree && !agree.checked) return toast('请先勾选免责与使用承诺', 'err');
+    var cap = window.__TD_CAPTCHA_TICKET__ || window.__TD_CAPTCHA__;
+    if (!IS_ADMIN && CAPTCHA_ENABLED && !(cap && typeof cap.get === 'function' && cap.get())) {
+      var open = (window as any).__TD_CAPTCHA_OPEN__;
+      if (open) { open(function(){ doSubmit(); }); return; }
+    }
+    return doSubmit();
   };
   
   (async function init(){
