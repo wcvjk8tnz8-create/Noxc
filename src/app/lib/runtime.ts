@@ -1010,6 +1010,7 @@ export const SHELL_NAV = [
   { key: 'profile', name: '个人资料', icon: 'user', href: '/profile', group: '用户中心' },
   { key: 'report', name: '举报滥用', icon: 'flag', href: '/report', group: '用户中心' },
   { key: 'docs', name: '服务文档', icon: 'docs', href: '/docs', group: '用户中心' },
+  { key: 'showcase', name: '用户案例', icon: 'spark', href: '/showcase', group: '用户中心' },
   { key: 'home', name: '站点首页', icon: 'home', href: '/home', group: '用户中心' },
 ];
 
@@ -1026,6 +1027,7 @@ export const SHELL_ICON = {
   admin: '<path d="M12 3 4 6v6c0 5 3.4 9.3 8 10 4.6-.7 8-5 8-10V6l-8-3Z"/><path d="M9.5 12l1.8 1.8L15 10"/>',
   terms: '<path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v5h5M9 13h7M9 17h7"/>',
   docs: '<path d="M4 5a2 2 0 0 1 2-2h9l5 5v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/><path d="M15 3v5h5M8 12h8M8 16h6"/>',
+  spark: '<path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2Z"/><path d="M19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z"/>',
   logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 8l-4 4 4 4M6 12h10"/>',
   bell: '<path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M10.5 20a2 2 0 0 0 3 0"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -1414,7 +1416,7 @@ export async function mountShell(active, opt: {
     { bg: '#ffc9c9', fur: '#fff', eye: '#8a2f3f', accent: '#ff6b8a' },
     { bg: '#cfe4ff', fur: '#fff', eye: '#2f4f8a', accent: '#4f9bff' },
     { bg: '#e1d6ff', fur: '#f6f1ff', eye: '#5a3f9a', accent: '#a897ff' },
-    { bg: '#cdf3e2', fur: '#fff', eye: '#2f7a5a', accent: '#4cc38a' },
+    { bg: '#e6ebf5', fur: '#fff', eye: '#1b2430', accent: '#1b2430' },
     { bg: '#ffe0c2', fur: '#ffe9d2', eye: '#7a4a2b', accent: '#ff9a4d' },
     { bg: '#d6d9e6', fur: '#eceef6', eye: '#3b4258', accent: '#8b97b5' },
   ];

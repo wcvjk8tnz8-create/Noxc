@@ -50,7 +50,7 @@ export default function DashboardPage() {
             <span className="sc-ico"><svg viewBox="0 0 24 24"><path d="M4 4h16a1 1 0 0 1 1 1v4H3V5a1 1 0 0 1 1-1Zm-1 7h18v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-8Zm3 3v2h4v-2H6Z" /></svg></span>
             <div><div className="sc-num" id="stRecords">—</div><div className="sc-lbl">DNS 记录</div></div>
           </div>
-          <div className="stat-card sc-green">
+          <div className="stat-card sc-indigo">
             <span className="sc-ico"><svg viewBox="0 0 24 24"><path d="M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4Zm0 3.2 7 3.1V11c0 4.4-3 8.3-7 9.4-4-1.1-7-5-7-9.4V7.3l7-3.1Zm-1 5v2H7.5v2H11v2h2v-2h3.5v-2H13v-2h-2Z" /></svg></span>
             <div><div className="sc-num" id="stPoints">—</div><div className="sc-lbl">我的积分</div></div>
           </div>
@@ -67,6 +67,7 @@ export default function DashboardPage() {
           <a className="quick" href="/checkin"><span className="q-ico"><svg viewBox="0 0 24 24"><path d="M7 2v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7Zm12 8v9H5v-9h14ZM8 12h3v3H8v-3Z" /></svg></span><span className="q-txt">签到地</span></a>
           <a className="quick" href="/whois"><span className="q-ico"><svg viewBox="0 0 24 24"><path d="M10 2a8 8 0 1 0 4.9 14.3l4.4 4.4 1.4-1.4-4.4-4.4A8 8 0 0 0 10 2Zm0 2a6 6 0 1 1 0 12 6 6 0 0 1 0-12Z" /></svg></span><span className="q-txt">WHOIS</span></a>
           <a className="quick" href="/chat"><span className="q-ico"><svg viewBox="0 0 24 24"><path d="M4 3h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H8l-4 4V4a1 1 0 0 1 1-1Zm2 4v2h12V7H6Zm0 4v2h9v-2H6Z" /></svg></span><span className="q-txt">聊天地</span></a>
+          <a className="quick" href="/showcase"><span className="q-ico"><svg viewBox="0 0 24 24"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2Z"/></svg></span><span className="q-txt">用户案例</span></a>
         </div>
       
       <div className="card" id="pointsCard" style={{display: "none"}}>

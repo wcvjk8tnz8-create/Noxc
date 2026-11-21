@@ -342,3 +342,65 @@ html body a.rv-pill.sm,
 html body button.rv-pill.sm,
 html body .rv-ask-btn { min-height: 44px !important; }
 
+
+
+/* ==========================================================================
+   NOXC-DEGLASS-SEAL · 去绿色毛玻璃 / 简约收口（导入链最后一层）
+   保留浮岛侧栏、胶囊顶栏、全圆角与尺寸；只把材质换成实色纸面，
+   重定义被青瓷绿层覆盖的玻璃令牌，并全局关闭 backdrop-filter。
+   ========================================================================== */
+:root, html:not([data-theme="dark"]), html[data-theme="dark"] {
+  --lg-blur: none; --lg-blur-sm: none; --lg-th: transparent;
+}
+html:not([data-theme="dark"]) {
+  --lg-glass: #ffffff; --lg-glass-soft: #f7f8fa; --lg-paper: #f7f8fa;
+  --lg-ink: #111318; --lg-muted: #6b7280;
+  --lg-stroke: rgba(17,19,24,.10); --lg-input-line: rgba(17,19,24,.14);
+  --lg-shadow: 0 1px 3px rgba(17,19,24,.06); --lg-shadow-sm: 0 1px 2px rgba(17,19,24,.05);
+  --lg-active: rgba(22,103,242,.08);
+  --lg-green: #1667f2; --lg-green-deep: #0b47c4; --lg-green-bright: #4a8bff;
+  --lg-green-soft: rgba(22,103,242,.09); --lg-hair: rgba(17,19,24,.09);
+  --td-accent: #1667f2; --td-accent-soft: rgba(22,103,242,.09); --td-ok: #1667f2;
+  --td-line: rgba(17,19,24,.10); --td-line-2: rgba(17,19,24,.06);
+  --td-side: #ffffff; --td-surface: #ffffff; --td-ink: #111318; --td-muted: #6b7280;
+  --td-shadow: 0 1px 3px rgba(17,19,24,.06);
+  --primary: 217 91% 52%; --ring: 217 91% 52%; --info: 217 91% 52%; --success: 217 91% 52%;
+  --c1: #1667f2; --blue: #1667f2; --blue2: #5b93ff; --blue-soft: #e8f0ff;
+  --shadow: 0 1px 3px rgba(17,19,24,.06);
+}
+html[data-theme="dark"] {
+  --lg-glass: #15181e; --lg-glass-soft: #15181e; --lg-paper: #0e1014;
+  --lg-ink: #f5f7fb; --lg-muted: #98a2b3;
+  --lg-stroke: rgba(226,235,250,.14); --lg-input-line: rgba(226,235,250,.18);
+  --lg-hair: rgba(226,235,250,.10);
+  --lg-green: #5b93ff; --lg-green-deep: #8ab4ff; --lg-green-bright: #86b0ff;
+  --lg-green-soft: rgba(91,147,255,.16);
+  --td-accent: #5b93ff; --td-accent-soft: rgba(91,147,255,.16); --td-ok: #5b93ff;
+  --td-line: rgba(226,235,250,.12); --td-line-2: rgba(226,235,250,.07);
+  --td-side: #15181e; --td-surface: #15181e; --td-ink: #f5f7fb; --td-muted: #98a2b3;
+  --td-shadow: 0 1px 3px rgba(0,0,0,.4);
+  --primary: 217 91% 62%; --ring: 217 91% 62%; --info: 217 91% 62%; --success: 217 91% 62%;
+  --c1: #5b93ff; --blue: #5b93ff; --shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+html body *, html body *::before, html body *::after {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+html body .side-dock, html body .topbar, html body .card,
+html body .stat-card, html body .quick, html body .modal-card {
+  background-color: var(--lg-glass) !important;
+  box-shadow: var(--lg-shadow) !important;
+}
+
+/* 补齐被 html[data-theme="dark"] 青瓷绿段覆盖的材质令牌（同特异性、后加载胜出） */
+html[data-theme="dark"] {
+  --lg-glass-soft: #15181e; --lg-active: rgba(91,147,255,.16);
+  --lg-paper: #0e1014; --lg-ink: #f5f7fb; --lg-muted: #98a2b3;
+  --lg-hair: rgba(226,235,250,.10); --lg-input-line: rgba(226,235,250,.18);
+  --td-side: #15181e; --td-surface: #15181e; --td-ink: #f5f7fb; --td-muted: #98a2b3;
+  --td-shadow: 0 1px 3px rgba(0,0,0,.4); --bl-jade: #5b93ff; --bl-cyan: #86b0ff;
+  --blue-soft: #16233c;
+}
+html:not([data-theme="dark"]) {
+  --lg-glass-soft: #f7f8fa; --lg-active: rgba(22,103,242,.08);
+  --bl-jade: #1667f2; --bl-cyan: #5b93ff; --blue-soft: #e8f0ff;
+}

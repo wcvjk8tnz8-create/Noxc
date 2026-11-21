@@ -205,7 +205,7 @@ export async function mountLogin(_root: HTMLElement | null): Promise<void> {
     if (old) old.remove();
     const mask = document.createElement('div');
     mask.id = 'erMask';
-    mask.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(16,26,22,.42);backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px';
+    mask.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(17,19,24,.42);backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px';
     mask.innerHTML = `
       <div class="card" role="dialog" aria-modal="true" aria-label="申请使用第三方邮箱注册"
            style="width:min(460px,94vw);max-height:88vh;overflow:auto;padding:20px">

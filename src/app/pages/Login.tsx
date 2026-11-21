@@ -149,7 +149,7 @@ export default function LoginPage() {
               <input id="rEmail" type="email" placeholder="name@school.edu" autocomplete="username" />
               <div className="hint" id="mailHint">支持白名单邮箱，以及任何包含 "edu" 的邮箱注册</div>
               <div className="hint" style={{marginTop: "6px"}}>
-                <a href="#" id="emailReqLink" style={{color: "var(--accent, #2e6b50)", textDecoration: "underline", textUnderlineOffset: "3px"}}>邮箱不在允许范围？申请使用此邮箱注册</a>
+                <a href="#" id="emailReqLink" style={{color: "var(--accent, #111318)", textDecoration: "underline", textUnderlineOffset: "3px"}}>邮箱不在允许范围？申请使用此邮箱注册</a>
               </div>
             </div>
             <div className="field">

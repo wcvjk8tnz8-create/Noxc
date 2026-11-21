@@ -20,7 +20,7 @@
   --td-line: #e4e1d9;
   --td-line-2: #eeebe3;
   --td-accent: #0b47c4;
-  --td-accent-soft: #e9f2ee;
+  --td-accent-soft: rgba(22,103,242,.09);
   --td-ok: #4a8bff;
   --td-warn: #9a6a1b;
   --td-bad: #a63a43;
@@ -38,7 +38,7 @@
   --td-line: #2c3235;
   --td-line-2: #23282b;
   --td-accent: #7fb0ff;
-  --td-accent-soft: #1d302b;
+  --td-accent-soft: #111318;
   --td-ok: #5b93ff;
   --td-warn: #e0b46b;
   --td-bad: #ef8b90;

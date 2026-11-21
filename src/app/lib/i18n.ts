@@ -27,6 +27,7 @@ const DICT: Record<string, string> = {
   '系统': 'System', '其它': 'More', '首页': 'Home', '返回首页': 'Back to home',
   '站点首页': 'Site Home', '域名管理': 'Domains', '注册域名': 'Register Domain',
   'WHOIS 查询': 'WHOIS Lookup', '域名转移': 'Transfer Domain', '签到地': 'Daily Check-in',
+  '用户案例': 'User Showcase',
   '奖励中心': 'Rewards', '聊天地': 'Community', '工单系统': 'Support Tickets',
   '个人资料': 'Profile', '管理后台': 'Admin Panel', '服务条款': 'Terms of Service',
   '退出登录': 'Sign out', '域名详情': 'Domain Details', '关于': 'About',

@@ -11,7 +11,7 @@
   align-items: center;
   gap: 12px;
   margin: 0 0 12px;
-  color: var(--td-muted, #7a8b80);
+  color: var(--td-muted, #1667f2);
   font-size: 12px;
   letter-spacing: .08em;
 }
@@ -20,7 +20,7 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--td-line, rgba(30, 60, 45, .16));
+  background: var(--td-line, rgba(17,19,24,.16));
 }
 
 a.td-oauth-btn,
@@ -32,24 +32,24 @@ button.td-oauth-btn {
   width: 100%;
   min-height: 44px;
   padding: 10px 18px;
-  border: 1px solid rgba(28, 92, 64, .28);
+  border: 1px solid rgba(27,36,48,.28);
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(232, 245, 236, .92), rgba(212, 234, 220, .86));
-  color: #174c36;
+  background: linear-gradient(135deg, rgba(226,235,250,.92), rgba(226,235,250,.86));
+  color: #111318;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: .01em;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(20, 60, 40, .06), inset 0 1px 0 rgba(255, 255, 255, .7);
+  box-shadow: 0 1px 2px rgba(17,19,24,.06), inset 0 1px 0 rgba(255, 255, 255, .7);
   transition: transform .28s cubic-bezier(.22, 1, .36, 1), box-shadow .28s cubic-bezier(.22, 1, .36, 1), background .28s ease;
 }
 a.td-oauth-btn:hover,
 button.td-oauth-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(24, 84, 58, .14), inset 0 1px 0 rgba(255, 255, 255, .8);
-  background: linear-gradient(135deg, rgba(224, 242, 231, .96), rgba(198, 228, 211, .92));
+  box-shadow: 0 8px 22px rgba(17,19,24,.14), inset 0 1px 0 rgba(255, 255, 255, .8);
+  background: linear-gradient(135deg, rgba(226,235,250,.96), rgba(226,235,250,.92));
 }
 a.td-oauth-btn:active,
 button.td-oauth-btn:active { transform: translateY(0); }
@@ -77,14 +77,14 @@ button.td-oauth-btn:focus-visible {
 
 html[data-theme="dark"] a.td-oauth-btn,
 html[data-theme="dark"] button.td-oauth-btn {
-  border-color: rgba(150, 220, 180, .22);
-  background: linear-gradient(135deg, rgba(30, 62, 48, .86), rgba(20, 48, 38, .9));
-  color: #d7f0e2;
+  border-color: rgba(226,235,250,.22);
+  background: linear-gradient(135deg, rgba(17,19,24,.86), rgba(17,19,24,.9));
+  color: #e6ebf5;
   box-shadow: 0 1px 2px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 html[data-theme="dark"] a.td-oauth-btn:hover,
 html[data-theme="dark"] button.td-oauth-btn:hover {
-  background: linear-gradient(135deg, rgba(38, 78, 60, .92), rgba(26, 60, 46, .95));
+  background: linear-gradient(135deg, rgba(17,19,24,.92), rgba(17,19,24,.95));
   box-shadow: 0 8px 22px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .1);
 }
 

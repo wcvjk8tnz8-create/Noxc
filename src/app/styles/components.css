@@ -17,7 +17,7 @@
   --accent-foreground: 220 9% 15%;
   --destructive: 353 78% 40%;
   --destructive-foreground: 0 0% 100%;
-  --success: 154 70% 27%;
+  --success: 217 91% 52%;
   --success-foreground: 0 0% 100%;
   --warning: 33 70% 35%;
   --warning-foreground: 48 96% 89%;
@@ -1722,7 +1722,7 @@ h1, h2, h3, .page-title, .brand-name, .stat-v, .op-btn, .tab, .side-txt {
 .stat-card.sc-blue {
   background: linear-gradient(135deg, #5aa8ff, #7fc0ff);
 }
-.stat-card.sc-green {
+.stat-card.sc-indigo {
   background: linear-gradient(135deg, #7fb0ff, #7fb0ff);
 }
 .stat-card.sc-amber {
@@ -1741,8 +1741,8 @@ h1, h2, h3, .page-title, .brand-name, .stat-v, .op-btn, .tab, .side-txt {
   background: rgba(90,169,230,.14);
   color: var(--sky);
 }
-.sc-green .sc-ico {
-  background: rgba(47,179,122,.13);
+.sc-indigo .sc-ico {
+  background: rgba(27,36,48,.13);
   color: var(--ok);
 }
 .sc-amber .sc-ico {
@@ -2932,7 +2932,7 @@ tbody tr:hover {
   --accent-foreground: 210 40% 96%;
   --destructive: 0 72% 58%;
   --destructive-foreground: 210 40% 96%;
-  --success: 142 65% 45%;
+  --success: 217 91% 52%;
   --success-foreground: 210 40% 96%;
   --warning: 38 92% 58%;
   --warning-foreground: 222 47% 8%;
@@ -4266,7 +4266,7 @@ body .site-foot {
 [data-theme="dark"] .stat-card.sc-blue {
   background: linear-gradient(135deg, #35709f, #5590c0);
 }
-[data-theme="dark"] .stat-card.sc-green {
+[data-theme="dark"] .stat-card.sc-indigo {
   background: linear-gradient(135deg, #4a8bff, #5b93ff);
 }
 [data-theme="dark"] .stat-card.sc-amber {
@@ -4431,7 +4431,7 @@ html[data-theme="dark"] {
   --accent: 220 10% 14%;
   --accent-foreground: 220 12% 92%;
   --destructive: 3 80% 72%;
-  --success: 154 50% 55%;
+  --success: 217 91% 52%;
   --warning: 33 65% 63%;
   --info: 220 100% 74%;
   --border: 220 10% 22%;
