@@ -164,8 +164,9 @@ button, a, input, select, textarea {
   input:not([type="checkbox"]):not([type="radio"]),
   textarea, select, .input, .textarea { font-size: 16px !important; }
 
-  /* 表格：整块横向可拖，不把详情列裁掉 */
+  /* 表格：整块横向可拖，不把详情列裁掉；给表一个最小宽度，避免列被压成竖排 */
   .tablewrap { overflow-x: auto !important; overscroll-behavior-x: contain; }
+  .tablewrap table { min-width: 560px !important; }
   td.cell-detail { max-width: 240px; min-width: 110px; }
 
   /* 浮层不越出屏幕 */
