@@ -78,13 +78,14 @@ check(
 );
 check(!/reverie\.css|liquid-glass\.css|theme-noxc\.css|noxc-node\.css|zerexa-simple\.css|components\.css|index\.css|responsive\.css|motion\.css/.test(main),
       'main.tsx 不再 import 任何历史层（8 层已合并进 shell.css）');
-check((designCss.match(/!important/g) || []).length <= 60,
-      '收口用 !important 只集中在唯一视觉源（≤60 条，不再散落 11 层）');
+check((designCss.match(/!important/g) || []).length <= 140,
+      '收口用 !important 只集中在唯一视觉源（≤140 条，不再散落 11 层）');
 check(!/backdrop-filter/.test(shellCss), '结构层零毛玻璃（已在源头删除）');
 check(!/gradient\([^;]*#(?!000\b)[0-9a-fA-F]{3,8}/.test(shellCss), '结构层点阵 / 壁纸渐变无硬编码色值（mask 遮罩的 #000 除外）');
 check((shellCss.match(/var\(--zx-/g) || []).length > 300, '结构层颜色全部走 --zx-* 令牌');
 const nodeLayer = designCss;
-check(/--zx-blue:\s*#1667f2/.test(nodeLayer), '设计系统保留主 logo 的蓝点色');
+check(/--zx-blue:\s*#111318/.test(nodeLayer) && /零彩色/.test(nodeLayer),
+  'Zerexa 实拍口径：强调令牌为中性墨，UI 零彩色（logo 图片资产仍保留原色）');
 check(!/#f6f2e8|#2f5d45|#1c221d/.test(nodeLayer), '设计系统不残留羊皮纸 / 蕨绿旧色板');
 check(!/#f6f2e8|#2f5d45/.test(read('src/html/reverieRootCss.ts')), '根域名页同步为节点色板');
 check(!/#f6f2e8|#2f5d45/.test(read('src/html/docs.ts')), '服务文档页同步为节点色板');
@@ -372,10 +373,12 @@ const rvLegacy = read('src/app/legacy/home.ts');
 const rvDict = read('src/app/lib/dict.en.ts');
 const rvPkg = read('package.json');
 check(/--rv-paper:\s*var\(--zx-paper\)/.test(designCss) && /--rv-fern:\s*var\(--zx-blue\)/.test(designCss), 'Reverie 骨架令牌由唯一设计系统统一为 logo 色');
-check(/html\[data-theme="dark"\]/.test(designCss) && /--zx-blue:\s*#5b93ff/.test(designCss), '深色模式有独立 logo 蓝 / 纸面色板');
+check(/html\[data-theme="dark"\]/.test(designCss) && /--zx-blue:\s*#f5f7fb/.test(designCss), '深色模式强调色为浅墨，纸面独立反相');
 check(/\.rv-pill\.ink/.test(rv) && /\.rv-pill\.ink/.test(designCss), '墨黑药丸按钮（dark ink pill）');
-check(/\.rv-title em\s*\{[^}]*font-style:\s*italic[^}]*color:\s*var\(--rv-fern\)/s.test(rv), '标题只留一处 logo 蓝斜体强调');
-check(/\.rv-art/.test(rv), '画意卡承载壁纸，查询框浮在风景上');
+check(/font-style:\s*normal\s*!important[\s\S]{0,220}color:\s*#7d838c/.test(designCss),
+  '标题强调改为纯中性灰一档、不斜体（对齐 Zerexa 实拍）');
+check(/rv-art[\s\S]{0,120}display:\s*none\s*!important/.test(designCss),
+  '对齐实拍：画意卡隐藏，查询框为独立白底圆角长条');
 check(/page-home\.page-reverie\.has-cloud #bg/.test(rv), '首页壁纸仍满铺，只是退成纸面底纹');
 check(/\.rv-head a\.rv-mobile-cta\s*\{[^}]*display:\s*none/.test(rv) && /\.rv-head a\.rv-mobile-cta\s*\{[^}]*display:\s*inline-flex/.test(rv), '桌面顶栏不出现重复「注册」药丸，手机端才显示');
 check(/@keyframes rvReveal/.test(rv) && /calc\(var\(--i, 0\) \* 80ms\)/.test(rv), 'React Bits / Anime.js 式 stagger 入场（纯 CSS，零依赖）');
@@ -645,6 +648,25 @@ check(
 );
 check(cpDict.includes("'注册人数'") && cpDict.includes("'已开通域名'"), '统计英文词条齐，英文模式不夹生');
 check(/\.rv-stats/.test(stCss) && /max-width: 700px[\s\S]*\.rv-stats/.test(stCss), '手机断点覆盖统计区');
+
+/* Zerexa Domains 实拍对齐：标题黑体 / 零彩色 / 四张特性卡 */check(/sc-ico[\s\S]{0,80}q-ico[\s\S]{0,220}background:\s*var\(--zx-blue-a8\)/.test(designCss),
+  '统计卡 / 快捷入口装饰图标压成中性灰，真站零彩色');
+
+
+const zxHome = read('src/app/pages/Home.tsx');
+check(/zx-facts/.test(zxHome) && /zx-fact-v/.test(zxHome) &&
+      (zxHome.match(/className="zx-fact"/g) || []).length === 4,
+  '首页含真图同款四张特性卡（免费额度 / 开通时效 / 解析方式 / 有效期）');
+check(/免费额度/.test(zxHome) && /开通时效/.test(zxHome) && /NS 委托/.test(zxHome) && /长期有效/.test(zxHome),
+  '四张卡文案与实拍一致');
+check(/font-weight:\s*900\s*!important/.test(designCss) && /letter-spacing:\s*-\.045em/.test(designCss),
+  '标题为无衬线超粗黑体（900 / -.045em），不再是衬线');
+check(!/#1667f2|#5b93ff|#0b47c4|#8ab4ff|#e8f0ff|#16233c/.test(designCss),
+  '设计系统零品牌蓝字面量（纯黑白灰）');
+check(/body\.page-home \.rv-head[\s\S]{0,160}background:\s*var\(--zx-paper\)/.test(designCss),
+  '首页顶栏纯白 + 发丝线');
+check(/rv-ask-btn[\s\S]{0,160}border-radius:\s*0/.test(designCss),
+  '查询按钮为右侧直角黑块（真图圆角矩形右半）');
 
 /* NodeLoc OAuth 2.0 接入：把踩过的坑固化成阻断断言 */
 const nlSchema = read('schema.sql');

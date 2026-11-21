@@ -3,36 +3,39 @@
    ──────────────────────────────────────────────────────────────────────
    全站唯一视觉源。最后加载：定义令牌 + Zerexa 排版骨架 + 组件材质兜底。
 
-   架构（6 层，不再叠收口层）：
-     shell.css          结构 / 几何（历史 6 层按原顺序合并，颜色已令牌化）
-     responsive.css     断点几何
-     motion.css         动效
-     captcha.css        滑块验证（tdcap- 前缀，独立）
-     oauth.css          NodeLoc 登录（td-oauth- 前缀，独立）
+   架构（4 层）：
+     shell.css          唯一结构层（原 8 个样式文件按既有顺序合并，颜色令牌化）
+     captcha.css        滑块验证（tdcap- 前缀，独立组件）
+     oauth.css          NodeLoc 登录（td-oauth- 前缀，独立组件）
      design-system.css  本文件：令牌 + Zerexa 视觉
 
-   Zerexa 骨架：超大衬线标题 / 等宽小标 / 1px 发丝线分栏 / 单屏留白。
+   Zerexa Domains 真实口径（以 nic.fj.kg 实拍为准，2026-11-21 校正）：
+     · 超大「无衬线」超粗黑体标题（800/900），不是衬线；强调只灰一档
+     · 等宽 uppercase 小标、1px 发丝线、单屏留白、纯黑白灰零彩色
+     · 圆角白卡无阴影；墨黑胶囊按钮；顶栏纯白 + 底部发丝线
    侧栏浮岛与胶囊顶栏的形状由 shell.css 决定，本文件不写几何。
    ══════════════════════════════════════════════════════════════════════ */
 
 :root {
   /* ── 面与墨：只取 logo 三色 ── */
-  --zx-paper: #ffffff;
-  --zx-paper-2: #f7f9fc;
+  --zx-paper: #ffffff;          /* 卡片 / 顶栏：纯白 */
+  --zx-paper-2: #f7f8fa;        /* 页面底：极淡灰（Zerexa 实拍） */
   --zx-ink: #111318;
-  --zx-body: #49525f;
+  --zx-body: #4b5563;
   --zx-muted: #8b94a3;
-  --zx-hair: rgba(17, 19, 24, .13);
-  --zx-hair-2: rgba(17, 19, 24, .07);
+  --zx-hair: rgba(17, 19, 24, .11);
+  --zx-hair-2: rgba(17, 19, 24, .06);
   --zx-ink-a30: rgba(17, 19, 24, .30);
 
-  /* ── 唯一强调色：Noxc 蓝 ── */
-  --zx-blue: #1667f2;
-  --zx-blue-deep: #0b47c4;
-  --zx-blue-soft: #e8f0ff;
-  --zx-blue-a8: rgba(22, 103, 242, .08);
-  --zx-blue-a16: rgba(22, 103, 242, .16);
-  --zx-blue-a30: rgba(22, 103, 242, .30);
+  /* ── 强调色：Zerexa 真图是纯黑白灰，零彩色。
+        变量名保留（shell.css 有 600+ 处引用），值改成中性墨，
+        一行生效且不动任何几何。logo 图片资产仍保留自身蓝点。 ── */
+  --zx-blue: #111318;
+  --zx-blue-deep: #000000;
+  --zx-blue-soft: #f1f2f4;
+  --zx-blue-a8: rgba(17, 19, 24, .06);
+  --zx-blue-a16: rgba(17, 19, 24, .12);
+  --zx-blue-a30: rgba(17, 19, 24, .22);
 
   /* ── 功能语义色：不参与品牌色板，仅保可辨识 ── */
   --zx-danger: #b4232c;
@@ -44,9 +47,11 @@
   --zx-shadow: none;
   --zx-radius: 18px;
 
-  /* ── 字：英文 Redaction 35；中文标题衬线、正文无衬线 ── */
-  --zx-serif: "Redaction 35", "Noto Serif CJK SC", "Source Han Serif SC",
-    "Songti SC", "STSong", Georgia, "Times New Roman", serif;
+  /* ── 字：Zerexa 真图标题是超粗黑体（非衬线），字重 800/900、字距收紧。
+        英文沿用 Redaction 35，中文回退系统黑体最重档。 ── */
+  --zx-serif: "Redaction 35", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+    system-ui, sans-serif;
   --zx-sans: "Redaction 35", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
   --zx-mono: "Redaction 35", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -125,19 +130,19 @@ html[data-theme="dark"] {
   --zx-hair: rgba(226, 235, 250, .16);
   --zx-hair-2: rgba(226, 235, 250, .085);
   --zx-ink-a30: rgba(226, 235, 250, .30);
-  --zx-blue: #5b93ff;
-  --zx-blue-deep: #8ab4ff;
-  --zx-blue-soft: #16233c;
-  --zx-blue-a8: rgba(91, 147, 255, .08);
-  --zx-blue-a16: rgba(91, 147, 255, .16);
-  --zx-blue-a30: rgba(91, 147, 255, .30);
+  --zx-blue: #f5f7fb;
+  --zx-blue-deep: #ffffff;
+  --zx-blue-soft: #1c222c;
+  --zx-blue-a8: rgba(226, 235, 250, .08);
+  --zx-blue-a16: rgba(226, 235, 250, .16);
+  --zx-blue-a30: rgba(226, 235, 250, .22);
   --zx-danger: #ff8089;
   --zx-danger-a16: rgba(255, 128, 137, .16);
   --zx-warn: #e0b46b;
   --rv-card: #141922;
   --lg-glass: #10151d;
   --lg-glass-soft: #10151d;
-  --lg-active: rgba(91, 147, 255, .14);
+  --lg-active: rgba(226,235,250,.12);
   --td-side: #141922;
   --td-surface: #141922;
   --primary: 217 91% 62%;
@@ -249,7 +254,7 @@ html body .rv-head { border-bottom: 1px solid var(--zx-hair) !important; }
 html body .sidebar,
 html body .side-dock { border-right: 1px solid var(--zx-hair) !important; }
 
-/* ── 3. Zerexa 骨架：超大衬线标题 / 等宽小标 / 细线分栏 / 单屏留白 ── */
+/* ── 3. Zerexa 骨架：超大无衬线黑体 / 等宽小标 / 发丝线 / 单屏留白 ── */
 html body h1,
 html body h2,
 html body .rv-title,
@@ -271,9 +276,26 @@ html body h3,
 html body .rv-col h3,
 html body .showcase-title { font-family: var(--zx-sans) !important; }
 html body .rv-title {
-  font-size: clamp(42px, 6.6vw, 88px) !important;
-  line-height: 1.08 !important;
-  font-weight: 700 !important;
+  font-size: clamp(44px, 7vw, 96px) !important;
+  line-height: 1.06 !important;
+  font-weight: 900 !important;
+  letter-spacing: -.045em !important;
+}
+/* 真图「专属」只是灰一档，不斜体、不彩色、不带下划线 */
+html body .rv-title em,
+html body .rv-h2 em,
+html body .rv-cta h2 em,
+html body .rv-quote p {
+  font-style: normal !important;
+  font-weight: 900 !important;
+  color: #7d838c !important;
+}
+html[data-theme="dark"] body .rv-title em,
+html[data-theme="dark"] body .rv-h2 em { color: #96a0af !important; }
+html body .rv-title em::after,
+html body .rv-title::after {
+  display: none !important;
+  animation: none !important;
 }
 html body .rv-h2 { font-size: clamp(28px, 3.4vw, 44px) !important; }
 html body .rv-eyebrow,
@@ -315,7 +337,7 @@ html[data-lang="en"] body .zx-title,
 html[data-lang="en"] body .brand b,
 html[data-lang="en"] body .side-brand b,
 html[data-lang="en"] body .rv-quote p {
-  font-family: "Redaction 35", Georgia, serif !important;
+  font-family: "Redaction 35", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
 
 /* ── 5. 用户案例页（对齐参考图：三列圆角白卡） ── */
@@ -401,15 +423,15 @@ html:not([data-theme="dark"]) {
   --lg-ink: #111318; --lg-muted: #6b7280;
   --lg-stroke: rgba(17,19,24,.10); --lg-input-line: rgba(17,19,24,.14);
   --lg-shadow: 0 1px 3px rgba(17,19,24,.06); --lg-shadow-sm: 0 1px 2px rgba(17,19,24,.05);
-  --lg-active: rgba(22,103,242,.08);
-  --lg-green: #1667f2; --lg-green-deep: #0b47c4; --lg-green-bright: #4a8bff;
-  --lg-green-soft: rgba(22,103,242,.09); --lg-hair: rgba(17,19,24,.09);
-  --td-accent: #1667f2; --td-accent-soft: rgba(22,103,242,.09); --td-ok: #1667f2;
+  --lg-active: rgba(17,19,24,.06);
+  --lg-green: #111318; --lg-green-deep: #000000; --lg-green-bright: #4b5563;
+  --lg-green-soft: rgba(17,19,24,.06); --lg-hair: rgba(17,19,24,.09);
+  --td-accent: #111318; --td-accent-soft: #f1f2f4; --td-ok: #111318;
   --td-line: rgba(17,19,24,.10); --td-line-2: rgba(17,19,24,.06);
   --td-side: #ffffff; --td-surface: #ffffff; --td-ink: #111318; --td-muted: #6b7280;
   --td-shadow: 0 1px 3px rgba(17,19,24,.06);
-  --primary: 217 91% 52%; --ring: 217 91% 52%; --info: 217 91% 52%; --success: 217 91% 52%;
-  --c1: #1667f2; --blue: #1667f2; --blue2: #5b93ff; --blue-soft: #e8f0ff;
+  --primary: 220 9% 8%; --ring: 220 9% 8%; --info: 220 9% 8%; --success: 220 9% 8%;
+  --c1: #111318; --blue: #111318; --blue2: #111318; --blue-soft: #f1f2f4;
   --shadow: 0 1px 3px rgba(17,19,24,.06);
 }
 html[data-theme="dark"] {
@@ -417,14 +439,14 @@ html[data-theme="dark"] {
   --lg-ink: #f5f7fb; --lg-muted: #98a2b3;
   --lg-stroke: rgba(226,235,250,.14); --lg-input-line: rgba(226,235,250,.18);
   --lg-hair: rgba(226,235,250,.10);
-  --lg-green: #5b93ff; --lg-green-deep: #8ab4ff; --lg-green-bright: #86b0ff;
-  --lg-green-soft: rgba(91,147,255,.16);
-  --td-accent: #5b93ff; --td-accent-soft: rgba(91,147,255,.16); --td-ok: #5b93ff;
+  --lg-green: #f5f7fb; --lg-green-deep: #ffffff; --lg-green-bright: #c9d2df;
+  --lg-green-soft: rgba(226,235,250,.12);
+  --td-accent: #f5f7fb; --td-accent-soft: #1c222c; --td-ok: #f5f7fb;
   --td-line: rgba(226,235,250,.12); --td-line-2: rgba(226,235,250,.07);
   --td-side: #15181e; --td-surface: #15181e; --td-ink: #f5f7fb; --td-muted: #98a2b3;
   --td-shadow: 0 1px 3px rgba(0,0,0,.4);
-  --primary: 217 91% 62%; --ring: 217 91% 62%; --info: 217 91% 62%; --success: 217 91% 62%;
-  --c1: #5b93ff; --blue: #5b93ff; --shadow: 0 1px 3px rgba(0,0,0,.4);
+  --primary: 220 9% 92%; --ring: 220 9% 92%; --info: 220 9% 92%; --success: 220 9% 92%;
+  --c1: #f5f7fb; --blue: #f5f7fb; --shadow: 0 1px 3px rgba(0,0,0,.4);
 }
 html body *, html body *::before, html body *::after {
   backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
@@ -432,21 +454,21 @@ html body *, html body *::before, html body *::after {
 html body .side-dock, html body .topbar, html body .card,
 html body .stat-card, html body .quick, html body .modal-card {
   background-color: var(--lg-glass) !important;
-  box-shadow: var(--lg-shadow) !important;
+  box-shadow: none !important;
 }
 
 /* 补齐被 html[data-theme="dark"] 青瓷绿段覆盖的材质令牌（同特异性、后加载胜出） */
 html[data-theme="dark"] {
-  --lg-glass-soft: #15181e; --lg-active: rgba(91,147,255,.16);
+  --lg-glass-soft: #15181e; --lg-active: rgba(226,235,250,.12);
   --lg-paper: #0e1014; --lg-ink: #f5f7fb; --lg-muted: #98a2b3;
   --lg-hair: rgba(226,235,250,.10); --lg-input-line: rgba(226,235,250,.18);
   --td-side: #15181e; --td-surface: #15181e; --td-ink: #f5f7fb; --td-muted: #98a2b3;
-  --td-shadow: 0 1px 3px rgba(0,0,0,.4); --bl-jade: #5b93ff; --bl-cyan: #86b0ff;
-  --blue-soft: #16233c;
+  --td-shadow: 0 1px 3px rgba(0,0,0,.4); --bl-jade: #f5f7fb; --bl-cyan: #c9d2df;
+  --blue-soft: #1c222c;
 }
 html:not([data-theme="dark"]) {
-  --lg-glass-soft: #f7f8fa; --lg-active: rgba(22,103,242,.08);
-  --bl-jade: #1667f2; --bl-cyan: #5b93ff; --blue-soft: #e8f0ff;
+  --lg-glass-soft: #f7f8fa; --lg-active: rgba(17,19,24,.06);
+  --bl-jade: #111318; --bl-cyan: #4b5563; --blue-soft: #f1f2f4;
 }
 
 /* ── 收口：历史层的彩色统计卡渐变 / 装饰底图一律不进 Zerexa 纸面 ──
@@ -459,4 +481,177 @@ html body .pane,
 html body .modal-card,
 html body .welcome {
   background-image: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Zerexa Domains 实拍对齐层（nic.fj.kg，2026-11-21）
+   只作用于首页 body.page-home；shell.css 的几何 / 响应式一概不动。
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* 页面底：极淡灰；顶栏：纯白 + 1px 发丝线 */
+html body.page-home .page-root.rv-page {
+  background: var(--zx-paper-2);
+}
+html body.page-home .rv-head,
+html[data-theme="dark"] body.page-home .rv-head {
+  background: var(--zx-paper) !important;
+  border-bottom: 1px solid var(--zx-hair) !important;
+}
+html body.page-home .rv-head-in { padding: 14px 0; }
+html body.page-home .rv-brand b {
+  font-size: 18px !important; font-weight: 800 !important; letter-spacing: -.02em;
+}
+html body.page-home .rv-brand i { font-size: 11px; letter-spacing: .01em; }
+html body.page-home .rv-nav a:not(.rv-pill) {
+  font-weight: 700 !important; font-size: 14px; color: var(--zx-ink) !important;
+}
+html body.page-home .rv-nav a:not(.rv-pill):hover { color: var(--zx-muted) !important; }
+html body.page-home .rv-nav a.rv-pill.ink,
+html body.page-home .rv-nav a.zx-nav-cta { color: var(--zx-paper) !important; }
+html body.page-home .rv-nav a.rv-pill.line { color: var(--zx-ink) !important; }
+
+/* 英雄区：单屏留白，小标墨黑等宽，标题超粗黑体 */
+html body.page-home .rv-hero {
+  padding: clamp(56px, 9vh, 104px) 0 clamp(28px, 4vh, 48px);
+  text-align: left;
+}
+html body.page-home .rv-main { max-width: 1120px; }
+html body.page-home .rv-eyebrow {
+  color: var(--zx-ink) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: .16em !important;
+  margin-bottom: 22px !important;
+}
+html body.page-home .rv-eyebrow span { color: var(--zx-muted) !important; }
+html body.page-home .rv-eyebrow::before,
+html body.page-home .rv-sec-no::before { display: none !important; }
+html body.page-home .rv-lede {
+  max-width: 760px; margin: 24px 0 0; font-size: clamp(15px, 1.5vw, 17px);
+  line-height: 1.8; color: var(--zx-body);
+}
+html body.page-home .rv-fullstop { display: none; }
+/* 真图 hero 里没有第二组按钮 / 英文落款 / 居中统计，顶栏已有 CTA */
+html body.page-home .rv-actions,
+html body.page-home .rv-hero-foot { display: none !important; }
+html body.page-home .rv-stats {
+  justify-content: flex-start; gap: 28px; margin-top: 30px;
+  font-family: var(--zx-sans); padding-top: 20px;
+  border-top: 1px solid var(--zx-hair-2); max-width: 520px;
+}
+html body.page-home .rv-stat { align-items: flex-start; min-width: 0; }
+html body.page-home .rv-stat b { font-size: 24px; font-weight: 800; }
+html body.page-home .rv-stat span { font-size: 12px; color: var(--zx-muted); letter-spacing: 0; text-transform: none; }
+
+/* 查询区：独立白底圆角长条，不再是浮在图形面板上的胶囊 */
+html body.page-home .rv-landscape { margin-top: 0; padding-top: 0; border: 0; }
+html body.page-home .rv-frame {
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  display: block !important;
+}
+html body.page-home .rv-art,
+html body.page-home .rv-art-veil,
+html body.page-home .rv-art-cap { display: none !important; }
+html body.page-home .rv-ask {
+  width: 100% !important;
+  max-width: 900px;
+  margin: 0;
+  padding: 0 !important;
+  border: 1px solid var(--zx-hair) !important;
+  border-radius: 16px !important;
+  background: var(--zx-paper) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  overflow: hidden;
+  min-height: 62px;
+}
+html[data-theme="dark"] body.page-home .rv-ask { background: var(--zx-paper) !important; }
+html body.page-home .rv-ask-ico { color: var(--zx-muted) !important; margin-left: 20px; }
+html body.page-home .rv-ask #qName {
+  flex: 1; min-width: 0; border: 0 !important; background: transparent !important;
+  box-shadow: none !important; font-size: 16px; padding: 18px 8px; color: var(--zx-ink);
+  outline: none !important;
+}
+html body.page-home .rv-root-wrap {
+  border-left: 1px solid var(--zx-hair-2);
+  padding: 0 14px; display: flex; align-items: center; gap: 6px;
+  color: var(--zx-ink); font-size: 15px; font-weight: 600;
+}
+html body.page-home .rv-root-wrap select {
+  border: 0 !important; background: transparent !important; box-shadow: none !important;
+  font-size: 15px; font-weight: 600; color: var(--zx-ink); appearance: none;
+  padding: 8px 4px; outline: none !important;
+}
+html body.page-home .rv-ask-btn {
+  border-radius: 0 !important;
+  min-height: 62px !important;
+  padding: 0 30px !important;
+  font-weight: 800 !important;
+  font-size: 15px !important;
+  letter-spacing: .02em;
+}
+html body.page-home .rv-hint { text-align: left; margin-top: 14px; color: var(--zx-muted); font-size: 12.5px; }
+html body.page-home .rv-results { margin-top: 18px; }
+
+/* 四张特性卡：对齐真图「免费额度 / 开通时效 / 解析方式 / 有效期」 */
+html body.page-home .zx-facts {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 14px;
+  margin-top: clamp(40px, 6vh, 64px);
+}
+html body.page-home .zx-fact {
+  background: var(--zx-paper);
+  border: 1px solid var(--zx-hair-2);
+  border-radius: 18px;
+  padding: 22px 22px 24px;
+  min-height: 132px;
+  box-shadow: none;
+}
+html body.page-home .zx-fact-k {
+  display: block; font-size: 13px; color: var(--zx-muted); margin-bottom: 18px;
+}
+html body.page-home .zx-fact-v {
+  display: block; font-size: clamp(19px, 2vw, 25px); font-weight: 800;
+  letter-spacing: -.02em; color: var(--zx-ink);
+}
+
+/* 「为什么选择」段落：标题粗黑，去掉编号小标的彩色 */
+html body.page-home .rv-sec { border-top: 0 !important; margin-top: clamp(64px, 9vh, 104px); padding-top: 0; }
+html body.page-home .rv-sec-no { color: var(--zx-muted) !important; }
+html body.page-home .rv-h2 { font-weight: 900 !important; letter-spacing: -.035em !important; }
+html body.page-home .rv-sec-lede { color: var(--zx-body); }
+html body.page-home .rv-quote { display: none !important; }
+html body.page-home .rv-col h3 { font-weight: 800 !important; }
+html body.page-home .rv-col-ico { color: var(--zx-ink) !important; }
+
+@media (max-width: 900px) {
+  html body.page-home .zx-facts { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 640px) {
+  html body.page-home .rv-hero { padding: 40px 0 24px; }
+  html body.page-home .zx-facts { grid-template-columns: minmax(0, 1fr) !important; gap: 12px; }
+  html body.page-home .zx-fact { min-height: 0; padding: 18px 20px; }
+  html body.page-home .zx-fact-k { margin-bottom: 10px; }
+  html body.page-home .rv-ask { flex-wrap: wrap !important; border-radius: 14px !important; }
+  html body.page-home .rv-ask #qName { flex: 1 1 60%; padding: 14px 8px 14px 18px; }
+  html body.page-home .rv-root-wrap { border-left: 0; padding: 0 16px 12px; }
+  html body.page-home .rv-ask-btn { width: 100% !important; min-height: 48px !important; border-radius: 0 0 14px 14px !important; }
+  html body.page-home .rv-ask-ico { display: none; }
+}
+
+/* ── 装饰性图标徽记：历史层把绿色误映射成红/琥珀，真图是零彩色 ──
+   .sc-ico / .q-ico 只是统计卡与快捷入口的小图标底，不承担错误/警告语义，
+   一律压成中性灰；--zx-danger / --zx-warn 仍留给真正的提示条。 */
+html body .sc-ico,
+html body .q-ico {
+  background: var(--zx-blue-a8) !important;
+  background-image: none !important;
+  color: var(--zx-ink) !important;
+  border-color: var(--zx-hair) !important;
 }

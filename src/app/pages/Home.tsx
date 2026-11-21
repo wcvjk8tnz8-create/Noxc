@@ -61,9 +61,8 @@ export default function HomePage() {
             <span><b data-site-name>Noxc</b><i>Free subdomains</i></span>
           </a>
           <nav className="rv-nav" aria-label="主导航">
-            <a href="#suffix">后缀</a>
             <a href="#features">特性</a>
-            <a href="/showcase">用户案例</a>
+            <a href="#suffix">后缀</a>
             <a href="#faq">常见问题</a>
             {authed
               ? <a className="rv-pill line sm rv-login" href="/dashboard">→ 去往控制台</a>
@@ -77,11 +76,11 @@ export default function HomePage() {
       </header>
 
       <main className="rv-main">
-        {/* ══ Hero：单列、几何无衬线、蓝点强调 ══ */}
+        {/* ══ Hero：超大无衬线黑体，强调只灰一档（Zerexa Domains 实拍口径） ══ */}
         <section className="rv-hero rv-reveal" style={{ '--i': 0 } as CSSProperties}>
           <p className="rv-eyebrow">OPEN REGISTRATION <span>·</span> <span data-default-quota data-no-i18n>5</span> FREE DOMAINS PER EMAIL</p>
-          <h1 className="rv-title">属于你的<em>专属子域名</em><span className="rv-fullstop">.</span></h1>
-          <p className="rv-lede">免费注册子域名，自行管理 DNS 记录。每个邮箱的额度由站点设置决定，管理员可在后台随时调整。</p>
+          <h1 className="rv-title">属于你的<em>专属</em>子域名<span className="rv-fullstop">.</span></h1>
+          <p className="rv-lede">免费注册子域名，通过 NS 委托掌控解析。每个邮箱都有免费额度，超出后可随时在控制台购买额外配额。</p>
           <div className="rv-actions">
             <a className="rv-pill ink lg" href="/register">开始注册 <Ico name="arrow" size={17} /></a>
             <a className="rv-pill line lg" href="/dashboard">管理控制台 <Ico name="arrowUp" size={15} /></a>
@@ -115,6 +114,14 @@ export default function HomePage() {
           <p className="rv-hint"><Ico name="info" size={15} /> 输入前缀，查询它在各个后缀下是否可用</p>
         </section>
 
+        {/* ══ 四张特性卡：对齐 Zerexa Domains 实拍的第二屏 ══ */}
+        <section className="zx-facts rv-reveal" style={{ '--i': 1 } as CSSProperties} aria-label="服务概览">
+          <div className="zx-fact"><span className="zx-fact-k">免费额度</span><span className="zx-fact-v"><span data-default-quota data-no-i18n>5</span> 个 / 邮箱</span></div>
+          <div className="zx-fact"><span className="zx-fact-k">开通时效</span><span className="zx-fact-v">30 秒</span></div>
+          <div className="zx-fact"><span className="zx-fact-k">解析方式</span><span className="zx-fact-v">NS 委托</span></div>
+          <div className="zx-fact"><span className="zx-fact-k">有效期</span><span className="zx-fact-v">长期有效</span></div>
+        </section>
+
         {/* ══ 01 可选后缀 ══ */}
         <section className="rv-sec rv-reveal" style={{ '--i': 2 } as CSSProperties} id="suffix">
           <p className="rv-sec-no">01 <span>/</span> SUFFIXES</p>
@@ -128,8 +135,8 @@ export default function HomePage() {
         {/* ══ 02 特性：发丝线、零阴影 ══ */}
         <section className="rv-sec rv-reveal" style={{ '--i': 3 } as CSSProperties} id="features">
           <p className="rv-sec-no">02 <span>/</span> WHY NOXC</p>
-          <h2 className="rv-h2">安静地，<em>把事情做好</em></h2>
-          <p className="rv-sec-lede">大多数服务急着把功能堆给你。我们更愿意先把域名、记录和审核这几件事做稳。</p>
+          <h2 className="rv-h2">为什么选择 Noxc</h2>
+          <p className="rv-sec-lede">免费额度、自动配置、NS 委托和独立控制台，适合个人站点、Demo 和轻量服务。</p>
           <div className="rv-cols">
             <article className="card rv-col">
               <span className="rv-col-ico"><Ico name="globe" size={22} /></span>
