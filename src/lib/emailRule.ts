@@ -53,6 +53,15 @@ export const BLOCKED_EMAIL_TLDS = new Set([
 export const BLOCKED_EMAIL_MESSAGE =
   '该邮箱域名已被封禁（一次性邮箱 / 非公开域名），不可用于注册或登录';
 
+/**
+ * NodeLoc 自动建号时期生成的内部占位邮箱：`nl.<20位hex>@oauth.local`。
+ * 这些是合法第三方账号（无可用密码，只能走 OAuth 登录），不是访客违规注册。
+ * 新代码已不再生成这种地址；存量账号下次登录会回填真实 NodeLoc 邮箱。
+ */
+export function isOauthInternalEmail(mail: string): boolean {
+  return /^nl\.[0-9a-f]{20}@oauth\.local$/i.test(String(mail || '').trim().toLowerCase());
+}
+
 /** 返回被封的域名（含子域命中），未命中返回 null */
 export function blockedEmailDomain(mail: string): string | null {
   const m = String(mail || '').trim().toLowerCase();

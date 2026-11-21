@@ -4,7 +4,7 @@ import { ok, fail, now, audit, clientIp, defaultQuotaOf } from '../lib/util.js';
 import { createSession, setSessionCookie, clearSessionCookie, destroySession, UNLIMITED } from '../middleware/auth.js';
 import { notifyLoginIp, notify } from '../lib/notify.js';
 import { issueCode, checkCode, mailConfig, mailEnabled } from '../lib/mail.js';
-import { signupEmailOk, emailRuleReject, blockedEmailDomain, BLOCKED_EMAIL_MESSAGE } from '../lib/emailRule.js';
+import { signupEmailOk, emailRuleReject, blockedEmailDomain, isOauthInternalEmail, BLOCKED_EMAIL_MESSAGE } from '../lib/emailRule.js';
 
 const app = new Hono();
 
@@ -115,9 +115,16 @@ app.post('/login', async (c) => {
   const mail = String(email || '').trim().toLowerCase();
   if (!mail || !password) return fail(c, '请输入邮箱和密码');
 
-  /* 立即封锁：一次性 / 非公开邮箱域名（oauth.local 等）的存量账号，
+  /* 立即封锁：一次性 / 非公开邮箱域名（oauth.local 等）的违规注册账号，
      不依赖 D1 迁移是否跑过 —— 只要有人拿它登录，当场标记为封禁。
-     管理员账号不动，避免把站点锁死。 */
+     管理员账号不动，避免把站点锁死。
+     例外：`nl.<hex>@oauth.local` 是 NodeLoc 自动建号时期的合法第三方账号，
+     不是访客违规注册。它们没有可用密码（密码 hash 为 oauth:disabled:），
+     只能走 OAuth 登录；在这里改 status 会把本人之后的 NodeLoc 登录一起锁死。
+     所以只提示改用 NodeLoc 登录、不动账号状态，等下次 OAuth 登录回填真实邮箱。 */
+  if (isOauthInternalEmail(mail)) {
+    return fail(c, '此账号由 NodeLoc 登录创建，请使用「使用 NodeLoc 登录」', 403);
+  }
   if (blockedEmailDomain(mail)) {
     try {
       await c.env.DB.prepare(

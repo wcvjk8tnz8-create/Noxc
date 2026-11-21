@@ -39,6 +39,7 @@ export const SERVER_DICT: Record<string, string> = {
   '需要管理员权限': 'Admin privileges required',
   '当前账号没有管理员权限。': 'This account does not have admin privileges.',
   '回调地址必须是以 https:// 开头的绝对地址': 'The callback URL must be an absolute https:// URL',
+'此账号由 NodeLoc 登录创建，请使用「使用 NodeLoc 登录」': 'This account was created through NodeLoc. Please use "Continue with NodeLoc"',
   '请求失败': 'Request failed', '操作成功': 'Done',
   '信息不完整': 'Incomplete information', '场景不合法': 'Invalid scene',
   '角色不合法': 'Invalid role', '缺少 IP': 'Missing IP',

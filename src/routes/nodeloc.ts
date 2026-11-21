@@ -23,6 +23,7 @@ import {
   nodelocConfig, redirectUriOf,
 } from '../lib/nodeloc.js';
 import { notifyLoginIp } from '../lib/notify.js';
+import { blockedEmailDomain, isOauthInternalEmail } from '../lib/emailRule.js';
 
 const app = new Hono();
 
@@ -176,16 +177,20 @@ async function fetchUserinfo(token: string): Promise<any | null> {
   if (!info) return null;
 
   const email = extractEmail(info);
+  /* email 是唯一必需资料：NodeLoc 登录账号必须用他们真实的 NodeLoc 邮箱，
+     不允许在拿不到邮箱时退回去生成 nl.<hex>@oauth.local 乱码内部地址。
+     读不到就明确失败，提示管理员去 NodeLoc 应用管理页勾选 email 权限。 */
+  if (!email) return { __noEmail: true };
   // 有 provider 自带 id/sub 就沿用（兼容已有绑定）；只有邮箱时由邮箱派生
   let sub = firstText(info, ['sub', 'id', 'user_id', 'uid', 'data.id', 'data.user.id', 'user.id']);
-  if (!sub && email) sub = await emailSub(email);
+  if (!sub) sub = await emailSub(email);
   if (!sub || sub.length > 200) return null;
   return {
     sub,
     email,
     username: firstText(info, ['preferred_username', 'username', 'name', 'data.username', 'user.username'], 80),
     avatar: firstText(info, ['avatar_url', 'picture', 'avatar', 'data.avatar_url'], 500),
-    source: email ? 'email' : 'id',
+    source: 'email',
   };
 }
 
@@ -224,11 +229,37 @@ async function grantBindQuota(c: any, uid: number, info: any): Promise<{ added: 
   }
 }
 
-/** 给 OAuth 用户生成一个稳定、唯一、不含特殊字符的内部邮箱 */
-async function pseudoEmail(sub: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`nodeloc:${sub}`));
-  const hex = [...new Uint8Array(buf)].slice(0, 10).map((b) => b.toString(16).padStart(2, '0')).join('');
-  return `nl.${hex}@oauth.local`;
+/**
+ * 存量修复：早期版本给 NodeLoc 登录建的是 `nl.<hex>@oauth.local` 乱码内部邮箱，
+ * 这些其实是合法第三方账号。本人下次用同一 NodeLoc 账号登录时读到真实邮箱，
+ * 就把账号邮箱回填成真实值；若之前被密码登录的封禁规则误伤，也一并恢复。
+ * 绝不覆盖已被其它账号占用的邮箱（防接管），失败只记审计、不阻断登录。
+ */
+async function repairOauthEmail(c: any, uid: number, email: string): Promise<void> {
+  const mail = String(email || '').trim().toLowerCase();
+  if (!mail || blockedEmailDomain(mail)) return;
+  const db = c.env.DB;
+  try {
+    const u: any = await db.prepare('SELECT * FROM users WHERE id = ?').bind(uid).first();
+    if (!u || !isOauthInternalEmail(String(u.email || ''))) return;
+    const taken: any = await db.prepare('SELECT id FROM users WHERE email = ? AND id <> ?').bind(mail, uid).first().catch(() => null);
+    if (taken) {
+      await audit(c, uid, 'user.oauth_email_repair_skipped', String(u.email), `真实邮箱已被账号 ${taken.id} 占用，未覆盖`);
+      return;
+    }
+    const misBanned = String(u.status) === 'banned' && /一次性|非公开邮箱域名/.test(String(u.ban_reason || ''));
+    if (misBanned) {
+      await db.prepare("UPDATE users SET email = ?, status = 'active', ban_reason = NULL WHERE id = ?")
+        .bind(mail, uid).run();
+    } else {
+      await db.prepare('UPDATE users SET email = ? WHERE id = ?').bind(mail, uid).run();
+    }
+    await db.prepare('UPDATE oauth_quota_grants SET email = ? WHERE provider = ? AND user_id = ?')
+      .bind(mail, NODELOC_PROVIDER, uid).run().catch(() => null);
+    await audit(c, uid, 'user.oauth_email_repair', String(u.email), `回填真实 NodeLoc 邮箱 ${mail}${misBanned ? ' 并解除误封' : ''}`);
+  } catch {
+    /* 老库缺列 / D1 抖动：不影响本次登录，下次再试 */
+  }
 }
 
 async function maxPerIp(env: any): Promise<number> {
@@ -249,13 +280,14 @@ async function createOauthUser(c: any, info: any): Promise<number> {
     const cnt: any = await env.DB.prepare('SELECT COUNT(*) AS n FROM registrations WHERE ip = ?').bind(ip).first();
     if ((cnt?.n || 0) >= limit) throw new Error('ip_limit');
   }
-  const mail = await pseudoEmail(info.sub);
-  // 同一 sub 理论上只会建一次；极端并发下若已存在则直接复用
+  /* 账号邮箱直接用 NodeLoc 返回的真实邮箱，不再生成 nl.<hex>@oauth.local。
+     provider 的邮箱若落在一次性 / 保留域名，照样拒绝，不给第三方当洗白通道。 */
+  const mail = String(info.email || '').trim().toLowerCase();
+  if (!mail || blockedEmailDomain(mail)) throw new Error('email_blocked');
+  /* 防账号接管：真实邮箱若已被别的账号注册，不能自动「认领」并合并，
+     明确提示用户先用该邮箱登录，再到个人资料绑定 NodeLoc。 */
   const exist: any = await env.DB.prepare('SELECT id, status FROM users WHERE email = ?').bind(mail).first();
-  if (exist) {
-    if (exist.status === 'banned') throw new Error('banned');
-    return Number(exist.id);
-  }
+  if (exist) throw new Error('email_taken');
   const quota = await defaultQuotaOf(env);
   // 不可登录密码：verifyPassword 遇到非 pbkdf2 格式直接返回 false
   const passwordHash = `oauth:disabled:${randomToken(16)}`;
@@ -333,6 +365,8 @@ app.get('/callback', async (c) => {
   let info: any = null;
   try { info = await fetchUserinfo(token); } catch { /* 同上 */ }
   if (!info) return back(c, 'userinfo_failed');
+  // 端点通了但没返回邮箱：不再造乱码内部邮箱，明确提示补 email 权限
+  if (info.__noEmail) return back(c, 'email_required');
 
   const db = c.env.DB;
   const binding: any = await db.prepare(
@@ -342,6 +376,8 @@ app.get('/callback', async (c) => {
   if (binding) {
     // 已绑定：直接登录；若本次是 bind 模式且绑的是别人，明确报错
     if (st.mode === 'bind' && Number(binding.user_id) !== Number(st.user_id)) return back(c, 'already_bound');
+    // 老账号若还挂着 nl.<hex>@oauth.local 乱码邮箱，用这次读到的真实邮箱回填
+    await repairOauthEmail(c, Number(binding.user_id), info.email);
     // 幂等补领：迁移前就绑过的账号也能拿到一次奖励
     await grantBindQuota(c, Number(binding.user_id), info);
     try { await signIn(c, Number(binding.user_id), `NodeLoc ${info.username || info.sub}`); }
@@ -371,7 +407,7 @@ app.get('/callback', async (c) => {
   try { userId = await createOauthUser(c, info); }
   catch (e: any) {
     const m = String(e?.message || '');
-    return back(c, ['ip_banned', 'ip_limit', 'banned'].includes(m) ? m : 'register_failed');
+    return back(c, ['ip_banned', 'ip_limit', 'banned', 'email_taken', 'email_blocked'].includes(m) ? m : 'register_failed');
   }
   try {
     await db.prepare(

@@ -50,6 +50,16 @@ function exec(sql: string, args: any[]): { rows: Row[]; lastRowId: number; chang
   } else if (/^SELECT id, status FROM users WHERE email = \?/.test(s)) {
     const u = S.users.find((x) => x.email === args[0]);
     if (u) rows.push({ id: u.id, status: u.status });
+  } else if (/^SELECT id FROM users WHERE email = \? AND id <> \?/.test(s)) {
+    const u = S.users.find((x) => x.email === args[0] && x.id !== Number(args[1]));
+    if (u) rows.push({ id: u.id });
+  } else if (/^UPDATE users SET email = \?/.test(s)) {
+    const u = S.users.find((x) => x.id === Number(args[1]));
+    if (u) {
+      u.email = args[0];
+      if (s.includes("status = 'active'")) { u.status = 'active'; u.ban_reason = null; }
+      changes = 1;
+    }
   } else if (/^SELECT \* FROM users WHERE id = \?/.test(s)) {
     const u = S.users.find((x) => x.id === Number(args[0]));
     if (u) rows.push({ ...u });
@@ -249,7 +259,8 @@ st = await start();
 r = await call(`/oauth/nodeloc/callback?code=CODE-1&state=${st.state}`, st.cookie);
 check(r.status === 302 && loc(r) === '/dashboard', '授权码回调成功 → 签发会话并跳控制台');
 check(!!cookieVal(r, 'sh_session') && S.sessions.length === 1, '会话 Cookie 与 D1 session 已建立');
-check(S.users.length === 1 && String(S.users[0].email).startsWith('nl.') && S.users[0].email.endsWith('@oauth.local'), '自动建号用稳定内部邮箱');
+check(S.users.length === 1 && S.users[0].email === 'tester@example.com', '自动建号直接用 NodeLoc 真实邮箱，不再生成 @oauth.local 乱码');
+check(S.users.every((u) => !String(u.email).endsWith('@oauth.local')), '全流程零乱码内部邮箱');
 check(!String(S.users[0].password_hash).startsWith('pbkdf2$'), 'OAuth 账号没有可登录密码');
 check(S.oauth_bindings.length === 1 && S.oauth_bindings[0].sub === 'nl-001', '写入 provider+sub 绑定');
 check(S.registrations.length === 1 && S.registrations[0].user_id === S.users[0].id, '记录注册来源，纳入同 IP 限制');
@@ -294,7 +305,8 @@ check(S.oauth_quota_grants[0]?.email === 'nested@example.com', '嵌套结构也�
 reset(CONFIG); st = await start();
 userinfoBody = { username: 'ghost' };
 r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
-check(loc(r).includes('oauth=userinfo_failed'), '既没有邮箱也没有 ID 才拒绝');
+check(loc(r).includes('oauth=email_required') && S.users.length === 0,
+  'userInfo 没返回邮箱时明确拒绝，不静默创建乱码账号');
 
 reset(CONFIG); st = await start();
 userinfoLowerStatus = 404; userinfoUrls = [];
@@ -315,7 +327,8 @@ reset(CONFIG); st = await start();
 userinfoBody = { sub: 'nl-001', preferred_username: 'tester', email: 'victim@example.com' };
 S.users.push({ id: 99, email: 'victim@example.com', password_hash: 'pbkdf2$x', role: 'user', status: 'active', quota: 5, created_at: Date.now(), last_login_at: null });
 r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
-check(S.oauth_bindings.every((b) => b.user_id !== 99), 'userinfo 里的邮箱不能认领已有账号（防接管）');
+check(S.oauth_bindings.every((b) => b.user_id !== 99) && loc(r).includes('oauth=email_taken'),
+  '真实邮箱已注册时拒绝建号并提示先登录再绑定，绝不认领已有账号（防接管）');
 
 reset(CONFIG);
 currentUser = { id: 42, email: 'me@example.com', role: 'user', status: 'active' };
@@ -392,6 +405,43 @@ S.oauth_bindings.push({ provider: 'nodeloc', sub: 'nl-001', user_id: 8, username
 st = await start();
 r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
 check(loc(r).includes('oauth=banned'), '被封禁账号不能通过第三方登录复活');
+
+/* 存量 nl.<hex>@oauth.local 账号：下次登录回填真实 NodeLoc 邮箱 */
+reset(CONFIG);
+S.users.push({ id: 8, email: 'nl.0123456789abcdef0123@oauth.local', password_hash: 'oauth:disabled:x', role: 'user', status: 'active', quota: 5, created_at: Date.now(), last_login_at: null });
+S.oauth_bindings.push({ provider: 'nodeloc', sub: 'nl-001', user_id: 8, username: 'tester', created_at: Date.now() });
+userinfoBody = { sub: 'nl-001', preferred_username: 'tester', email: 'real@nodeloc.com' };
+st = await start();
+r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
+check(loc(r) === '/dashboard' && S.users.find((u) => u.id === 8)?.email === 'real@nodeloc.com',
+  '存量乱码邮箱账号下次登录自动回填真实 NodeLoc 邮箱');
+check(S.oauth_quota_grants.find((g) => g.user_id === 8)?.email === 'real@nodeloc.com',
+  '回填同步刷新领取记录里的邮箱，/status 展示真实值');
+
+/* 被密码登录误封的内部账号：回填时一并恢复 */
+reset(CONFIG);
+S.users.push({ id: 9, email: 'nl.abcdef0123456789abcd@oauth.local', password_hash: 'oauth:disabled:x', role: 'user', status: 'banned', ban_reason: '违规注册：一次性 / 非公开邮箱域名', quota: 5, created_at: Date.now(), last_login_at: null });
+S.oauth_bindings.push({ provider: 'nodeloc', sub: 'nl-001', user_id: 9, username: 'tester', created_at: Date.now() });
+userinfoBody = { sub: 'nl-001', preferred_username: 'tester', email: 'restored@nodeloc.com' };
+st = await start();
+r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
+check(loc(r) === '/dashboard'
+  && S.users.find((u) => u.id === 9)?.email === 'restored@nodeloc.com'
+  && S.users.find((u) => u.id === 9)?.status === 'active',
+  '被误封的 NodeLoc 内部账号在回填时恢复 active');
+
+/* 回填绝不覆盖其它账号已占用的邮箱 */
+reset(CONFIG);
+S.users.push({ id: 10, email: 'nl.11111111111111111111@oauth.local', password_hash: 'oauth:disabled:x', role: 'user', status: 'active', quota: 5, created_at: Date.now(), last_login_at: null });
+S.users.push({ id: 11, email: 'taken@nodeloc.com', password_hash: 'pbkdf2$x', role: 'user', status: 'active', quota: 5, created_at: Date.now(), last_login_at: null });
+S.oauth_bindings.push({ provider: 'nodeloc', sub: 'nl-001', user_id: 10, username: 'tester', created_at: Date.now() });
+userinfoBody = { sub: 'nl-001', preferred_username: 'tester', email: 'taken@nodeloc.com' };
+st = await start();
+r = await call(`/oauth/nodeloc/callback?code=X&state=${st.state}`, st.cookie);
+check(loc(r) === '/dashboard'
+  && String(S.users.find((u) => u.id === 10)?.email).endsWith('@oauth.local')
+  && S.users.find((u) => u.id === 11)?.email === 'taken@nodeloc.com',
+  '真实邮箱已被别人占用时跳过回填，不覆盖、不接管');
 
 /* 固定回调地址确实传给 token 端点 */
 reset({ ...CONFIG, nodeloc_redirect_uri: 'https://fixed.test/oauth/nodeloc/callback' });

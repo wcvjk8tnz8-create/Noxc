@@ -77,9 +77,13 @@ export async function nodelocConfig(env: any): Promise<NodelocConfig> {
   const csec = pick(secret, envSecret);
   const configured = !!(cid && csec);
   const switchedOn = pick(enabled, env?.NODELOC_ENABLED, '0') === '1';
-  // 默认申请 email：否则 userInfo 不返回邮箱，绑定就只能拿到 id。
-  // 后台显式关成 0 仍尊重（NodeLoc 应用未获 email 授权时可手动关）。
-  const scopeEmailOn = pick(scopeEmail, env?.NODELOC_SCOPE_EMAIL, '1') !== '0';
+  /* email 是唯一必需资料，权限恒开、不可关闭。
+     旧实现允许后台关掉 nodeloc_scope_email，关掉后 userInfo 不带邮箱，
+     代码就退回去生成 nl.<hex>@oauth.local 乱码内部邮箱 —— 那是 NodeLoc
+     登录账号，应该用他们真实的 NodeLoc 邮箱，不是乱码。
+     这里仍读一次旧设置只为兼容老库，值一律忽略；授权 scope 恒含 email。 */
+  const scopeEmailOn = true;
+  void scopeEmail;
   return {
     enabled: switchedOn && configured,
     switchedOn,
@@ -90,7 +94,7 @@ export async function nodelocConfig(env: any): Promise<NodelocConfig> {
     scopeEmail: scopeEmailOn,
     redirectUri: pick(redirect, env?.NODELOC_REDIRECT_URI),
     fromEnv: !String(clientId ?? '').trim() && !!envId && !String(secret ?? '').trim() && !!envSecret,
-    scope: `openid profile${scopeEmailOn ? ' email' : ''}`,
+    scope: 'openid profile email',
   };
 }
 

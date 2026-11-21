@@ -831,9 +831,9 @@ app.post('/settings', async (c) => {
   if (body.nodelocAutoRegister !== undefined) {
     await set('nodeloc_auto_register', body.nodelocAutoRegister ? '1' : '0');
   }
-  if (body.nodelocScopeEmail !== undefined) {
-    await set('nodeloc_scope_email', body.nodelocScopeEmail ? '1' : '0');
-  }
+  // email 是必需资料，恒开：旧库里被关成 0 的也一并纠正，避免 userInfo
+  // 不带邮箱后又退回生成乱码内部地址
+  await set('nodeloc_scope_email', '1');
   if (body.nodelocRedirectUri !== undefined) {
     const r = String(body.nodelocRedirectUri || '').trim();
     // NodeLoc 只接受 HTTPS 回调，http:// 一律拒绝，避免授权被 provider 拒掉

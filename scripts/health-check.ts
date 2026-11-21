@@ -688,15 +688,17 @@ check(/CREATE TABLE IF NOT EXISTS oauth_bindings/.test(nlSchema) && /UNIQUE\(pro
 check(/CREATE TABLE IF NOT EXISTS oauth_states/.test(nlSchema) && /'nodeloc_enabled', '0'/.test(nlSchema), 'D1 建一次性 state 表且默认关闭');
 check(/www\.nodeloc\.com\/oauth-provider\/authorize/.test(nlLib) && /oauth-provider\/token/.test(nlLib) && /oauth-provider\/userinfo/.test(nlLib), '三个端点与官方对接文档一致');
 check(/NODELOC_USERINFO_LEGACY/.test(nlLib) && /NODELOC_USERINFO_LEGACY/.test(nlRoute), '官方小写 userinfo 优先，旧拼写 userInfo 兜底');
-check(/NODELOC_SCOPE_EMAIL, '1'/.test(nlLib) && /scopeEmailOn \? ' email' : ''/.test(nlLib), '默认申请 email 权限，后台仍可关');
-check(/nodeloc_scope_email_v2/.test(nlSchema) && /nodeloc_scope_email', '1'/.test(nlSchema), '旧库 email 权限 0 一次性升级，不覆盖管理员手动关闭');
+check(/scopeEmailOn = true/.test(nlLib) && /scope: 'openid profile email'/.test(nlLib),
+  'email 权限恒开不可关闭，授权 scope 必带 email');
+check(/nodeloc_scope_email_v2/.test(nlSchema) && /nodeloc_scope_email', '1'/.test(nlSchema), '旧库 email 权限 0 一次性升级为 1');
 check(/state !== cookieState\(c\)/.test(nlRoute) && /consumeState\(c, state\)/.test(nlRoute), 'state 同时校验 Cookie 与 D1，挡 CSRF');
 check(/DELETE FROM oauth_states WHERE state = \? AND exp >= \? RETURNING/.test(nlRoute), 'state 一次性原子领取，挡重放');
 check(/client_secret: cfg\.clientSecret/.test(nlRoute) && /Authorization: `Basic/.test(nlRoute), 'Secret 只在服务端换 token，且兼容 Basic 认证');
 check(/function extractEmail/.test(nlRoute) && /async function emailSub/.test(nlRoute) && /只有邮箱时由邮箱派生/.test(nlRoute),
   '资料读取只必需 email：多路径取值、缺 sub 由邮箱派生稳定标识');
 check(/防账号接管/.test(nlRoute) && /st\.mode === 'bind'/.test(nlRoute), '不拿 userinfo 邮箱认领已有账号，绑定只由本人发起');
-check(/oauth:disabled:/.test(nlRoute) && /pseudoEmail/.test(nlRoute), '自动建号用内部邮箱 + 不可登录密码');
+check(/oauth:disabled:/.test(nlRoute) && !/pseudoEmail|nl\.\$\{hex\}@oauth\.local/.test(nlRoute),
+  '不再生成乱码内部邮箱；OAuth 账号仍无可用密码');
 check(
   nlIndex.indexOf("app.route('/api/auth/nodeloc', nodelocRoutes)") < nlIndex.indexOf("app.route('/api/auth', authRoutes)"),
   'OAuth 路由先于 /api/auth 挂载，否则会被子应用吞成 404'
@@ -722,6 +724,35 @@ check(/UPDATE users SET quota = \? WHERE id = \?/.test(nlRoute) && /role\) === '
 check(/oauth=bound&bonus=/.test(nlRoute) && /配额 \+/.test(nlProfileCtrl), '绑定成功把实际奖励数带回页面并提示');
 check(/NodeLoc 账号已绑定，配额 \\\+\(\\d\+\)/.test(nlI18n) && /st\.email/.test(nlProfileCtrl),
   '动态奖励文案有英文映射，个人资料页显示读到的邮箱');
+
+/* NodeLoc 账号必须用真实邮箱：不再造 nl.<hex>@oauth.local 乱码，存量自动回填 */
+check(!/nl\.\$\{hex\}@oauth\.local/.test(nlRoute) && !/return `nl\./.test(nlRoute),
+  '源码里不再有任何生成 @oauth.local 内部邮箱的路径');
+check(/const mail = String\(info\.email \|\| ''\)\.trim\(\)\.toLowerCase\(\)/.test(nlRoute) &&
+      /email_blocked/.test(nlRoute) && /email_taken/.test(nlRoute),
+  '自动建号直接用 NodeLoc 真实邮箱，且拒绝被封域名 / 已占用邮箱（防接管）');
+check(/if \(!email\) return \{ __noEmail: true \}/.test(nlRoute) &&
+      /if \(info\.__noEmail\) return back\(c, 'email_required'\)/.test(nlRoute),
+  '拿不到邮箱就明确拒绝，不静默降级成乱码账号');
+check(/async function repairOauthEmail/.test(nlRoute) && /await repairOauthEmail\(c, Number\(binding\.user_id\), info\.email\)/.test(nlRoute),
+  '存量 nl.<hex>@oauth.local 账号下次登录回填真实邮箱');
+check(/isOauthInternalEmail\(String\(u\.email \|\| ''\)\)/.test(nlRoute) &&
+      /SELECT id FROM users WHERE email = \? AND id <> \?/.test(nlRoute),
+  '回填只针对内部占位邮箱，且绝不覆盖其它账号已占用的邮箱');
+check(/misBanned/.test(nlRoute) && /status = 'active', ban_reason = NULL/.test(nlRoute),
+  '被密码登录误封的 NodeLoc 账号在回填时一并恢复');
+check(/export function isOauthInternalEmail/.test(read('src/lib/emailRule.ts')) &&
+      /isOauthInternalEmail\(mail\)/.test(read('src/routes/auth.ts')),
+  '密码登录豁免 NodeLoc 内部账号，不再就地封禁导致 OAuth 登录被锁');
+check(/void scopeEmail/.test(nlLib) && /nodeloc_scope_email', '1'/.test(nlAdminApi),
+  '后台保存把 email 权限恒写 1，旧设置不再生效');
+check(!/sNodelocScopeEmail/.test(nlAdminUi), '后台不再提供关闭 email 权限的开关');
+for (const code of ['email_required', 'email_taken', 'email_blocked']) {
+  check(nlLoginCtrl.includes(`${code}:`) && nlRoute.includes(`'${code}'`) && nlDict.includes(code === 'email_required'
+    ? '未能读取 NodeLoc 邮箱' : code === 'email_taken' ? '该邮箱已在本站注册' : 'NodeLoc 返回的邮箱域名'),
+    `错误码 ${code} 前后端与英文词典齐`);
+}
+
 
 /* HTTPS 强制 + 官方 logo：NodeLoc 只接受 HTTPS 回调，登录 / 绑定 / 回调全链路归一 */
 const nlUrl = read('src/app/lib/oauthUrl.ts');
