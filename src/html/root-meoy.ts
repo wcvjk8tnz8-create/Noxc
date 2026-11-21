@@ -7,8 +7,8 @@ export const meoyTopHtml = String.raw`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fbfaf7">
-<title>meoy.top · TerraDomain</title>
-<meta name="description" content="meoy.top — TerraDomain public subdomain service">
+<title>meoy.top · Noxc</title>
+<meta name="description" content="meoy.top — Noxc public subdomain service">
 <style>
 :root{
   --paper:#fbfaf7;--paper2:#f4f2ec;--card:#fff;--ink:#16191c;--body:#40474f;
@@ -150,7 +150,7 @@ a,.lang button,.nav a,.legal a,.foot a,.checker button.check,.suffix select,.pil
 }
 </style>
 <style id="td-liquid-glass">
-/* TerraDomain · Liquid Glass（根域名单屏页）
+/* Noxc · Liquid Glass（根域名单屏页）
    只换材质与绿色主题，保留 Zerexa 的衬线标题、等宽小标、细线与单屏布局 */
 :root{
   --lg-glass:linear-gradient(152deg,rgba(255,255,255,.78) 0%,rgba(255,255,255,.50) 58%,rgba(240,248,242,.46) 100%);
@@ -219,7 +219,7 @@ ${reverieRootCss}
 <body>
 <div class="stage">
   <header class="head rise" style="--d:.02s">
-    <a class="brand" id="brandLink" href="#"><i></i>TerraDomain</a>
+    <a class="brand" id="brandLink" href="#"><i></i>Noxc</a>
     <nav class="nav">
       <a data-go="/whois" data-i18n="navWhois">WHOIS Lookup</a>
       <a data-go="/terms" data-i18n="navTos">Terms of Service</a>
@@ -274,7 +274,7 @@ ${reverieRootCss}
   </main>
 
   <footer class="foot rise" style="--d:.34s">
-    <span>© <span id="yr">2026</span> TerraDomain</span>
+    <span>© <span id="yr">2026</span> Noxc</span>
     <a id="siteLink" href="#">nic.299282.xyz</a>
     <span id="icpSlot" class="icp-slot"></span>
     <span id="contactSlot" class="contact-slot"></span>
@@ -330,7 +330,7 @@ function fillLinks(){
   document.getElementById("yr").textContent = new Date().getFullYear();
   document.getElementById("curRoot").textContent = ROOT;
   document.getElementById("root").value = ROOT;
-  document.title = ROOT + " · TerraDomain";
+  document.title = ROOT + " · Noxc";
 }
 
 function apply(lang){

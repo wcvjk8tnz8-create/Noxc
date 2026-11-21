@@ -1,5 +1,5 @@
 /**
- * TerraDomain 服务文档（/docs、/docs.html）—— Worker 直出的 TypeScript 模板。
+ * Noxc 服务文档（/docs、/docs.html）—— Worker 直出的 TypeScript 模板。
  *
  * 仓库不跟踪 .html：这份字符串由 src/index.ts 按路径 c.html() 直出，
  * 也能用 npm run emit:root-pages 导出 docs.html 挂任意静态托管。
@@ -12,9 +12,9 @@ export const docsHtml = String.raw`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f6f2e8">
-<title>服务文档 · TerraDomain</title>
-<meta name="description" content="TerraDomain 服务文档：软件介绍、快速开始、账号与额度、DNS 记录、DNSHE 托管接入、站点设置与已知限制。">
-<meta property="og:title" content="服务文档 · TerraDomain">
+<title>服务文档 · Noxc</title>
+<meta name="description" content="Noxc 服务文档：软件介绍、快速开始、账号与额度、DNS 记录、DNSHE 托管接入、站点设置与已知限制。">
+<meta property="og:title" content="服务文档 · Noxc">
 <meta property="og:description" content="二级域名分发与 DNS 管理系统的完整使用说明。">
 <style>
 /* ── Reverie tokens（与 src/html/reverieRootCss.ts / src/app/styles/reverie.css 同一套） ── */
@@ -221,7 +221,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
 <body class="td-doc">
 
 <header class="doc-top">
-  <a class="brand" href="/"><i aria-hidden="true"></i>TerraDomain<small>SERVICE DOCS</small></a>
+  <a class="brand" href="/"><i aria-hidden="true"></i>Noxc<small>SERVICE DOCS</small></a>
   <div class="doc-top-actions">
     <a class="pill txt" href="/" data-en="Home">返回首页</a>
     <a class="pill txt" href="/dashboard" data-en="Console">控制台</a>
@@ -234,7 +234,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
   <aside class="doc-toc">
     <p class="toc-title" data-en="Contents">目录</p>
     <nav aria-label="文档目录">
-      <a href="#about" data-en="01 · About TerraDomain">01 · 关于 TerraDomain</a>
+      <a href="#about" data-en="01 · About Noxc">01 · 关于 Noxc</a>
       <a href="#start" data-en="02 · Quick start">02 · 快速开始</a>
       <a href="#account" data-en="03 · Accounts & quota">03 · 账号与额度</a>
       <a href="#dns" data-en="04 · DNS records">04 · DNS 记录</a>
@@ -247,8 +247,8 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
 
   <main class="doc-body">
     <div class="doc-hero">
-      <p class="eyebrow">TERRADOMAIN · SERVICE DOCUMENTATION</p>
-      <h1>TerraDomain <em data-en="Service docs">服务文档</em><span aria-hidden="true">.</span></h1>
+      <p class="eyebrow">NOXC · SERVICE DOCUMENTATION</p>
+      <h1>Noxc <em data-en="Service docs">服务文档</em><span aria-hidden="true">.</span></h1>
       <p class="lede" data-en="Everything about the software: what it does, how to register a subdomain, how DNS records work, and how to delegate a name to DNSHE — written from the actual product, including the parts that are still rough.">关于这套软件的全部说明：它能做什么、怎么申请子域名、DNS 记录怎么管、怎样把名字委派给 DNSHE。按站点实际功能写，也如实写出还不完善的地方。</p>
       <div class="doc-meta">
         <span data-en="Applies to: nic.299282.xyz">适用站点：nic.299282.xyz</span>
@@ -259,9 +259,10 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
 
     <!-- 01 -->
     <section class="doc-sec" id="about">
-      <div class="doc-sec-head"><span class="doc-sec-no">01</span><h2 data-en="About TerraDomain">关于 TerraDomain</h2></div>
-      <p data-en="TerraDomain is a subdomain distribution and DNS management system running on Cloudflare Workers + D1. It takes a root domain, splits it into names people can apply for, and hands DNS control of each name back to its owner.">TerraDomain 是一套跑在 Cloudflare Workers + D1 上的<strong>二级域名分发与 DNS 管理系统</strong>：把一个根域名切成很多可申请的子域名，审核通过后把该名字的 DNS 管理权交还给申请人。</p>
+      <div class="doc-sec-head"><span class="doc-sec-no">01</span><h2 data-en="About Noxc">关于 Noxc</h2></div>
+      <p data-en="Noxc is a subdomain distribution and DNS management system running on Cloudflare Workers + D1. It takes a root domain, splits it into names people can apply for, and hands DNS control of each name back to its owner.">Noxc 是一套跑在 Cloudflare Workers + D1 上的<strong>二级域名分发与 DNS 管理系统</strong>：把一个根域名切成很多可申请的子域名，审核通过后把该名字的 DNS 管理权交还给申请人。</p>
       <p data-en="It manages names and their DNS records. It does not host websites, provide an SLA, or act as a registrar for arbitrary TLDs.">它只负责「名字 + 解析记录」，<strong>不托管网站内容、不提供 SLA、也不是通用顶级域注册商</strong>。这一点写在最前面，免得后面产生误会。</p>
+      <div class="callout star"><span class="tag">PRIMARY</span><p data-en="The project is now called Noxc and leads with noxc.uk subdomains: it is the first suffix in the picker and the default on the register form. Other configured suffixes remain available.">正式更名为 <strong>Noxc</strong>，首推 <code>noxc.uk</code> 子域名：它排在后缀选择器第一位、也是注册表单的默认后缀；其余已配置后缀仍可正常选用。</p></div>
       <div class="cards">
         <div class="card"><span class="ico">APPLY</span><h3 data-en="Applications & review">申请与审核</h3><p data-en="Name availability check, AI review, hourly re-check of pending applications, email allowlist and third-party email request flow, slider captcha before submit.">名称可用性检查、AI 审核、待审每小时复核、邮箱白名单与第三方邮箱申请、提交注册时的滑块拼图验证。</p></div>
         <div class="card"><span class="ico">DNS</span><h3 data-en="DNS management">DNS 管理</h3><p data-en="A / AAAA / CNAME / MX / TXT / NS and more, editable and deletable, with one-click presets for Vercel, Netlify, Cloudflare Pages, GitHub Pages and DNSHE.">A / AAAA / CNAME / MX / TXT / NS 等记录可增删改，附 Vercel、Netlify、Cloudflare Pages、GitHub Pages、DNSHE 一键模板。</p></div>
@@ -307,18 +308,18 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
     <!-- 05 -->
     <section class="doc-sec" id="dnshe">
       <div class="doc-sec-head"><span class="doc-sec-no">05</span><h2 data-en="Service guide · DNSHE hosting">服务文档 · DNSHE 托管接入</h2></div>
-      <p data-en="Delegate a TerraDomain subdomain to DNSHE, using ksdk.noxc.uk as the running example. The eight screenshots correspond to figures 1–8 below.">把 TerraDomain 子域名交给 DNSHE 解析，以 <code>ksdk.noxc.uk</code> 为例；下面 8 张图与文内编号一一对应。</p>
-      <div class="callout"><span class="tag">ONE SENTENCE</span><p data-en="Delegation means writing two NS records in the parent zone (TerraDomain). After that, every A / AAAA / CNAME / MX / TXT under this name is managed inside DNSHE.">托管 = <strong>在父区（TerraDomain）写两条 NS 记录</strong>，把解析权交出去；之后该名字下所有 A / AAAA / CNAME / MX / TXT 都在 DNSHE 里管。</p></div>
+      <p data-en="Delegate a Noxc subdomain to DNSHE, using ksdk.noxc.uk as the running example. The eight screenshots correspond to figures 1–8 below.">把 Noxc 子域名交给 DNSHE 解析，以 <code>ksdk.noxc.uk</code> 为例；下面 8 张图与文内编号一一对应。</p>
+      <div class="callout"><span class="tag">ONE SENTENCE</span><p data-en="Delegation means writing two NS records in the parent zone (Noxc). After that, every A / AAAA / CNAME / MX / TXT under this name is managed inside DNSHE.">托管 = <strong>在父区（Noxc）写两条 NS 记录</strong>，把解析权交出去；之后该名字下所有 A / AAAA / CNAME / MX / TXT 都在 DNSHE 里管。</p></div>
 
       <h3 data-en="Two sets of nameservers — do not mix them up">两套 NS 别搞混（最容易错的地方）★</h3>
       <div class="table-scroll"><table>
         <thead><tr><th data-en="Use case">用途</th><th data-en="Correct NS">正确的 NS</th></tr></thead>
         <tbody>
-          <tr><td data-en="Adding a domain from TerraDomain (or elsewhere) into DNSHE DNS Management">从 TerraDomain 等外部把域名「添加」进 DNSHE DNS Management 托管</td><td><code>ns1.dnshe.org</code> / <code>ns2.dnshe.org</code></td></tr>
+          <tr><td data-en="Adding a domain from Noxc (or elsewhere) into DNSHE DNS Management">从 Noxc 等外部把域名「添加」进 DNSHE DNS Management 托管</td><td><code>ns1.dnshe.org</code> / <code>ns2.dnshe.org</code></td></tr>
           <tr><td data-en="Nameservers of domains registered directly at DNSHE">直接在 DNSHE <strong>注册的域名</strong>自带的 NS 伺服器</td><td><code>ns1.dnshe.com</code> / <code>ns2.dnshe.com</code></td></tr>
         </tbody>
       </table></div>
-      <div class="callout warn"><span class="tag">IMPORTANT</span><p data-en="ns1/ns2.dnshe.com belong exclusively to domains registered at DNSHE; they do not apply to subdomains delegated from TerraDomain. This whole guide uses .org only. api005.dnshe.com and similar hosts are API / console gateways, not authoritative nameservers — never put them in a record."><code>ns1.dnshe.com</code> / <code>ns2.dnshe.com</code> <strong>专属于在 DNSHE 注册的域名</strong>，不适用于从 TerraDomain 委派出去的子域名。本文全流程只用 <code>.org</code>：图 6（TerraDomain 写入）与图 7（DNSHE 分配）都是它。<code>api005.dnshe.com</code> 之类是 API / 控制台网关，不是权威 NS，别填进记录里。</p></div>
+      <div class="callout warn"><span class="tag">IMPORTANT</span><p data-en="ns1/ns2.dnshe.com belong exclusively to domains registered at DNSHE; they do not apply to subdomains delegated from Noxc. This whole guide uses .org only. api005.dnshe.com and similar hosts are API / console gateways, not authoritative nameservers — never put them in a record."><code>ns1.dnshe.com</code> / <code>ns2.dnshe.com</code> <strong>专属于在 DNSHE 注册的域名</strong>，不适用于从 Noxc 委派出去的子域名。本文全流程只用 <code>.org</code>：图 6（Noxc 写入）与图 7（DNSHE 分配）都是它。<code>api005.dnshe.com</code> 之类是 API / 控制台网关，不是权威 NS，别填进记录里。</p></div>
       <p data-en="Order matters: add the domain at DNSHE and get the NS first, write the NS in the parent zone, then go back and add records.">顺序别反：先在 DNSHE 加域名拿到 NS → 再去父区写 NS → 最后回 DNSHE 加记录。</p>
 
       <div class="step"><div class="step-no">1</div><div class="step-body">
@@ -334,12 +335,12 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
       <div class="step"><div class="step-no">2</div><div class="step-body">
         <h3 data-en="Get the assigned nameservers (see Fig 7)">拿到分配的 NS（先看图 7）</h3>
         <p data-en="A New domain setup dialog appears with three steps: 1. Add domain (done), 2. Add DNS records (current), 3. Update nameservers. It lists ns1.dnshe.org and ns2.dnshe.org with Copy / Copy all. The yellow notice says the nameserver change has not been detected yet — that is normal until you update the parent zone and wait.">创建后弹出 <em>New domain setup</em>，步骤条为 <code>1. Add domain</code>（已完成）→ <code>2. Add DNS records</code>（当前）→ <code>3. Update nameservers</code>；正文列出 <code>ns1.dnshe.org</code> / <code>ns2.dnshe.org</code>，右侧有 <em>Copy</em>、<em>Copy all</em>。黄色提示「尚未检测到 NS 变更」是正常的，改完等一会儿再复查。</p>
-        <p data-en="Update nameservers here means go to your registrar / parent zone and change NS — for TerraDomain users that is the one-click preset in step 3, not something you do inside DNSHE. Do NOT click any bottom button yet; switch to TerraDomain first.">⚠️ 步骤条里的 <em>Update nameservers</em> 指「到上级去改 NS」，对 TerraDomain 用户就是下面第 3 步的一键模板，不是在 DNSHE 里改。<strong>先别点底部任何按钮</strong>，切到 TerraDomain 把 NS 写进去再回来。</p>
+        <p data-en="Update nameservers here means go to your registrar / parent zone and change NS — for Noxc users that is the one-click preset in step 3, not something you do inside DNSHE. Do NOT click any bottom button yet; switch to Noxc first.">⚠️ 步骤条里的 <em>Update nameservers</em> 指「到上级去改 NS」，对 Noxc 用户就是下面第 3 步的一键模板，不是在 DNSHE 里改。<strong>先别点底部任何按钮</strong>，切到 Noxc 把 NS 写进去再回来。</p>
         <figure class="doc-fig"><picture><source srcset="/img/docs/fig7.png" type="image/webp"><img src="/img/docs/fig7.png" width="2666" height="1624" loading="lazy" alt="图 7 New domain setup 给出两条 ns.dnshe.org"></picture><figcaption data-en="Fig 7 · New domain setup with the two .org NS and the three bottom buttons">图 7 · <em>New domain setup</em>：两条 <code>.org</code> NS + 底部三个按钮（<em>Check again</em> / <em>Add DNS records</em> / <em>Cancel</em>）</figcaption></figure>
       </div></div>
 
       <div class="step"><div class="step-no">3</div><div class="step-body">
-        <h3 data-en="Write the NS records in TerraDomain">TerraDomain 侧写入 NS 记录</h3>
+        <h3 data-en="Write the NS records in Noxc">Noxc 侧写入 NS 记录</h3>
         <p data-en="Domain management → My Domains, find the name (record count is 0 at this point) and click DNS 记录. In 常用模板 press DNSHE 托管 NS（一键）. Two NS rows appear, each editable and deletable; check that both values are .org and both are healthy.">域名管理 →「我的域名」，找到该名字（此时记录数为 0），点右侧「DNS 记录」；页面下方「常用模板」点「DNSHE 托管 NS（一键）」，重复点不会生成重复记录。列表出现两条 NS，每行都有「编辑 / 删除」—— 核对<strong>值是 .org 不是 .com</strong>、两条都在且状态正常。</p>
         <div class="fig-grid">
           <figure class="doc-fig"><picture><source srcset="/img/docs/fig4.png" type="image/webp"><img src="/img/docs/fig4.png" width="2266" height="1378" loading="lazy" alt="图 4 我的域名列表里的 DNS 记录按钮"></picture><figcaption data-en="Fig 4 · My Domains → DNS 记录">图 4 · 我的域名 →「DNS 记录」</figcaption></figure>
@@ -367,7 +368,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
       <ul>
         <li data-en="Back on Fig 7, press Check again; once the yellow notice disappears, DNSHE has detected the delegation.">回图 7 点 <em>Check again</em>，黄色提示消失即代表 DNSHE 检测到委派。</li>
         <li data-en="DNS propagation takes minutes, up to 24–48 hours. Do not keep deleting and re-adding records while waiting.">DNS 传播通常几分钟，最长可能到 24–48 小时；期间别反复删改。</li>
-        <li data-en="Once live, Fig 8 in DNSHE is authoritative for all records under that name; the two NS rows in TerraDomain no longer manage concrete records.">生效后，该名字下的所有记录<strong>以 DNSHE 图 8 页面为准</strong>，TerraDomain 里那两条 NS 不再管具体解析。</li>
+        <li data-en="Once live, Fig 8 in DNSHE is authoritative for all records under that name; the two NS rows in Noxc no longer manage concrete records.">生效后，该名字下的所有记录<strong>以 DNSHE 图 8 页面为准</strong>，Noxc 里那两条 NS 不再管具体解析。</li>
         <li data-en="Verify with: dig ksdk.noxc.uk NS (should return ns1/ns2.dnshe.org), then dig <host> A for your expected IP.">验证：<code>dig ksdk.noxc.uk NS</code> 看是否返回 <code>ns1/ns2.dnshe.org</code>，再 <code>dig &lt;主机名&gt; A</code> 看预期 IP。</li>
       </ul>
 
@@ -381,7 +382,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
           <tr><td data-en="Check again never passes"><code>Check again</code> 一直不通过</td><td data-en="Verify both rows in Fig 6 exist, are spelled correctly and healthy, then wait for propagation">核对图 6 两条都在、拼写无误、状态正常，再等传播</td></tr>
           <tr><td data-en="Fig 8 shows 0 records">图 8 显示 0 records</td><td data-en="Normal — press Add the first DNS record">正常，点 <em>Add the first DNS record</em></td></tr>
           <tr><td data-en="Cannot find the Fig 7 dialog">找不到图 7 弹窗</td><td data-en="Open Manage → on the domain row to re-enter">域名列表该行 <em>Manage →</em> 重新进入</td></tr>
-          <tr><td data-en="Want to cancel hosting">想取消托管</td><td data-en="Delete the two NS rows in TerraDomain; leaving the DNSHE zone in place is harmless">在 TerraDomain 删掉那两条 NS 即可，DNSHE 侧区域留着不影响</td></tr>
+          <tr><td data-en="Want to cancel hosting">想取消托管</td><td data-en="Delete the two NS rows in Noxc; leaving the DNSHE zone in place is harmless">在 Noxc 删掉那两条 NS 即可，DNSHE 侧区域留着不影响</td></tr>
         </tbody>
       </table></div>
 
@@ -441,7 +442,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
 
 <footer class="doc-foot">
   <div class="doc-foot-in">
-    <span>© <span id="yr">2026</span> TerraDomain · <span data-en="Service documentation">服务文档</span></span>
+    <span>© <span id="yr">2026</span> Noxc · <span data-en="Service documentation">服务文档</span></span>
     <span class="sep"></span>
     <a href="/" data-en="Home">返回首页</a>
     <a href="https://github.com/wcvjk8tnz8-create/MeoyDomain" target="_blank" rel="noopener noreferrer">GitHub</a>
@@ -498,7 +499,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
     });
     lb.textContent = l === 'en' ? '中文' : 'EN';
     lb.classList.toggle('on', l === 'en');
-    document.title = l === 'en' ? 'Service Docs · TerraDomain' : '服务文档 · TerraDomain';
+    document.title = l === 'en' ? 'Service Docs · Noxc' : '服务文档 · Noxc';
   }
   lb.addEventListener('click', function () {
     var next = root.getAttribute('data-lang') === 'en' ? 'zh' : 'en';

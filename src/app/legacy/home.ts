@@ -15,6 +15,9 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
   
   let ROOTS = [];
   let RT = [];
+  /* 首推 noxc.uk：无论 /api/config 返回的顺序，都把它排到第一位 */
+  const preferNoxc = (list) => [...list].sort((a, b) =>
+    (String(b).toLowerCase() === 'noxc.uk' ? 1 : 0) - (String(a).toLowerCase() === 'noxc.uk' ? 1 : 0));
   
   /* ---------- 可选后缀卡片 ---------- */
   function renderSuffix(list) {
@@ -22,7 +25,7 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
     if (!list.length) { box.innerHTML = '<div class="nk-sk">暂未配置根域名</div>'; return; }
     box.innerHTML = list.map((d, i) => `
       <div class="card nk-suf">
-        ${i === 0 ? '<span class="nk-hot">HOT</span>' : ''}
+        ${i === 0 ? '<span class="nk-hot">首推</span>' : ''}
         <div class="rv-suf-ico">${svgIcon('leaf', 18)}</div>
         <div class="nk-suf-name">.${esc(d.toUpperCase())}</div>
         <div class="nk-suf-desc">${esc(d)}</div>
@@ -53,6 +56,7 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
       ROOTS = Array.isArray(cfg.rootDomains) && cfg.rootDomains.length
         ? cfg.rootDomains
         : (cfg.rootDomain ? [cfg.rootDomain] : []);
+      ROOTS = preferNoxc(ROOTS);
       RT = Array.isArray(cfg.recordTypes) ? cfg.recordTypes : [];
       /* qRoot 现在是下拉框：列出全部已配置根域名，可切换查询其它后缀 */
       const sel = document.getElementById('qRoot') as HTMLSelectElement | null;

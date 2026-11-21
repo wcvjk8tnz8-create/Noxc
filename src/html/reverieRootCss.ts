@@ -9,7 +9,7 @@
  *   羊皮纸 #f6f2e8 / 深蕨绿 #2f5d45 / 墨黑药丸 / 发丝线 / 衬线绿斜体。
  */
 export const reverieRootCss = String.raw`
-/* ── TerraDomain · Reverie (root domains) ───────────────────────── */
+/* ── Noxc · Reverie (root domains) ───────────────────────── */
 :root{
   --paper:#f6f2e8;--paper2:#efe8da;--card:rgba(255,253,247,.78);
   --ink:#1c221d;--body:#4a5148;--muted:#8a8f83;

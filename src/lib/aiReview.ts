@@ -1,5 +1,5 @@
 /**
- * AI 自动审核 + 按根域名的 DNS 记录限额（TerraDomain）
+ * AI 自动审核 + 按根域名的 DNS 记录限额（Noxc）
  *
  * 设计原则：
  *   1. 密钥绝不写进代码库。只从后台 settings 或 Worker Secret（AI_API_KEY）读取，

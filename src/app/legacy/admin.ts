@@ -282,7 +282,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
           </td>
           <td>
             <div class="grid2" style="margin-bottom:10px">
-              <div class="field" style="margin:0"><label>站点名称</label><input id="sName" value="${esc(s.site_name || 'TerraDomain')}" placeholder="TerraDomain"></div>
+              <div class="field" style="margin:0"><label>站点名称</label><input id="sName" value="${esc(s.site_name || 'Noxc')}" placeholder="Noxc"></div>
               <div class="field" style="margin:0"><label>Logo 地址</label><input id="sLogo" value="${esc(s.logo_url || '')}" placeholder="/img/logo.jpg"></div>
             </div>
             <div class="grid2" style="margin-bottom:12px">
@@ -442,10 +442,10 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <label>托管面板域名（CNAME 识别）</label>
               <div class="grid2">
                 <div><span class="dim">面板域名</span><input id="sPanelDomain" placeholder="dash.domain.meoy.top"></div>
-                <div><span class="dim">显示名称</span><input id="sPanelName" placeholder="TerraDomain 面板"></div>
+                <div><span class="dim">显示名称</span><input id="sPanelName" placeholder="Noxc 面板"></div>
               </div>
               <div class="hint">外部域名 WHOIS 会探测 CNAME 指向；指向该域名时显示你设定的名称（如
-                <span class="mono">meoy.top CNAME dash.domain.meoy.top</span> → 显示「TerraDomain 面板」）。
+                <span class="mono">meoy.top CNAME dash.domain.meoy.top</span> → 显示「Noxc 面板」）。
                 Vercel / Netlify / GitHub Pages 等常见平台自动识别，无需配置。</div>
             </div>
             <div class="field">

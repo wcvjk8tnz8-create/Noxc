@@ -1,5 +1,5 @@
 /**
- * TerraDomain · 系统保留子域名（单一真源）
+ * Noxc · 系统保留子域名（单一真源）
  *
  * 以前保留名单只写在 wrangler.toml 的 RESERVED_LABELS 里，并且被
  * src/routes/subdomains.ts 复制粘贴了两份解析代码。问题有三：

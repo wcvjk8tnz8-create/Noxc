@@ -1,5 +1,5 @@
 /**
- * TerraDomain 前端运行时（TypeScript）
+ * Noxc 前端运行时（TypeScript）
  * 由旧 api.js / shell.js 合并迁移而来，保留全部工具函数与骨架注入逻辑。
  * React 负责路由与页面组件；骨架与页面交互仍由这里的控制器驱动，
  * 后续可按页面逐步改成 hooks，不影响其它页面。
@@ -316,7 +316,7 @@ document.addEventListener('click', (e) => {
 });
 
 /* ---------- 站点品牌（站点名 / Logo，管理员可在后台改） ---------- */
-export const DEFAULT_BRAND = { siteName: 'TerraDomain', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', footerContactHtml: '', fontBody: 'system', fontDisplay: 'system', defaultQuota: 5 };
+export const DEFAULT_BRAND = { siteName: 'Noxc', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', footerContactHtml: '', fontBody: 'system', fontDisplay: 'system', defaultQuota: 5 };
 export let brandPromise = null;
 /* stale-while-revalidate：切页先用上一次的值立刻渲染，网络刷新放后台。
    以前每个页面都 await 一次 /api/config，接口一慢整页就卡在骨架上。 */
@@ -679,7 +679,7 @@ else window.addEventListener('load', () => setTimeout(mountSakura, 400), { once:
 
 
 /* ══════════════════════════════════════════════════════════════
-   全站底部署名：TerraDomain + GitHub 链接
+   全站底部署名：Noxc + GitHub 链接
    所有页面都引入了本文件，因此注入一次即可全站生效。
    - 追加到 body 末尾（静态流，不用 fixed，避免遮挡内容）
    - 页面已有 .site-foot 或 <footer> 时不重复注入
@@ -694,7 +694,7 @@ export function mountSiteFooter() {
       f.className = 'site-foot';
       f.innerHTML =
         '<div class="site-foot-in">' +
-        '<span class="sf-brand">TerraDomain</span>' +
+        '<span class="sf-brand">Noxc</span>' +
         '<a class="sf-link" href="' + REPO + '" target="_blank" rel="noopener noreferrer">' +
         '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.07-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.15 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A7.995 7.995 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>' +
         '<span>GitHub</span></a>' +
@@ -1381,7 +1381,7 @@ export async function mountShell(active, opt: {
   if (!host || !side) return;
 
   // 品牌 + 用户信息都走 sessionStorage 缓存，命中时不等待任何网络往返 —— 切页零阻塞
-  let brand = readBrandCache() || { siteName: 'TerraDomain', logoUrl: '/img/logo.jpg' };
+  let brand = readBrandCache() || { siteName: 'Noxc', logoUrl: '/img/logo.jpg' };
   let me = readUserCache();
 
   // 无缓存时才等网络（首次进入 / 硬刷新）
@@ -1400,7 +1400,7 @@ export async function mountShell(active, opt: {
   document.querySelectorAll('[data-brand-name]').forEach((el) => (el.textContent = brand.siteName));
   // 后台刷新品牌（不阻塞渲染），拿到后再就地更新
   api.get('/api/config').then((cfg) => {
-    const b = { siteName: cfg.siteName || cfg.site_name || 'TerraDomain', logoUrl: cfg.logoUrl || cfg.logo_url || '/img/logo.jpg' };
+    const b = { siteName: cfg.siteName || cfg.site_name || 'Noxc', logoUrl: cfg.logoUrl || cfg.logo_url || '/img/logo.jpg' };
     writeBrandCache(b);
     if (b.siteName !== brand.siteName || b.logoUrl !== brand.logoUrl) applyBrand(b);
     try { applyDefaultQuota(cfg.defaultQuota); } catch {}
@@ -1725,7 +1725,7 @@ export async function mountShell(active, opt: {
       const f = document.createElement('footer');
       f.id = 'shellFoot';
       f.className = 'main-foot';
-      f.innerHTML = '<b>TerraDomain</b> · 二级域名分发与 DNS 管理 · <a href="https://github.com/wcvjk8tnz8-create/MeoyDomain" target="_blank" rel="noopener noreferrer" style="color:inherit">GitHub</a>';
+      f.innerHTML = '<b>Noxc</b> · 二级域名分发与 DNS 管理 · <a href="https://github.com/wcvjk8tnz8-create/MeoyDomain" target="_blank" rel="noopener noreferrer" style="color:inherit">GitHub</a>';
       main.appendChild(f);
     }
   } catch {}

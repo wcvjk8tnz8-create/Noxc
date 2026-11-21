@@ -207,7 +207,7 @@ app.get('/api/config', async (c) => {
     verifyPresets: VERIFY_PRESETS,
     // 托管服务 NS 预设：NS 也是普通 DNS 记录，前端不写死服务器名
     hostingNsPresets: HOSTING_NS_PRESETS,
-    siteName: s.site_name || 'TerraDomain',
+    siteName: s.site_name || 'Noxc',
     logoUrl: s.logo_url || '/img/logo.jpg',
     faviconUrl: s.favicon_url || '/favicon.ico',
     fontBody: s.font_body || 'system',

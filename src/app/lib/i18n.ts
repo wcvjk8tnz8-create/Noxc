@@ -1,5 +1,5 @@
 /**
- * TerraDomain · 全站中英文切换（i18n）
+ * Noxc · 全站中英文切换（i18n）
  *
  * 为什么用「运行时 DOM 文本映射」而不是给每个组件加 t()：
  *   项目里有 14 个 React 页面 + 一批 legacy 控制器用 innerHTML 动态渲染，
@@ -147,7 +147,7 @@ const DICT: Record<string, string> = {
   '域名注册 可选后缀': 'Available Suffixes', 'HOT': 'HOT', 'Free': 'Free',
   '请输入域名前缀，仅前缀（不需要带后缀）': 'Enter a label only — no suffix needed',
   '例如：my-project': 'e.g. my-project', '立即查询': 'Search',
-  'TerraDomain 核心服务': 'Core Features',
+  'Noxc 核心服务': 'Core Features',
   '永久免费的域名注册': 'Free, forever',
   '注册即拥有完整管理权，免费续期，无需任何费用与信用卡。':
     'Full control, free renewals, no fees and no credit card required.',
@@ -296,7 +296,7 @@ const DICT: Record<string, string> = {
   '解析方式': 'DNS hosting', '完整 DNS': 'Full DNS',
   '有效期': 'Validity', '365 天': '365 days', '到期前 180 天可续': 'Renew within 180 days of expiry',
   '可选后缀': 'Available suffixes',
-  '为什么选择 TerraDomain': 'Why TerraDomain',
+  '为什么选择 Noxc': 'Why Noxc',
   '免费额度、完整 DNS 与独立控制台，适合个人站点、Demo 和轻量服务。':
     'Free quota, full DNS and a dedicated console — ideal for personal sites, demos and lightweight services.',
   '可在下方切换根域名': 'Switch the root domain below',

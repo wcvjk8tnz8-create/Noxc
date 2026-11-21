@@ -17,7 +17,7 @@ const css = [
   'src/app/styles/components.css',
   'src/app/styles/index.css',
   'src/app/styles/responsive.css',
-  'src/app/styles/theme-terra.css',
+  'src/app/styles/theme-noxc.css',
   'src/app/styles/motion.css',
   'src/app/styles/liquid-glass.css',
   'src/app/styles/reverie.css',
@@ -147,7 +147,7 @@ const focusBlock = (glass.match(/\.input:focus[\s\S]*?\}/) || [''])[0];
 check(!/0 0 0 3px/.test(focusBlock) && /inset 0 0 0 1px/.test(focusBlock), '输入框聚焦为单层（无外部 3px 光环）');
 check(/\.reg-field-head\s*\{[^}]*background:\s*transparent/s.test(glass), '字段标题不再叠第二层灰框');
 check(/--lg-stroke:\s*rgba\(47, 125, 91/.test(glass), '浅色玻璃描边为可见淡绿');
-check(/:not\(\.side-toggle\)/.test(read('src/app/styles/theme-terra.css')), '汉堡按钮被排除出全局按钮基线（避免空灰块）');
+check(/:not\(\.side-toggle\)/.test(read('src/app/styles/theme-noxc.css')), '汉堡按钮被排除出全局按钮基线（避免空灰块）');
 
 /* 8. 官网根路径 = 主页，登录页独立 */
 const appRoutes = read('src/app/App.tsx');
@@ -383,7 +383,7 @@ check(/\.rv-head a\.rv-mobile-cta \{ display: none; \}/.test(rv) && /\.rv-head a
 check(/@keyframes rvReveal/.test(rv) && /calc\(var\(--i, 0\) \* 80ms\)/.test(rv), 'React Bits / Anime.js 式 stagger 入场（纯 CSS，零依赖）');
 check(/@keyframes rvDots/.test(rv), 'Uiverse 三点 loader 用于查询中');
 check(/rvUnderline/.test(rv), 'Aceternity Hero Highlight 克制版细线扫光');
-check(/:not\(\.side-toggle\)/.test(read('src/app/styles/theme-terra.css')), '汉堡按钮仍被排除，桌面顶栏不出现空灰块');
+check(/:not\(\.side-toggle\)/.test(read('src/app/styles/theme-noxc.css')), '汉堡按钮仍被排除，桌面顶栏不出现空灰块');
 
 /* 首页结构：Reverie 类名 + legacy 契约一个不能少 */
 for (const cls of ['rv-head', 'rv-hero', 'rv-landscape', 'rv-frame', 'rv-ask', 'rv-sec', 'rv-quote', 'rv-cta', 'rv-foot']) {

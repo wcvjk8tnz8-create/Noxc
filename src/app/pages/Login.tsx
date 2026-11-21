@@ -28,8 +28,8 @@ export default function LoginPage() {
       <header className="site-nav">
         <div className="site-nav-in">
           <a className="brand" href="/">
-            <img id="navLogo" src="/img/logo.jpg" alt="TerraDomain" />
-            <span className="brand-name" data-site-name>TerraDomain</span>
+            <img id="navLogo" src="/img/logo.jpg" alt="Noxc" />
+            <span className="brand-name" data-site-name>Noxc</span>
           </a>
           <div className="spacer"></div>
           <nav className="site-links">

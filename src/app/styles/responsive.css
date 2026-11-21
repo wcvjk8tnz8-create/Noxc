@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════
-   TerraDomain 移动端 / 多屏幕比例 权威层
+   Noxc 移动端 / 多屏幕比例 权威层
 
    为什么单独一份且最后加载：
    components.css 里有 17 组互相打架的断点（720 / 860 / 900 /
@@ -100,7 +100,7 @@ button, a, input, select, textarea {
     min-height: var(--top-h-m) !important;
   }
   .side-brand b {
-    overflow-wrap: anywhere;         /* TerraDomain 这类长名折两行，不截断 */
+    overflow-wrap: anywhere;         /* Noxc 这类长名折两行，不截断 */
     line-height: 1.18;
   }
 

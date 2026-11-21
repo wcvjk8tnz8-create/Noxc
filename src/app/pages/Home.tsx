@@ -59,7 +59,7 @@ export default function HomePage() {
         <div className="rv-head-in">
           <a className="rv-brand" href="/">
             <img data-logo-img src="/img/logo.jpg" alt="" />
-            <span><b data-site-name>TerraDomain</b><i>Free subdomains</i></span>
+            <span><b data-site-name>Noxc</b><i>Free subdomains</i></span>
           </a>
           <nav className="rv-nav" aria-label="主导航">
             <a href="#suffix">后缀</a>
@@ -100,7 +100,7 @@ export default function HomePage() {
           <div className="rv-frame">
             <div className="rv-art" aria-hidden="true"></div>
             <div className="rv-art-veil" aria-hidden="true"></div>
-            <span className="rv-art-cap">Reverie Meadow · TerraDomain</span>
+            <span className="rv-art-cap">Reverie Meadow · Noxc</span>
             <form className="rv-ask" id="searchForm">
               <Ico name="search" size={19} className="rv-ask-ico" />
               <input id="qName" placeholder="输入你想要的前缀" autoComplete="off" spellCheck={false} aria-label="域名前缀" />
@@ -119,7 +119,7 @@ export default function HomePage() {
         <section className="rv-sec rv-reveal" style={{ '--i': 2 } as CSSProperties} id="suffix">
           <p className="rv-sec-no">01 <span>/</span> SUFFIXES</p>
           <h2 className="rv-h2">可选后缀</h2>
-          <p className="rv-sec-lede">挑一个顺口的前缀，再挑一个喜欢的结尾。</p>
+          <p className="rv-sec-lede">首推 <b>noxc.uk</b>，挑一个顺口的前缀，再挑一个喜欢的结尾。</p>
           <div className="nk-suffix rv-suffix" id="suffixGrid">
             <div className="nk-sk">加载中…</div>
           </div>
@@ -127,7 +127,7 @@ export default function HomePage() {
 
         {/* ══ 02 特性：发丝线、零阴影 ══ */}
         <section className="rv-sec rv-reveal" style={{ '--i': 3 } as CSSProperties} id="features">
-          <p className="rv-sec-no">02 <span>/</span> WHY TERRADOMAIN</p>
+          <p className="rv-sec-no">02 <span>/</span> WHY NOXC</p>
           <h2 className="rv-h2">安静地，<em>把事情做好</em></h2>
           <p className="rv-sec-lede">大多数服务急着把功能堆给你。我们更愿意先把域名、记录和审核这几件事做稳。</p>
           <div className="rv-cols">
@@ -156,7 +156,7 @@ export default function HomePage() {
         {/* ══ 引用 ══ */}
         <blockquote className="rv-quote rv-reveal" style={{ '--i': 4 } as CSSProperties}>
           <p>「感觉不像在操作一套软件，更像把一件小事托付出去，然后它就安静地办好了。」</p>
-          <cite>— TerraDomain, on keeping things quiet</cite>
+          <cite>— Noxc, on keeping things quiet</cite>
         </blockquote>
 
         {/* ══ 03 工具 ══ */}
@@ -168,13 +168,13 @@ export default function HomePage() {
             <div className="rv-term">
               <div className="rv-term-bar"><i></i><i></i><i></i><span>bash</span></div>
               <pre className="rv-term-body"><code><span className="c-dim"># 查询子域名状态（公开接口）</span>
-<span className="c-cmd">curl</span> <span className="c-str">"<span id="apiHost">https://meoy.top</span>/api/whois?name=mail"</span>
+<span className="c-cmd">curl</span> <span className="c-str">"<span id="apiHost">https://noxc.uk</span>/api/whois?name=mail"</span>
 
 <span className="c-dim"># 返回示例</span>
 <span className="c-punc">{'{'}</span>
   <span className="c-key">"success"</span>: <span className="c-num">true</span>,
   <span className="c-key">"state"</span>: <span className="c-str">"registered"</span>,
-  <span className="c-key">"fqdn"</span>: <span className="c-str">"mail.meoy.top"</span>,
+  <span className="c-key">"fqdn"</span>: <span className="c-str">"mail.noxc.uk"</span>,
   <span className="c-key">"recordCount"</span>: <span className="c-num">4</span>
 <span className="c-punc">{'}'}</span></code></pre>
             </div>
@@ -201,14 +201,14 @@ export default function HomePage() {
         <div className="rv-wrap">
           <div className="rv-foot-in">
             <div className="rv-fcol">
-              <div className="rv-fbrand"><img data-logo-img src="/img/logo.jpg" alt="" /><span data-site-name>TerraDomain</span></div>
+              <div className="rv-fbrand"><img data-logo-img src="/img/logo.jpg" alt="" /><span data-site-name>Noxc</span></div>
               <p className="rv-fdesc">免费、开源的二级域名分发与 DNS 管理系统。<br />基于 Cloudflare Workers + D1。</p>
             </div>
             <div className="rv-fcol"><h4>服务</h4><a href="/whois">WHOIS 查询</a><a href="/dashboard">域名管理</a><a href="/docs">服务文档</a><a href="/terms">服务条款</a><a href="/report">举报滥用</a></div>
             <div className="rv-fcol"><h4>开源</h4><a href="https://github.com/wcvjk8tnz8-create/MeoyDomain" target="_blank" rel="noopener noreferrer">GitHub <Ico name="external" size={13} /></a><a href="https://github.com/wcvjk8tnz8-create/MeoyDomain/issues" target="_blank" rel="noopener noreferrer">问题反馈 <Ico name="external" size={13} /></a><span className="rv-fdim">MIT License</span></div>
           </div>
           <div className="rv-fbottom">
-            <span>© <span id="yr">2026</span> <b>TerraDomain</b> · 二级域名分发</span>
+            <span>© <span id="yr">2026</span> <b>Noxc</b> · 二级域名分发</span>
             <a href="https://github.com/wcvjk8tnz8-create/MeoyDomain" target="_blank" rel="noopener noreferrer">GitHub</a>
             <span className="nk-ficp" data-icp-slot></span>
             <span className="nk-fcontact" data-contact-slot></span>

@@ -1,5 +1,5 @@
 /**
- * TerraDomain · 全站统一图标集（hairline / currentColor / 零外链）
+ * Noxc · 全站统一图标集（hairline / currentColor / 零外链）
  *
  * 参考来源与取舍：
  *  · Uiverse —— 组件都是自包含 HTML/CSS，class 名极通用（.card/.button），

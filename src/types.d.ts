@@ -1,5 +1,5 @@
 /**
- * TerraDomain · 全局类型定义
+ * Noxc · 全局类型定义
  *
  * 渐进式 TypeScript 迁移的基础设施：
  *  - Env：Worker 的全部绑定（D1 / R2 / ASSETS / Secrets / Vars）

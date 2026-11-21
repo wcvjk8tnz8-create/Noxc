@@ -1,7 +1,7 @@
 /* ==========================================================================
-   TerraDomain · 统一动效层（最后加载，权威）
+   Noxc · 统一动效层（最后加载，权威）
    --------------------------------------------------------------------------
-   四层历史样式（components.css / index.css / responsive.css / theme-terra.css）
+   四层历史样式（components.css / index.css / responsive.css / theme-noxc.css）
    各写各的时长与缓动，theme-terra 又用 6 处 transform:none!important 禁掉 hover
    反馈；另有若干历史覆盖把「全屏遮罩」画成不透明白卡片、把 Toast 画成黑色药丸。
    本层做三件事：

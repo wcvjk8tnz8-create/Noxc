@@ -1,6 +1,8 @@
-# TerraDomain
+# Noxc
 
-**TerraDomain** —— 免费、开源的新一代二级域名分发与 DNS 管理系统。
+**Noxc** —— 免费、开源的新一代二级域名分发与 DNS 管理系统。
+
+> 正式更名为 **Noxc**，首推 `noxc.uk` 子域名：它排在后缀选择器第一位、也是注册表单的默认后缀。启用前请在 Cloudflare 建好该域 Zone，并配置 `CF_ZONE_IDS="noxc.uk:<ZoneID>"`；CI 的 Variables（`ROOT_DOMAIN` / `ROOT_DOMAINS` / `CF_ZONE_IDS`）会覆盖 `wrangler.toml` 默认值。
 
 前端 **React 18 + TypeScript + Vite**（单页应用，全站无手写 HTML 页面），后端 **TypeScript + Hono on Cloudflare Workers + D1 + R2**。用户自助申请 `xxx.你的根域名`，审核通过后自行添加 DNS 记录；每个根域名可单独选择通过 **Cloudflare API** 或 **Spaceship DNS API** 下发。
 
@@ -173,7 +175,7 @@
 
 | CNAME 指向 | 显示为 |
 |---|---|
-| `dash.domain.meoy.top`（后台配置） | 你设定的名称，如「TerraDomain 面板」 |
+| `dash.domain.meoy.top`（后台配置） | 你设定的名称，如「Noxc 面板」 |
 | `cname.vercel-dns.com` | Vercel |
 | `*.pages.dev` | Cloudflare Pages |
 | `*.github.io` | GitHub Pages |
@@ -260,7 +262,7 @@ CNAME 探测走 DoH（cloudflare-dns.com → dns.google 双端点降级），5 �
 
 | 项 | 默认 | 说明 |
 |---|---|---|
-| 站点名称 | `TerraDomain` | 显示在导航、标题、浏览器标签 |
+| 站点名称 | `Noxc` | 显示在导航、标题、浏览器标签 |
 | Logo | `/img/logo.jpg` | 站内路径或外链图片均可，带实时预览 |
 | favicon | `/img/favicon.png` | 浏览器标签图标 |
 | 站点公告 | 空 | 预留 |

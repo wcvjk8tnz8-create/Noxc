@@ -197,9 +197,10 @@ INSERT OR IGNORE INTO settings(key, value) VALUES ('initial_points', '10');     
 -- WHOIS 持有人邮箱显示方式：masked 脱敏（默认）| none 不显示 | full 完整
 INSERT OR IGNORE INTO settings(key, value) VALUES ('whois_holder', 'masked');
 -- 站点品牌（后台「站点设置」可改）
-INSERT OR IGNORE INTO settings(key, value) VALUES ('site_name', 'TerraDomain');
--- 迁移：MeoyDomain 品牌更名为 TerraDomain（只改仍是旧默认值的库，不覆盖管理员自定义名称）
-UPDATE settings SET value = 'TerraDomain' WHERE key = 'site_name' AND value IN ('Meoy', 'MeoyDomain');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('site_name', 'Noxc');
+-- 迁移：旧品牌统一更名为 Noxc（只改仍是旧默认值的库，不覆盖管理员自定义名称）
+-- 注意：IN 列表里的旧品牌字面量是待迁移值，必须保留，否则线上库仍显示旧名。
+UPDATE settings SET value = 'Noxc' WHERE key = 'site_name' AND value IN ('Meoy', 'MeoyDomain', 'TerraDomain');
 INSERT OR IGNORE INTO settings(key, value) VALUES ('logo_url', '/img/logo.jpg');
 INSERT OR IGNORE INTO settings(key, value) VALUES ('favicon_url', '/favicon.ico');
 

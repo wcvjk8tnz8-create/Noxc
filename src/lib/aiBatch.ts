@@ -1,5 +1,5 @@
 /**
- * AI 待审域名批量审核（TerraDomain）
+ * AI 待审域名批量审核（Noxc）
  *
  * 触发方式，三条路径共用同一个 runAiReviewBatch()：
  *   1. Cron：wrangler.toml [triggers] crons = ["0 * * * *"]，每小时整点扫一次

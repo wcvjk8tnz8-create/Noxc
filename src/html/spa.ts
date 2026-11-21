@@ -9,7 +9,7 @@ export const spaShellHtml = String.raw`<!doctype html>
   <meta charset="UTF-8">
   <meta name="theme-color" content="#ffffff">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>TerraDomain · 二级域名分发</title>
+  <title>Noxc · 二级域名分发</title>
   <link rel="icon" href="/favicon.ico">
   <!-- 切页过渡 / 控制台壁纸：首屏就开始拉，切页时只走内存缓存。
        字体 stylesheet 走 media=print 异步，不阻塞首屏渲染。 -->
@@ -32,7 +32,7 @@ export const spaShellHtml = String.raw`<!doctype html>
     (function(){try{var v=localStorage.getItem('terradata_lang')==='en'?'en':'zh';
     document.documentElement.setAttribute('lang',v==='en'?'en':'zh-CN');
     document.documentElement.setAttribute('data-lang',v);
-    if(v==='en')document.title='TerraDomain · Free Subdomains';}catch(e){}})();
+    if(v==='en')document.title='Noxc · Free Subdomains';}catch(e){}})();
     /* 登录页登录态探测：整页直达 /login 时，已登录直接去控制台，
        不让登录表单先渲染出来再跳。SPA 切页由 mountLogin 复用同一 Promise。 */
     (function(){
