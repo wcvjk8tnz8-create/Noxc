@@ -81,6 +81,14 @@ jobs:
       - name: 静态健康巡检
         run: npx tsx scripts/health-check.ts
 
+      # GitHub OAuth / Star 奖励：真跑 Hono 路由 + 内存 D1 + mock GitHub API
+      - name: GitHub OAuth 回归
+        run: npx tsx scripts/github-regression.ts
+
+      # 按后缀每人注册次数：解析 / 累计 / 上限 / 已注册用户不受影响
+      - name: 注册次数回归
+        run: npx tsx scripts/root-limit-regression.ts
+
       # 首页 i18n：逐条抽取中文文案，断言英文模式零残留
       - name: 首页 i18n 回归
         run: npx tsx scripts/home-i18n-regression.ts

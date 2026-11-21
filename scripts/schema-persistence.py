@@ -107,6 +107,36 @@ def main():
         return 1
     print('✓ 结论：oauth.local 存量恢复 / 真临时邮箱仍封 / 手动封禁不动')
 
+    # ── GitHub OAuth / 注册次数表与默认值 ──
+    tables = [r[0] for r in con.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()]
+    for t in ('root_reg_counts', 'oauth_bindings', 'oauth_quota_grants'):
+        if t not in tables:
+            print(f'✗ 缺表 {t}')
+            return 1
+    cols = [r[1] for r in con.execute('PRAGMA table_info(oauth_bindings)').fetchall()]
+    if 'access_token' not in cols:
+        print('✗ oauth_bindings 缺 access_token 列')
+        return 1
+    defaults = dict(con.execute(
+        "SELECT key, value FROM settings WHERE key IN "
+        "('github_enabled','github_star_repo','github_star_bonus','root_reg_limits')"
+    ).fetchall())
+    print('  GitHub / 次数默认值:', defaults)
+    if defaults.get('github_enabled') != '0' or defaults.get('root_reg_limits') != '':
+        print('✗ GitHub 默认关闭 / 注册次数默认不限制 的口径被改')
+        return 1
+    # 连续部署不能把计数表或设置冲掉
+    con.execute("INSERT OR REPLACE INTO root_reg_counts (user_id, root_domain, count, updated_at) VALUES (7,'meoy.top',3,1)")
+    con.commit()
+    deploy(con, '第 4 次部署（验证计数表不被重建）')
+    n = con.execute("SELECT count FROM root_reg_counts WHERE user_id=7 AND root_domain='meoy.top'").fetchone()
+    if not n or n[0] != 3:
+        print('✗ 重复部署抹掉了注册次数累计')
+        return 1
+    print('✓ 结论：GitHub 表 / access_token / 默认关闭 + 注册次数累计跨部署保留')
+
     print('✓ 结论：连续部署两次后展示开关 / 标题 / 描述 / 域名数据完整保留')
     return 0
 

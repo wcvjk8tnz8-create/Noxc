@@ -144,6 +144,10 @@ export async function mountLogin(_root: HTMLElement | null): Promise<void> {
       const w = document.getElementById('nodelocWrap');
       if (w) w.hidden = false;
     }
+    if (cfg && cfg.githubEnabled) {
+      const w = document.getElementById('githubWrap');
+      if (w) w.hidden = false;
+    }
   }).catch((e) => console.error("初始化失败", e));
 
   /* NodeLoc 授权回跳的错误码：只带状态、不带任何用户资料或令牌。
@@ -169,6 +173,26 @@ export async function mountLogin(_root: HTMLElement | null): Promise<void> {
     banned: '该账号已被封禁',
     ip_banned: '该网络环境已被封禁',
     ip_limit: '同一网络注册账号数已达上限',
+    gh_disabled: '站点尚未启用 GitHub 登录',
+    gh_denied: '你已取消 GitHub 授权',
+    gh_provider_error: 'GitHub 返回了错误，请稍后重试',
+    gh_bad_request: '授权参数不完整，请重新发起',
+    gh_state_failed: '无法发起授权，请稍后重试',
+    gh_state_mismatch: '授权校验失败，请重新发起',
+    gh_state_expired: '授权已过期，请重新发起',
+    gh_token_failed: 'GitHub 令牌换取失败，请稍后重试',
+    gh_userinfo_failed: '无法读取 GitHub 用户资料',
+    gh_email_required: '未能读取 GitHub 已验证邮箱，请在 GitHub 账号里确认邮箱已验证',
+    gh_email_taken: '该邮箱已在本站注册，请先登录后到「个人资料 → GitHub 账号」绑定',
+    gh_email_blocked: 'GitHub 返回的邮箱域名不可用于本站账号',
+    gh_signin_failed: '登录失败，请稍后重试',
+    gh_register_failed: '创建账号失败，请稍后重试',
+    gh_already_bound: '该 GitHub 账号已绑定其它账号',
+    gh_bind_login: '请先登录，再到个人资料绑定 GitHub',
+    gh_bind_required: '请先用邮箱注册并登录，再到个人资料绑定 GitHub',
+    gh_banned: '该账号已被封禁',
+    gh_ip_banned: '该网络环境已被封禁',
+    gh_ip_limit: '同一网络注册账号数已达上限',
   };
   const oauthCode = new URLSearchParams(location.search).get('oauth');
   if (oauthCode) {

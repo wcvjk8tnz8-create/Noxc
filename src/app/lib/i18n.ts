@@ -495,6 +495,12 @@ const PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
     m => `AI batch review complete: ${m[1]} approved / ${m[2]} rejected / ${m[3]} to retry`],
   [/^本轮审核 (\d+) 个：通过 (\d+) · 驳回 (\d+) · 待重试 (\d+)$/,
     m => `Reviewed ${m[1]}: ${m[2]} approved · ${m[3]} rejected · ${m[4]} to retry`],
+  [/^已领取 Star 奖励，配额 \+(\d+)$/, m => `Star bonus claimed, quota +${m[1]}`],
+  [/^请先给 (.+?) 点 Star，再回来领取$/, m => `Star ${m[1]} first, then come back to claim`],
+  [/^已配置 (.+)（留空不修改）$/, m => `Configured ${m[1]} (leave blank to keep)`],
+  [/^该后缀每人最多注册 (\d+) 次，你已注册 (\d+) 次（释放域名不退还次数）$/,
+    m => `This suffix allows ${m[1]} registrations per account; you have ${m[2]} (releasing a domain does not refund a slot)`],
+
 ];
 
 const LONG_KEYS = Object.keys(DICT).sort((a, b) => b.length - a.length);

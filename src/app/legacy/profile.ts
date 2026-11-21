@@ -3,7 +3,7 @@
  * 外部符号由 runtime 提供；DOM 查询作用于当前挂载的页面。
  */
 import { api, esc, fmtTime, toast, openModal, closeModal, loadBranding, applyBranding, mountShell, MeoyRenderAvatars, refreshRuntime } from '../lib/runtime';
-import { nodelocStartUrl } from '../lib/oauthUrl';
+import { nodelocStartUrl, githubStartUrl } from '../lib/oauthUrl';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -51,6 +51,81 @@ export async function mountProfile(_root: HTMLElement | null): Promise<void> {
   if (oauthQ.get('oauth') === 'bound') {
     const bonus = Number(oauthQ.get('bonus') || 0);
     toast(bonus > 0 ? `NodeLoc 账号已绑定，配额 +${bonus}` : 'NodeLoc 账号已绑定');
+  }
+
+  /* ── GitHub 账号：绑定后可在个人资料里领取一次 Star 配额奖励 ──────────
+     所有状态都来自后端 /api/auth/github/status：绑定名、仓库、是否已领。
+     access_token 只存在服务端，前端拿不到也看不到。 */
+  function refreshGithubState() {
+    api.get('/api/auth/github/status').then((st) => {
+      const row = document.getElementById('githubRow');
+      if (row && st && st.enabled === false) { row.hidden = true; return; }
+      const state = document.getElementById('githubState');
+      const bindBtn = document.getElementById('btnGithubBind') as HTMLButtonElement | null;
+      const claimBtn = document.getElementById('btnGithubClaim') as HTMLButtonElement | null;
+      const starBtn = document.getElementById('btnGithubStar') as HTMLAnchorElement | null;
+      const linked = !!(st && st.linked);
+      if (state) state.textContent = linked
+        ? (st.username || '已绑定') + (st.claimed ? ' · Star claimed' : '')
+        : '未绑定';
+      if (bindBtn) bindBtn.textContent = linked ? '解除绑定' : '绑定';
+      if (claimBtn) claimBtn.hidden = !linked || !!st?.claimed;
+      if (starBtn) {
+        starBtn.hidden = !linked;
+        if (st?.starUrl) starBtn.href = st.starUrl;
+      }
+      // 把仓库名写进提示，纯 ASCII，中英模式都不会夹生
+      if (claimBtn && st?.starRepo) claimBtn.dataset.repo = String(st.starRepo);
+    }).catch(() => { /* 接口不可用保持「未绑定」，不打断页面 */ });
+  }
+  api.get('/api/config').then((cfg) => {
+    if (cfg && cfg.githubEnabled) {
+      const row = document.getElementById('githubRow');
+      if (row) row.hidden = false;
+      refreshGithubState();
+    }
+  }).catch(() => {});
+
+  const ghBindBtn = document.getElementById('btnGithubBind');
+  if (ghBindBtn) ghBindBtn.onclick = async () => {
+    try {
+      const st = await api.get('/api/auth/github/status');
+      if (st && st.linked) {
+        if (!window.confirm('确定要解除 GitHub 账号绑定吗？解除后仍可用邮箱密码登录，已领取的奖励不会回收。')) return;
+        await api.post('/api/auth/github/unbind', {});
+        toast('已解除 GitHub 绑定');
+        refreshGithubState();
+      } else {
+        location.href = githubStartUrl('?bind=1');
+      }
+    } catch (e) { toast(e.message, 'err'); }
+  };
+
+  const ghClaimBtn = document.getElementById('btnGithubClaim');
+  if (ghClaimBtn) ghClaimBtn.onclick = async () => {
+    const b = ghClaimBtn as HTMLButtonElement;
+    b.disabled = true;
+    try {
+      const r = await api.post('/api/auth/github/claim-star', {});
+      const added = Number(r?.added || 0);
+      toast(added > 0 ? `Star claimed · Quota +${added}` : '当前账号配额不限，无需叠加奖励');
+      refreshGithubState();
+      try { await load(); } catch { /* 资料卡刷新失败不影响奖励已到账 */ }
+    } catch (e: any) {
+      // 后端在「还没 Star」时把仓库链接一并返回，直接引导用户去点
+      const extra = (e && e.data) || {};
+      if (extra.starUrl) {
+        toast('请先给项目点 Star，再回来领取', 'err');
+        const s = document.getElementById('btnGithubStar') as HTMLAnchorElement | null;
+        if (s) { s.href = extra.starUrl; s.hidden = false; }
+      } else {
+        toast(e.message || '领取失败，请稍后重试', 'err');
+      }
+    }
+    b.disabled = false;
+  };
+  if (oauthQ.get('oauth') === 'gh-bound') {
+    toast('GitHub 账号已绑定，给项目点 Star 即可领取配额奖励');
   }
 
   async function load() {

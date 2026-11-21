@@ -7,6 +7,7 @@ import { UNLIMITED_POINTS, ensurePoints, addPoints, domainCost } from '../lib/po
 import { pointRules } from './points.js';
 import { expiryRules, computeExpiry, expiryState, renewExpiry, migrateLegacyPerpetual, ensureExpiryColumns } from '../lib/expiry.js';
 import { defaultRoot, isAllowedRoot, listRoots } from '../lib/roots.js';
+import { rootRegLimitOf, userRootRegCount, bumpRootRegCount } from '../lib/rootLimits.js';
 import { applyGate } from '../lib/applyGate.js';
 import { aiReviewDetailed } from '../lib/aiReview.js';
 import { ensureAiColumns, queueAiBatch } from '../lib/aiBatch.js';
@@ -240,6 +241,21 @@ const createMine = async (c) => {
   if (u.quota >= 0 && (used?.n || 0) >= u.quota)
     return fail(c, `已达上限，每个账号最多持有 ${u.quota} 个子域名`);
 
+  /* 按根域名限制「每个账号能注册几次」（后台「站点设置」里逐个后缀配置）。
+     口径：独立累计表，释放域名不退还次数；从功能启用后开始计，不回溯历史，
+     所以已注册用户的已有域名一个都不动。管理员是「开通」不是申请，不受限。
+     被驳回视为未受理，不计数；校验放在扣积分之前，避免拦下却已扣分。 */
+  const rootLimit = await rootRegLimitOf(c.env, reqRoot);
+  if (!isAdmin && rootLimit !== null && rootLimit >= 0) {
+    const regCount = await userRootRegCount(c.env.DB, u.id, reqRoot);
+    if (regCount >= rootLimit) {
+      return fail(c,
+        `该后缀每人最多注册 ${rootLimit} 次，你已注册 ${regCount} 次（释放域名不退还次数）`,
+        403,
+        { rootRegLimited: true, root: reqRoot, limit: rootLimit, used: regCount });
+    }
+  }
+
   // 积分校验：普通域名一个价，单字域名更贵；可按根域名覆盖（含 0 免费）；管理员不消耗
   const rules = await pointRules(c.env);
   const { cost, short, rootOverride } = domainCost(
@@ -337,6 +353,12 @@ const createMine = async (c) => {
     if (/UNIQUE|constraint/i.test(msg))
       return fail(c, '手慢一步，该子域名刚刚被他人注册，请换一个名称', 409);
     throw e;
+  }
+
+  /* 累计该用户在该后缀的申请次数。AI 驳回视为未受理，不计数；
+     管理员自建不计（也不受限）。计数失败不阻断已经写入的域名。 */
+  if (!isAdmin && !aiRejected) {
+    await bumpRootRegCount(c.env.DB, u.id, reqRoot, now());
   }
 
   // 扣除积分（管理员不扣；AI 驳回视为未受理，不扣）

@@ -649,6 +649,71 @@ check(
 check(cpDict.includes("'注册人数'") && cpDict.includes("'已开通域名'"), '统计英文词条齐，英文模式不夹生');
 check(/\.rv-stats/.test(stCss) && /max-width: 700px[\s\S]*\.rv-stats/.test(stCss), '手机断点覆盖统计区');
 
+/* GitHub OAuth + Star 奖励 + 按后缀注册次数 */
+const ghLib = read('src/lib/github.ts');
+const ghRoute = read('src/routes/github.ts');
+const ghIndex = read('src/index.ts');
+const ghCfg = read('src/types.d.ts');
+const ghAdminApi = read('src/routes/admin.ts');
+const ghAdminUi = read('src/app/legacy/admin.ts');
+const ghLogin = read('src/app/pages/Login.tsx');
+const ghLoginCtrl = read('src/app/legacy/index.ts');
+const ghProfile = read('src/app/pages/Profile.tsx');
+const ghProfileCtrl = read('src/app/legacy/profile.ts');
+const ghSchema = read('schema.sql');
+const ghStore = read('src/lib/oauthStore.ts');
+const rlLib = read('src/lib/rootLimits.ts');
+const rlSub = read('src/routes/subdomains.ts');
+const ghDict = read('src/app/lib/dict.en.ts');
+const ghServerDict = read('src/lib/i18nServer.ts');
+
+check(/export async function githubConfig/.test(ghLib) && /GITHUB_CALLBACK_PATH/.test(ghLib) &&
+      /httpsCallbackUrl/.test(ghLib) && /normalizeStarRepo/.test(ghLib) &&
+      /DEFAULT_STAR_REPO/.test(ghLib) && /DEFAULT_STAR_BONUS/.test(ghLib),
+  'GitHub 配置库导出后台 / 路由需要的全部符号');
+check(/read:user user:email public_repo/.test(ghLib),
+  '授权 scope 含 public_repo，Star 校验端点才可用');
+check(/export async function checkStarred/.test(ghLib) && /\/user\/starred\//.test(ghLib),
+  'Star 实时向 GitHub 复核，不缓存判定');
+check(/app\.route\('\/api\/auth\/github', githubRoutes\)/.test(ghIndex) &&
+      ghIndex.indexOf("app.route('/api/auth/github', githubRoutes)") < ghIndex.indexOf("app.route('/api/auth', authRoutes)"),
+  'GitHub 路由先于 /api/auth 挂载，否则被吞成 404');
+check(/githubEnabled: await githubEnabled\(c\.env\)/.test(ghIndex) && !/accessToken:/.test(ghIndex),
+  '公开配置只下发开关，不下发 token / Secret');
+check(/app\.post\('\/claim-star'/.test(ghRoute) && /app\.get\('\/status'/.test(ghRoute) &&
+      /app\.post\('\/unbind'/.test(ghRoute), 'GitHub 路由含绑定状态 / 领奖 / 解绑');
+check(/oauth_quota_grants/.test(ghRoute) && /GITHUB_STAR_PROVIDER/.test(ghRoute) && /INSERT OR IGNORE/.test(ghRoute),
+  'Star 奖励每个本地账号只领一次，不叠加');
+check(/access_token/.test(ghSchema) && /ALTER TABLE oauth_bindings ADD COLUMN access_token/.test(ghStore),
+  'access_token 列由 schema + 运行时补列双重保障，且只存服务端');
+check(/gh_disabled/.test(ghLoginCtrl) && /id="githubWrap" hidden/.test(ghLogin) &&
+      /cfg\.githubEnabled/.test(ghLoginCtrl), '登录按钮默认隐藏，配置齐备才显示，错误码独立');
+check(/id="githubRow" hidden/.test(ghProfile) && /btnGithubClaim/.test(ghProfile) &&
+      /githubStartUrl\('\?bind=1'\)/.test(ghProfileCtrl) && /\/api\/auth\/github\/claim-star/.test(ghProfileCtrl),
+  '个人资料可绑定 GitHub、去点 Star、领取奖励');
+check(/github_client_secret/.test(ghAdminApi) && /rootRegLimits/.test(ghAdminApi) &&
+      /id="sGithubEnabled"/.test(ghAdminUi) && /rootRegLimitsBox/.test(ghAdminUi),
+  '后台可配 GitHub OAuth、Star 仓库与每后缀注册次数');
+check(/'第三方登录 · GitHub'/.test(ghDict) && /Star 奖励已领取过/.test(ghServerDict),
+  '前后端英文词典覆盖新功能，英文模式不夹生');
+
+check(/export function parseRootRegLimits/.test(rlLib) && /export function serializeRootRegLimits/.test(rlLib) &&
+      /export async function rootRegLimitOf/.test(rlLib) && /export async function userRootRegCount/.test(rlLib) &&
+      /export async function bumpRootRegCount/.test(rlLib),
+  '注册次数库导出后台 / 注册路由需要的全部符号');
+check(/CREATE TABLE IF NOT EXISTS root_reg_counts/.test(ghSchema) &&
+      /CREATE TABLE IF NOT EXISTS root_reg_counts/.test(ghStore),
+  '累计计数表在 schema 与运行时补列里都存在，老库可用');
+check(/ON CONFLICT\(user_id, root_domain\) DO UPDATE SET/.test(rlLib) && /count = root_reg_counts\.count \+ 1/.test(rlLib),
+  '累计计数只增不减，释放域名不退还次数');
+check(/rootRegLimitOf\(c\.env, reqRoot\)/.test(rlSub) && /bumpRootRegCount\(c\.env\.DB/.test(rlSub),
+  '注册路由在扣积分前校验上限，成功后才累加计数');
+check(/root_reg_limits/.test(ghSchema) && /ROOT_REG_LIMITS\?/.test(ghCfg),
+  '注册次数配置支持后台设置与环境变量两种来源');
+check(/scripts\/github-regression\.ts/.test(read('.github/workflows/deploy.yml')) &&
+      /scripts\/root-limit-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  'GitHub / 注册次数两套回归已挂进部署工作流');
+
 /* 首页 i18n：英文模式零中文残留 */
 const hiHome = read('src/app/pages/Home.tsx');
 const hiI18n = read('src/app/lib/i18n.ts');
@@ -904,7 +969,9 @@ check(
   'OAuth 路由先于 /api/auth 挂载，否则会被子应用吞成 404'
 );
 check(/nodelocEnabled: await nodelocEnabled\(c\.env\)/.test(nlIndex) && !/clientSecret:/.test(nlIndex), '公开配置只下发开关，不下发任何密钥');
-check(/'nodeloc_client_secret'\]/.test(nlAdminApi) && /body\.nodelocClientSecret/.test(nlAdminApi), '后台 Secret 只回掩码、留空不覆盖');
+check(/'nodeloc_client_secret'/.test(nlAdminApi) && /'github_client_secret'/.test(nlAdminApi) &&
+        /body\.nodelocClientSecret/.test(nlAdminApi) && /body\.githubClientSecret/.test(nlAdminApi),
+  '后台 Secret（NodeLoc / GitHub）只回掩码、留空不覆盖');
 check(/id="sNodelocEnabled"/.test(nlAdminUi) && /id="sNodelocClientId"/.test(nlAdminUi) && /id="sNodelocClientSecret"/.test(nlAdminUi), '后台有开关与两个凭据输入框');
 check(/nodelocClientId: document\.getElementById\('sNodelocClientId'\)\.value/.test(nlAdminUi), '后台「保存设置」提交凭据，开关不会改不动');
 check(/id="nodelocWrap" hidden/.test(nlLogin) && /cfg\.nodelocEnabled/.test(nlLoginCtrl), '登录按钮默认隐藏，只有开关齐备才显示');

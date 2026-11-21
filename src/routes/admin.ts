@@ -19,6 +19,9 @@ import { DEFAULT_FOOTER_ICP_HTML } from '../lib/footerIcp.js';
 import { DEFAULT_FOOTER_CONTACT_HTML } from '../lib/footerContact.js';
 import { normalizeReservedExtra, reservedOverview } from '../lib/reserved.js';
 import { nodelocConfig, maskSecret, NODELOC_CALLBACK_PATH, httpsCallbackUrl } from '../lib/nodeloc.js';
+import { githubConfig, GITHUB_CALLBACK_PATH, httpsCallbackUrl as ghCallbackUrl,
+         normalizeStarRepo, DEFAULT_STAR_REPO, DEFAULT_STAR_BONUS } from '../lib/github.js';
+import { parseRootRegLimits, serializeRootRegLimits } from '../lib/rootLimits.js';
 
 const app = new Hono();
 
@@ -424,7 +427,7 @@ app.get('/settings', async (c) => {
   const raw = Object.fromEntries(results.map((r) => [r.key, r.value]));
 
   // 敏感项：不回传明文，只回传「是否已配置 + 尾号」，前端显示为占位符
-  const SENSITIVE = ['dnshe_api_key', 'dnshe_api_secret', 'dns_api_key', 'dns_api_secret', 'mail_api_key', 'spaceship_api_key', 'spaceship_api_secret', 'ai_api_key', 'nodeloc_client_secret'];
+  const SENSITIVE = ['dnshe_api_key', 'dnshe_api_secret', 'dns_api_key', 'dns_api_secret', 'mail_api_key', 'spaceship_api_key', 'spaceship_api_secret', 'ai_api_key', 'nodeloc_client_secret', 'github_client_secret'];
   const items = { ...raw };
   for (const k of SENSITIVE) delete items[k];
   // 未配置过时把默认备案号回填到输入框，避免「页脚明明有、后台却是空的」
@@ -444,6 +447,13 @@ app.get('/settings', async (c) => {
   if (raw.nodeloc_auto_register === undefined) items.nodeloc_auto_register = '1';
   if (raw.nodeloc_scope_email === undefined) items.nodeloc_scope_email = '1';
   if (raw.nodeloc_redirect_uri === undefined) items.nodeloc_redirect_uri = '';
+  // GitHub 第三方登录：老库没跑新迁移时显示实际生效值，不显示空白
+  if (raw.github_enabled === undefined) items.github_enabled = '0';
+  if (raw.github_client_id === undefined) items.github_client_id = '';
+  if (raw.github_auto_register === undefined) items.github_auto_register = '1';
+  if (raw.github_redirect_uri === undefined) items.github_redirect_uri = '';
+  if (raw.github_star_repo === undefined) items.github_star_repo = DEFAULT_STAR_REPO;
+  if (raw.github_star_bonus === undefined) items.github_star_bonus = String(DEFAULT_STAR_BONUS);
 
   const mask = (v) => {
     const s = String(v || '');
@@ -451,6 +461,7 @@ app.get('/settings', async (c) => {
     return '••••••••' + s.slice(-4);
   };
   const nodeloc = await nodelocConfig(c.env);
+  const github = await githubConfig(c.env);
 
   // 自定义 DNS 提供商状态（URL 可回显，Key/Secret 只给掩码）
   const prov = await dnsProvider(c.env);
@@ -501,6 +512,8 @@ app.get('/settings', async (c) => {
     rootDomains: listRoots(c.env).map((r) => r.domain),
     // 按根域名的积分覆盖（0 = 免费；未列出的后缀按全局规则）
     rootPointCosts: parseRootCosts(raw.root_point_costs),
+    // 按根域名「每人注册次数」（-1 = 无限；留空 = 不限制）
+    rootRegLimits: parseRootRegLimits(raw.root_reg_limits),
     // 系统保留名称：base 是代码基线（不可删），extra 是后台追加，effective 为最终生效
     reserved: await reservedOverview(c.env),
 
@@ -544,6 +557,23 @@ app.get('/settings', async (c) => {
       // 必须是 https：NodeLoc 应用管理页只登记 HTTPS 回调，逐字符一致才不会被拒
       callbackUrl: httpsCallbackUrl(c),
       redirectUri: nodeloc.redirectUri,
+    },
+
+    // GitHub 第三方登录 + Star 配额奖励：Secret 只回掩码，不下发明文
+    github: {
+      enabled: github.switchedOn,
+      ready: github.enabled,
+      clientId: github.clientId,
+      secretSet: !!github.clientSecret,
+      secretMasked: maskSecret(github.clientSecret),
+      autoRegister: github.autoRegister,
+      fromEnv: github.fromEnv,
+      callbackPath: GITHUB_CALLBACK_PATH,
+      callbackUrl: ghCallbackUrl(c),
+      redirectUri: github.redirectUri,
+      starRepo: github.starRepo,
+      starBonus: github.starBonus,
+      scope: github.scope,
     },
 
     // R2 头像公网地址（留空则用 Worker 代理 /api/avatar/<key>）
@@ -841,6 +871,39 @@ app.post('/settings', async (c) => {
     await set('nodeloc_redirect_uri', r.slice(0, 300));
   }
 
+  /* GitHub 第三方登录：默认关闭，必须填齐 Client ID / Secret 并打开开关才生效。
+     Secret 只在显式提交新值时写入；前端显示掩码，留空不覆盖已有密钥。 */
+  if (body.githubEnabled !== undefined) {
+    await set('github_enabled', body.githubEnabled ? '1' : '0');
+    await audit(c, u.id, 'admin.github', 'site', `enabled=${body.githubEnabled ? '1' : '0'}`);
+  }
+  if (body.githubClientId !== undefined) {
+    await set('github_client_id', String(body.githubClientId || '').trim().slice(0, 200));
+  }
+  if (String(body.githubClientSecret || '').trim()) {
+    await set('github_client_secret', String(body.githubClientSecret).trim().slice(0, 300));
+  } else if (body.githubClearSecret === true) {
+    await set('github_client_secret', '');
+  }
+  if (body.githubAutoRegister !== undefined) {
+    await set('github_auto_register', body.githubAutoRegister ? '1' : '0');
+  }
+  if (body.githubRedirectUri !== undefined) {
+    const r = String(body.githubRedirectUri || '').trim();
+    if (r && !/^https:\/\//i.test(r)) return fail(c, 'GitHub 回调地址必须是以 https:// 开头的绝对地址');
+    await set('github_redirect_uri', r.slice(0, 300));
+  }
+  if (body.githubStarRepo !== undefined) {
+    const repo = normalizeStarRepo(body.githubStarRepo);
+    if (!repo) return fail(c, 'Star 仓库格式应为 owner/repo，例如 wcvjk8tnz8-create/Noxc');
+    await set('github_star_repo', repo);
+  }
+  if (body.githubStarBonus !== undefined) {
+    const n = Number(String(body.githubStarBonus).trim());
+    if (!Number.isFinite(n) || n < 0 || n > 100) return fail(c, 'Star 奖励配额需在 0-100 之间');
+    await set('github_star_bonus', String(Math.floor(n)));
+  }
+
   // 新域名申请开关（暂停后普通用户无法提交申请，管理员仍可自建）
   if (body.applyPaused !== undefined && String(c.env.APPLY_PAUSED || '').trim() !== '1') {
     await set('apply_paused', body.applyPaused ? '1' : '0');
@@ -1027,6 +1090,31 @@ app.post('/settings', async (c) => {
       Object.keys(next).length
         ? Object.entries(next).map(([d, n]) => `${d}:${n}`).join(',')
         : '全部恢复全局规则');
+  }
+
+  /* 按根域名设置「每个账号能注册几次」。只接受当前生效的根域名：
+       -1 = 无限；0 = 禁止该后缀；正整数 = 累计次数上限；留空 = 删除限制。
+     计数从功能启用后开始，不回溯历史 —— 已注册用户不受影响。 */
+  if (body.rootRegLimits !== undefined) {
+    const active = (await effectiveRootList(c.env)).map((r) => r.domain);
+    const allowed = new Set(active);
+    const input = body.rootRegLimits && typeof body.rootRegLimits === 'object'
+      ? body.rootRegLimits : {};
+    const nextLimits: Record<string, number> = {};
+    for (const [raw, val] of Object.entries(input)) {
+      const d = normalizeDomain(String(raw || '').toLowerCase());
+      const s = String(val ?? '').trim();
+      if (!allowed.has(d) || s === '') continue;
+      if (!/^-?\d+$/.test(s)) return fail(c, `根域名 ${d} 的注册次数必须是 -1 或 0 以上的整数`);
+      const n = Number(s);
+      if (!Number.isFinite(n) || n < -1 || n > 10000) return fail(c, `根域名 ${d} 的注册次数需在 -1 到 10000 之间`);
+      nextLimits[d] = Math.floor(n);
+    }
+    await set('root_reg_limits', serializeRootRegLimits(nextLimits));
+    await audit(c, u.id, 'admin.root-reg-limits', 'site',
+      Object.keys(nextLimits).length
+        ? Object.entries(nextLimits).map(([d, n]) => `${d}:${n}`).join(',')
+        : '全部恢复不限制');
   }
 
   // 全局中文字体（正文 / 标题）：拉丁与数字始终用 Redaction 35，这里只决定中文用哪个字体

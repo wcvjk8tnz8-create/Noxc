@@ -553,6 +553,26 @@ export const SERVER_DICT: Record<string, string> = {
   '邮箱更新失败，请稍后重试': 'Could not update the email, please try again',
   '你正在进行更换账号邮箱操作。': 'You are changing your account email.',
   '更换邮箱验证码': 'Email change verification code',
+  /* ── GitHub OAuth / Star 奖励 / 每根域每人注册次数 ────────────────── */
+  '站点尚未启用 GitHub 登录': 'GitHub sign-in is not enabled on this site',
+  '每个账号只能领取一次 Star 奖励': 'Each account can claim the Star bonus only once',
+  '请先在个人资料里绑定 GitHub 账号': 'Link your GitHub account in your profile first',
+  '绑定信息缺少访问令牌，请解除绑定后重新绑定一次': 'The link is missing an access token. Unlink and link GitHub again.',
+  'GitHub 授权已失效，请解除绑定后重新绑定一次': 'GitHub authorization has expired. Unlink and link GitHub again.',
+  '还没有检测到 Star，请先给项目点 Star 再回来领取。': 'No Star detected. Star the repository first, then come back to claim.',
+  '无法连接 GitHub，请稍后重试': 'Could not reach GitHub. Please try again.',
+  '领取记录写入失败，请稍后重试': 'Could not save the claim. Please try again.',
+  '配额写入失败，请稍后重试': 'Could not update the quota. Please try again.',
+  '已领取 Star 奖励': 'Star bonus claimed',
+  '当前账号配额不限，无需叠加奖励': 'This account has unlimited quota — no bonus needed.',
+  'GitHub 回调地址必须是以 https:// 开头的绝对地址': 'The GitHub callback URL must be an absolute https:// address',
+  'Star 仓库格式应为 owner/repo，例如 wcvjk8tnz8-create/Noxc': 'Star repo must be in owner/repo form, e.g. wcvjk8tnz8-create/Noxc',
+  'Star 奖励配额需在 0-100 之间': 'Star quota bonus must be between 0 and 100',
+  /* ── GitHub OAuth / Star 奖励 / 按后缀注册次数 ── */
+  'GitHub 授权已失效，请解除绑定后重新绑定': 'GitHub authorization expired. Unlink and link again',
+  'Star 奖励已领取过，每个账号只能领一次': 'Star bonus already claimed — one per account',
+  '全部恢复不限制': 'all limits removed',
+
 };
 
 /** 带变量的消息：正则 → 英文模板（按数组顺序匹配，先到先得） */
@@ -618,6 +638,21 @@ export const SERVER_PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => string]> =
   [/^批量审核异常：(.+)$/, m => `Batch review error: ${m[1]}`],
   [/^(.+?)：已失败 (\d+) 次，转人工审核（后台可点「重试全部」清零）$/,
     m => `${m[1]}: failed ${m[2]} times, handed to manual review (use "Retry all" in admin to reset)`],
+  /* 每根域名每人注册次数：动态数字 / 域名 */
+  [/^该后缀每人最多注册 (\d+) 次，你已注册 (\d+) 次（释放域名不退还次数）$/,
+    m => `This suffix allows ${m[1]} registration(s) per account; you have used ${m[2]} (releasing a domain does not refund the count)`],
+  [/^根域名 (.+) 的注册次数必须是 -1 或 0 以上的整数$/,
+    m => `Registration limit for ${m[1]} must be -1 or a non-negative integer`],
+  [/^根域名 (.+) 的注册次数需在 -1 到 10000 之间$/,
+    m => `Registration limit for ${m[1]} must be between -1 and 10000`],
+  [/^请先给 (.+?) 点 Star，再回来领取$/, m => `Star ${m[1]} first, then come back to claim`],
+  [/^该后缀每人最多注册 (\d+) 次，你已注册 (\d+) 次（释放域名不退还次数）$/,
+    m => `This suffix allows ${m[1]} registrations per account; you have ${m[2]} (releasing a domain does not refund a slot)`],
+  [/^根域名 (.+?) 的注册次数必须是 -1 或 0 以上的整数$/,
+    m => `Registration limit for ${m[1]} must be -1 or a non-negative integer`],
+  [/^根域名 (.+?) 的注册次数需在 -1 到 10000 之间$/,
+    m => `Registration limit for ${m[1]} must be between -1 and 10000`],
+
 ];
 
 const SKIP_KEYS = new Set([

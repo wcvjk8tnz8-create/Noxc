@@ -15,3 +15,13 @@ export function nodelocStartUrl(query = ''): string {
   const { protocol, host } = window.location;
   return protocol === 'https:' ? `https://${host}${path}` : path;
 }
+
+
+/** GitHub 登录 / 绑定入口。与 NodeLoc 同理：必须走站内 /start 生成一次性 state，
+    绝不能把按钮直连 https://github.com/login/oauth/authorize，否则 CSRF 防护全失效。 */
+export function githubStartUrl(query = ''): string {
+  const path = '/api/auth/github/start' + query;
+  if (typeof window === 'undefined') return path;
+  const { protocol, host } = window.location;
+  return protocol === 'https:' ? `https://${host}${path}` : path;
+}

@@ -111,6 +111,15 @@ export default function ProfilePage() {
                 <div><div className="sec-t">NodeLoc 账号</div><div className="sec-d" id="nodelocState">未绑定</div></div>
                 <button className="btn sm td-oauth-btn" id="btnNodelocBind" type="button">绑定</button>
               </div>
+              {/* 站点启用 GitHub OAuth 后才显示：绑定 + 领取 Star 配额奖励 */}
+              <div className="sec-row td-oauth-row" id="githubRow" hidden>
+                <div><div className="sec-t">GitHub 账号</div><div className="sec-d" id="githubState">未绑定</div></div>
+                <div className="row" style={{gap: "8px", flexWrap: "wrap", justifyContent: "flex-end"}}>
+                  <a className="btn sm" id="btnGithubStar" href="https://github.com/wcvjk8tnz8-create/Noxc" target="_blank" rel="noopener noreferrer" hidden>去点 Star</a>
+                  <button className="btn sm" id="btnGithubClaim" type="button" hidden>领取 Star 奖励</button>
+                  <button className="btn sm td-oauth-btn" id="btnGithubBind" type="button">绑定</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

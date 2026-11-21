@@ -40,6 +40,16 @@ export interface Env {
 
   // ── Vars（wrangler.toml [vars] / CI 注入）──
   ROOT_DOMAIN?: string;
+  /** 按根域名每人注册次数："meoy.top:1,noxc.uk:-1"（-1 = 无限） */
+  ROOT_REG_LIMITS?: string;
+  /** GitHub OAuth（也可在后台「站点设置」里填，Secret 走 wrangler secret put） */
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
+  GITHUB_ENABLED?: string;
+  GITHUB_AUTO_REGISTER?: string;
+  GITHUB_REDIRECT_URI?: string;
+  GITHUB_STAR_REPO?: string;
+  GITHUB_STAR_BONUS?: string;
   /** 多根域名：逗号分隔的根域名列表 */
   ROOT_DOMAINS?: string;
   /** 多根域名：\`域名:ZoneID\` 逗号分隔 */

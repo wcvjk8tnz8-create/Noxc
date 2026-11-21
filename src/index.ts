@@ -9,7 +9,9 @@ import { DEFAULT_FOOTER_CONTACT_HTML } from './lib/footerContact.js';
 import { reservedLabelsOf } from './lib/reserved.js';
 import { publicStats } from './lib/publicStats.js';
 import { nodelocEnabled } from './lib/nodeloc.js';
+import { githubEnabled } from './lib/github.js';
 import { ensureCoreColumns } from './lib/showcase.js';
+import { ensureOauthTables } from './lib/oauthStore.js';
 import { rootPageFor } from './html/rootPages.js';
 import { docsHtml } from './html/docs.js';
 import { Hono } from 'hono';
@@ -18,6 +20,7 @@ import { ok, fail, defaultQuotaOf } from './lib/util.js';
 import { RECORD_TYPES, TTL_CHOICES, VERIFY_PRESETS, HOSTING_NS_PRESETS, TYPE_NAMES } from './lib/records.js';
 import authRoutes from './routes/auth.js';
 import nodelocRoutes from './routes/nodeloc.js';
+import githubRoutes from './routes/github.js';
 import termsRoutes from './routes/terms.js';
 import whoisRoutes from './routes/whois.js';
 import delegationRoutes from './routes/delegation.js';
@@ -42,7 +45,11 @@ const app = new Hono();
 // /api/xxx/ 与 /api/xxx 等价（去掉结尾斜杠后重新分发）
 /* 老库补列：任何请求进来先跑一次（模块级缓存，成功即不再查 PRAGMA）。
    以前靠 schema.sql 重建表补列，每次部署都会清空用户案例展示开关。 */
-app.use('*', async (c, next) => { await ensureCoreColumns(c.env); await next(); });
+app.use('*', async (c, next) => {
+  await ensureCoreColumns(c.env);
+  await ensureOauthTables(c.env);
+  await next();
+});
 
 app.use('/api/*', async (c, next) => {
   const url = new URL(c.req.url);
@@ -197,6 +204,8 @@ app.get('/api/config', async (c) => {
     captchaEnabled: await captchaEnabled(c.env),
     // NodeLoc 第三方登录：只有后台开启且凭据齐备才显示按钮，不下发任何密钥
     nodelocEnabled: await nodelocEnabled(c.env),
+    // GitHub 第三方登录 / 绑定：同样只下发布尔值，Secret 与 access_token 绝不出 Worker
+    githubEnabled: await githubEnabled(c.env),
     // 存储绑定状态：只给布尔值，方便一眼确认 KV / R2 是否已自动挂上
     kvBound: !!c.env.KV,
     avatarUpload: !!c.env.AVATARS,
@@ -256,6 +265,10 @@ app.get('/api/stats', async (c) => ok(c, await publicStats(c.env)));
    同时注册 /oauth/nodeloc 前缀，便于在 NodeLoc 应用里登记直观的回调地址。 */
 app.route('/api/auth/nodeloc', nodelocRoutes);
 app.route('/oauth/nodeloc', nodelocRoutes);
+/* GitHub OAuth 同样必须先于 /api/auth 挂载，否则会被子应用吞成 404。
+   回调地址在 GitHub OAuth App 里登记为 https://<域名>/oauth/github/callback。 */
+app.route('/api/auth/github', githubRoutes);
+app.route('/oauth/github', githubRoutes);
 app.route('/api/auth', authRoutes);
 // 第三方邮箱注册申请：公开，不需要登录（管理员审批接口在 /api/admin 下）
 app.route('/api', emailRequestRoutes);

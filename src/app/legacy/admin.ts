@@ -485,6 +485,25 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <div class="hint">Secret 只保存在服务端，页面只显示掩码。</div>
             </div>
             <div class="field">
+              <label>第三方登录 · GitHub</label>
+              <div><label class="check" style="margin-top:2px"><input type="checkbox" id="sGithubEnabled" ${String(s.github_enabled ?? '0') === '1' ? 'checked' : ''}> 启用 GitHub 登录与「个人资料 → 绑定 GitHub」</label></div>
+              <div class="grid2" style="margin-top:8px">
+                <div><span class="dim">Client ID</span><input id="sGithubClientId" type="text" autocomplete="off" placeholder="OAuth App 的 Client ID" value="${esc(s.github_client_id || '')}" ${d.github?.fromEnv ? 'disabled' : ''}></div>
+                <div><span class="dim">Client Secret</span><input id="sGithubClientSecret" type="password" autocomplete="new-password" placeholder="${d.github?.secretSet ? '已配置 ' + esc(d.github.secretMasked) + '（留空不修改）' : '留空则不修改'}" ${d.github?.fromEnv ? 'disabled' : ''}></div>
+              </div>
+              <div class="hint">在 <a href="https://github.com/settings/developers" target="_blank" rel="noopener">GitHub → Developer settings → OAuth Apps</a> 创建应用。回调 URI 必须逐字符填：<b>${esc(d.github?.callbackUrl || '/oauth/github/callback')}</b>；授权 scope 需要 <span class="mono">read:user user:email public_repo</span>（最后一项用于校验 Star）。</div>
+              <div class="grid2" style="margin-top:8px">
+                <div><span class="dim">Star 奖励仓库（owner/repo）</span><input id="sGithubStarRepo" type="text" autocomplete="off" placeholder="wcvjk8tnz8-create/Noxc" value="${esc(s.github_star_repo || 'wcvjk8tnz8-create/Noxc')}"></div>
+                <div><span class="dim">Star 后奖励配额</span><input id="sGithubStarBonus" type="number" min="0" max="100" step="1" value="${esc(s.github_star_bonus ?? '5')}"></div>
+              </div>
+              <div class="hint">用户绑定 GitHub 后，在个人资料里点「领取 Star 奖励」；后端实时向 GitHub 校验确实点了 Star，每个本地账号只能领一次，奖励直接加到域名配额上。绑定本身不加配额。</div>
+              <div style="margin-top:8px">
+                <label class="check"><input type="checkbox" id="sGithubAutoRegister" ${String(s.github_auto_register ?? '1') !== '0' ? 'checked' : ''}> 首次用 GitHub 登录时自动创建本地账号</label>
+              </div>
+              <div style="margin-top:8px"><span class="dim">自定义回调地址（可选，须 https）</span><input id="sGithubRedirectUri" type="text" autocomplete="off" placeholder="留空则使用上方地址" value="${esc(s.github_redirect_uri || '')}"></div>
+              <div class="hint">状态：<span>${d.github?.ready ? '已就绪' : '未就绪（需开启并填齐 Client ID / Secret）'}</span>${d.github?.fromEnv ? ' · 凭据来自 Worker 环境变量，后台只读' : ''}。Secret 与用户 access_token 只保存在服务端，页面只显示掩码。</div>
+            </div>
+            <div class="field">
               <label>用户配额</label>
               <div class="grid2">
                 <div><span class="dim">新用户默认配额</span><input id="sDefaultQuota" type="number" min="-1" max="10000" step="1" value="${esc(s.default_quota ?? '5')}"></div>
@@ -513,6 +532,18 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
                 }).join('') || '<div class="hint">当前没有生效的根域名</div>'}
               </div>
               <div class="hint">可为 <b>0</b>（该后缀免费，普通用户也不扣分）；留空则按上方全局规则（含单字加价）。填写后该后缀下所有申请统一按此积分计算，单字域名不再额外加价。两个后缀可以分别设成不同数值、也可以一个免费一个收费。</div>
+            </div>
+            <div class="field">
+              <label>按根域名设置每人注册次数</label>
+              <div class="grid2" id="rootRegLimitsBox">
+                ${(Array.isArray(d.rootDomains) ? d.rootDomains : []).map(function(r){
+                  var rl = d.rootRegLimits || {};
+                  var has = Object.prototype.hasOwnProperty.call(rl, r);
+                  return '<div><span class="dim">.' + esc(String(r).toUpperCase()) + '</span>'
+                    + '<input class="root-reg-limit-input" data-root="' + esc(r) + '" type="number" min="-1" max="10000" step="1" value="' + esc(has ? String(rl[r]) : '') + '" placeholder="留空 = 不限制"></div>';
+                }).join('') || '<div class="hint">当前没有生效的根域名</div>'}
+              </div>
+              <div class="hint">填 <b>1</b> = 每人只能注册该后缀一次；填 <b>-1</b> = 每人无限次；<b>0</b> = 禁止申请该后缀；留空 = 不限制。按累计申请次数计，释放域名不退还次数；从设置生效后开始累计，<b>已注册用户与已有域名不受影响</b>。管理员开通不受限。</div>
             </div>
             <div class="field">
               <label>全局字体（中文字体）</label>
@@ -715,6 +746,22 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               nodelocRedirectUri: document.getElementById('sNodelocRedirectUri').value,
             }),
             nodelocAutoRegister: (document.getElementById('sNodelocAutoRegister') as HTMLInputElement).checked,
+            githubEnabled: (document.getElementById('sGithubEnabled') as HTMLInputElement).checked,
+            ...(d.github?.fromEnv ? {} : {
+              githubClientId: document.getElementById('sGithubClientId').value,
+              githubClientSecret: document.getElementById('sGithubClientSecret').value,
+            }),
+            githubAutoRegister: (document.getElementById('sGithubAutoRegister') as HTMLInputElement).checked,
+            githubRedirectUri: document.getElementById('sGithubRedirectUri').value,
+            githubStarRepo: document.getElementById('sGithubStarRepo').value,
+            githubStarBonus: document.getElementById('sGithubStarBonus').value,
+            rootRegLimits: (function(){
+              var o = {};
+              document.querySelectorAll('#rootRegLimitsBox .root-reg-limit-input').forEach(function(el){
+                o[el.getAttribute('data-root')] = (el as HTMLInputElement).value.trim();
+              });
+              return o;
+            })(),
             maxAccountsPerIp: document.getElementById('sIpLimit').value,
             emailRule: document.getElementById('sEmailRule').value,
             whoisHolder: document.getElementById('sWhois').value,

@@ -512,6 +512,9 @@ CREATE TABLE IF NOT EXISTS oauth_bindings (
   user_id     INTEGER NOT NULL,
   username    TEXT,
   avatar_url  TEXT,
+  /* GitHub access_token：仅 Worker 侧用于校验 Star 状态，绝不下发浏览器。
+     NodeLoc 绑定此列为空。旧库由 src/lib/oauthStore.ts 运行时 ALTER 补齐。 */
+  access_token TEXT,
   created_at  INTEGER NOT NULL,
   UNIQUE(provider, sub)
 );
@@ -584,6 +587,34 @@ UPDATE users SET status = 'active', ban_reason = NULL
 WHERE status = 'banned'
   AND ban_reason = '违规注册：一次性 / 非公开邮箱域名'
   AND (lower(email) LIKE '%@oauth.local' OR lower(email) LIKE '%@%.oauth.local');
+
+-- ============================================================
+--  按根域名「每人注册次数」累计表
+--  与 subdomains 解耦：释放 / 删除域名都不退还次数，才是真正的「只能注册 N 次」。
+--  记录从功能启用后开始累计，历史申请不回溯 —— 已注册用户不受影响。
+-- ============================================================
+CREATE TABLE IF NOT EXISTS root_reg_counts (
+  user_id     INTEGER NOT NULL,
+  root_domain TEXT    NOT NULL,
+  count       INTEGER NOT NULL DEFAULT 0,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (user_id, root_domain)
+);
+
+-- ============================================================
+--  站点设置默认值
+-- ============================================================
+-- 第三方登录 · GitHub：默认关闭，需管理员填 Client ID / Secret 并打开开关。
+INSERT OR IGNORE INTO settings(key, value) VALUES ('github_enabled', '0');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('github_client_id', '');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('github_client_secret', '');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('github_auto_register', '1');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('github_redirect_uri', '');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('github_star_repo', 'wcvjk8tnz8-create/Noxc');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('github_star_bonus', '5');
+-- 按根域名每人注册次数：留空 = 全部不限制。格式 "meoy.top:1,noxc.uk:-1"
+-- -1 = 无限；0 = 禁止该后缀；正整数 = 累计次数上限。
+INSERT OR IGNORE INTO settings(key, value) VALUES ('root_reg_limits', '');
 
 -- ============================================================
 --  用户案例展示列：旧库由 src/lib/showcase.ts 的 PRAGMA + ALTER 补齐，
