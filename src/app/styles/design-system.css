@@ -671,3 +671,92 @@ html body .modal-card .field input[disabled] {
   color: var(--zx-muted) !important;
 }
 html body .modal-card .btn.sm { min-height: 44px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   深色可读性收口（2026-11-21 实拍回归）
+   ──────────────────────────────────────────────────────────────────────
+   根因：色板统一成纯黑白灰后，深色 --zx-blue-soft 是「深墨软背景」#1c222c，
+   但 shell.css 里有 19 条历史规则把它当「文字色」用 —— 统计卡数字/标签、
+   代码块高亮、步骤号、页脚、kbd、通知标签…… 在 #15181e 卡面上对比度
+   只有 1.11:1，肉眼几乎全黑（实拍里「域名总数 / DNS 记录 / 我的积分 /
+   待审核」只剩图标可见）。
+
+   这里只收口「文字颜色」，不改变量值（该变量还被大量用作背景 / 边框），
+   也不动 shell.css 的任何几何。深浅两套都保持纯黑白灰。
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* 1. 数字 / 大标题 —— 最亮一档 */
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .stat-row,
+html[data-theme="dark"] .stat-card .sc-num,
+html[data-theme="dark"] .stat-card .stat-v,
+html[data-theme="dark"] .stat-card h2,
+html[data-theme="dark"] .stat-grid .stat,
+html[data-theme="dark"] .stat-grid .stat .v,
+html[data-theme="dark"] .stat-grid .stat b,
+html[data-theme="dark"] .stat-grid .stat h2,
+html[data-theme="dark"] .stat-v,
+html[data-theme="dark"] .stat h2 {
+  color: var(--zx-ink) !important;
+}
+
+/* 2. 标签 / 代码 / 次要文字 —— 次级浅灰，保留层级但对比度 ≥ 4.5:1 */
+html[data-theme="dark"] .stat-card .sc-lbl,
+html[data-theme="dark"] .stat-card small,
+html[data-theme="dark"] .stat-grid .stat .l,
+html[data-theme="dark"] .stat-grid .stat small,
+html[data-theme="dark"] .stat-grid .stat span,
+html[data-theme="dark"] .stat-k,
+html[data-theme="dark"] .rv-term-body,
+html[data-theme="dark"] .nk-term-body,
+html[data-theme="dark"] .c-cmd,
+html[data-theme="dark"] .c-str,
+html[data-theme="dark"] .c-key,
+html[data-theme="dark"] .step i,
+html[data-theme="dark"] .nk-fbottom b,
+html[data-theme="dark"] .nk-fcol a:hover,
+html[data-theme="dark"] .nk-fbottom a:hover,
+html[data-theme="dark"] .notif-panel .np-tag,
+html[data-theme="dark"] .td-trans-bubble,
+html[data-theme="dark"] .top-search kbd,
+html[data-theme="dark"] input[disabled],
+html[data-theme="dark"] .input[disabled] {
+  color: var(--zx-body) !important;
+}
+
+/* 3. 品牌名：历史层用渐变 + background-clip:text 染色，深色渐变起点是
+      深墨，文字一半透明一半看不见。改成纯浅墨实字，去掉剪裁。 */
+html[data-theme="dark"] .side-brand b,
+html[data-theme="dark"] .brand b {
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: var(--zx-ink) !important;
+  -webkit-text-fill-color: var(--zx-ink) !important;
+}
+
+/* 4. 「收起侧边栏」按钮：--lg-glass 在结构层被设成 none，背景回落到
+      浏览器默认按钮灰 #efefef，深色侧栏里一块刺眼白斑。 */
+html[data-theme="dark"] .side-collapse,
+html[data-theme="dark"] #sideCollapse {
+  background: var(--zx-paper-2) !important;
+  color: var(--zx-body) !important;
+  border-color: var(--zx-hair) !important;
+}
+html[data-theme="dark"] .side-collapse:hover,
+html[data-theme="dark"] #sideCollapse:hover {
+  background: var(--zx-blue-a16) !important;
+  color: var(--zx-ink) !important;
+}
+
+/* 5. 壁纸切换选中态：亮底(--c1) + 亮字(--zx-blue-deep) = 白字白底 */
+html[data-theme="dark"] .bgswitch button.on {
+  color: var(--zx-paper-2) !important;
+}
+
+/* 6. 快捷入口实际有 7 个，结构层写死 6 列 → 第 7 个「用户案例」孤零零
+      掉到第二行。改自适应：宽屏一行排完，窄屏自动折行且不留孤项。 */
+html body .quick-row {
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)) !important;
+}

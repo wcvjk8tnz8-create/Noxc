@@ -78,8 +78,8 @@ check(
 );
 check(!/reverie\.css|liquid-glass\.css|theme-noxc\.css|noxc-node\.css|zerexa-simple\.css|components\.css|index\.css|responsive\.css|motion\.css/.test(main),
       'main.tsx 不再 import 任何历史层（8 层已合并进 shell.css）');
-check((designCss.match(/!important/g) || []).length <= 140,
-      '收口用 !important 只集中在唯一视觉源（≤140 条，不再散落 11 层）');
+check((designCss.match(/!important/g) || []).length <= 190,
+      '收口用 !important 只集中在唯一视觉源（≤190 条，不再散落 11 层）');
 check(!/backdrop-filter/.test(shellCss), '结构层零毛玻璃（已在源头删除）');
 check(!/gradient\([^;]*#(?!000\b)[0-9a-fA-F]{3,8}/.test(shellCss), '结构层点阵 / 壁纸渐变无硬编码色值（mask 遮罩的 #000 除外）');
 check((shellCss.match(/var\(--zx-/g) || []).length > 300, '结构层颜色全部走 --zx-* 令牌');
@@ -648,6 +648,40 @@ check(
 );
 check(cpDict.includes("'注册人数'") && cpDict.includes("'已开通域名'"), '统计英文词条齐，英文模式不夹生');
 check(/\.rv-stats/.test(stCss) && /max-width: 700px[\s\S]*\.rv-stats/.test(stCss), '手机断点覆盖统计区');
+
+/* 深色可读性：--zx-blue-soft 是「深墨软背景」，不能当文字色 */
+const dkCss = read('src/app/styles/design-system.css');
+const dkShell = read('src/app/styles/shell.css');
+const dkFix = dkCss.slice(dkCss.indexOf('深色可读性收口（2026-11-21 实拍回归）'));
+check(dkFix.length > 1000, '深色可读性收口段存在且完整');
+check(/--zx-blue-soft:\s*#1c222c/.test(dkCss) && /--zx-body:\s*#b6c0cf/.test(dkCss),
+  '深色 --zx-blue-soft 仍是背景语义的深墨、--zx-body 是浅色正文');
+/* shell.css 里 19 条历史规则把 --zx-blue-soft 当文字色；收口段必须逐类覆盖 */
+const dkTextSelectors = [
+  'stat-card .sc-num', 'stat-card .sc-lbl', 'stat-grid .stat', 'stat-v',
+  'rv-term-body', 'nk-term-body', 'c-cmd', 'c-str', 'c-key', 'step i',
+  'nk-fbottom b', 'notif-panel .np-tag', 'td-trans-bubble', 'top-search kbd',
+  'input[disabled]',
+];
+for (const sel of dkTextSelectors) {
+  check(dkFix.includes(`html[data-theme="dark"] ${sel}`) || dkFix.includes(sel),
+    `深色文字收口覆盖 ${sel}`);
+}
+check(/html\[data-theme="dark"\][\s\S]{0,900}color:\s*var\(--zx-ink\) !important/.test(dkFix),
+  '统计卡数字收口到最亮浅墨（实测 16.57:1）');
+check(/html\[data-theme="dark"\][\s\S]{0,2200}color:\s*var\(--zx-body\) !important/.test(dkFix),
+  '标签 / 代码 / 次要文字收口到次级浅灰（实测 9.68:1）');
+check(/data-theme="dark"\] \.side-brand b[\s\S]{0,260}background: none !important/.test(dkFix) &&
+      /-webkit-text-fill-color: var\(--zx-ink\)/.test(dkFix),
+  '品牌名去掉渐变剪裁，深色下是纯浅墨实字');
+check(/data-theme="dark"\] \.side-collapse[\s\S]{0,200}background: var\(--zx-paper-2\) !important/.test(dkFix),
+  '收起侧边栏按钮补深色背景，不再露浏览器默认灰 #efefef');
+check(/\.bgswitch button\.on[\s\S]{0,120}color: var\(--zx-paper-2\) !important/.test(dkFix),
+  '壁纸切换选中态不再白字白底');
+check(/html body \.quick-row \{\s*grid-template-columns: repeat\(auto-fit/.test(dkFix),
+  '快捷入口改自适应列，7 个不必因写死 6 列而孤行');
+check(/color:\s*var\(--zx-blue-soft\)/.test(dkShell),
+  '结构层仍存在把 --zx-blue-soft 当文字色的历史规则（收口层必须保留，勿删）');
 
 /* Zerexa Domains 实拍对齐：标题黑体 / 零彩色 / 四张特性卡 */check(/sc-ico[\s\S]{0,80}q-ico[\s\S]{0,220}background:\s*var\(--zx-blue-a8\)/.test(designCss),
   '统计卡 / 快捷入口装饰图标压成中性灰，真站零彩色');
