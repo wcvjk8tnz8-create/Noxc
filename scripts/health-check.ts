@@ -164,7 +164,22 @@ check(/#bellBtn/.test(runtime) && /insertBefore\(b, bell\)/.test(runtime), '主�
 const focusBlock = (glass.match(/\.input:focus[\s\S]*?\}/) || [''])[0];
 check(!/0 0 0 3px/.test(focusBlock) && /inset 0 0 0 1px/.test(focusBlock), '输入框聚焦为单层（无外部 3px 光环）');
 check(/\.reg-field-head\s*\{[^}]*background:\s*transparent/s.test(glass), '字段标题不再叠第二层灰框');
-check(/--lg-stroke:\s*rgba\(47, 125, 91/.test(glass), '浅色玻璃描边为可见淡绿');
+/* 旧「淡绿描边 / 青瓷绿」口径已废弃：整站改 Noxc 冷白／墨黑／蓝，
+   禁止任何绿或青绿字面量回流，毛玻璃必须由收口层全局关闭。 */
+const allStyles = [
+  ...css,
+  'src/app/styles/noxc-node.css', 'src/app/styles/zerexa-simple.css',
+  'src/html/root-meoy.ts', 'src/html/root-v1.ts', 'src/html/reverieRootCss.ts',
+].map((p) => read(p)).join('\n');
+const legacyGreens = [
+  /--lg-stroke:\s*rgba\(47,\s*125,\s*91/, /--bl-jade:\s*#2f8f83/,
+  /--bl-cyan:\s*#6fc9c3/, /rgba\(111,\s*201,\s*195/,
+  /rgba\(30,\s*52,\s*50/, /#0c1919\b/, /#101a15\b/, /#e8f3ec\b/,
+];
+check(legacyGreens.every((r) => !r.test(allStyles)), '全站零绿色／青绿色值（简约 logo 色）');
+const sealCss = read('src/app/styles/zerexa-simple.css');
+check(/NOXC-DEGLASS-SEAL/.test(sealCss) && /backdrop-filter:\s*none\s*!important/.test(sealCss),
+      '毛玻璃收口层存在且全局关闭 backdrop-filter');
 check(/:not\(\.side-toggle\)/.test(read('src/app/styles/theme-noxc.css')), '汉堡按钮被排除出全局按钮基线（避免空灰块）');
 
 /* 8. 官网根路径 = 主页，登录页独立 */
@@ -258,7 +273,7 @@ check(/rel="preload" as="image" href="\/img\/transition\/miku-pop\.png"/.test(sh
 check(/miku-bouquet-haze\.webp/.test(shellHtml) && /miku-bouquet-dark\.webp/.test(shellHtml), '首屏 preload 壁纸浅/深/氛围版');
 check(/html\[data-theme="dark"\] body[\s\S]{0,400}background:\s*transparent\s*!important/.test(bloom), '深色 body 以同等特异性压成透明（否则盖住壁纸）');
 check(/background-color:\s*var\(--bl-paper\)/.test(bloom) || /html:not\(\[data-theme="dark"\]\)[\s\S]{0,200}background-color/.test(bloom), '纸面渐变移到根元素');
-check(/--bl-jade:\s*#2f8f83/.test(bloom) && /--bl-coral/.test(bloom), '取色自插画：青瓷绿主色 + 花色点缀');
+check(!/--bl-jade:\s*#2f8f83/.test(bloom) && /--bl-coral/.test(bloom), '插画花色点缀保留，青瓷绿主色已换成 Noxc 蓝');
 check(/bl-petals/.test(bloom) && /prefers-reduced-motion/.test(bloom), '花瓣呼吸动效且尊重减少动态');
 check(/\.bgswitch button[\s\S]{0,300}border-radius:\s*50%/.test(bloom), '壁纸切换器为圆形缩略点');
 check(/min-width:\s*620px\s*!important/.test(bloom), '窄屏表格不再竖排断字');
