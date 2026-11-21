@@ -668,6 +668,59 @@ check(/body\.page-home \.rv-head[\s\S]{0,160}background:\s*var\(--zx-paper\)/.te
 check(/rv-ask-btn[\s\S]{0,160}border-radius:\s*0/.test(designCss),
   '查询按钮为右侧直角黑块（真图圆角矩形右半）');
 
+/* 更换邮箱：验证码发到新邮箱，验证通过即写入 */
+const ecRoute = read('src/routes/profile.ts');
+const ecMail = read('src/lib/mail.ts');
+const ecPage = read('src/app/pages/Profile.tsx');
+const ecCtrl = read('src/app/legacy/profile.ts');
+const ecDict = read('src/app/lib/dict.en.ts');
+const ecServerDict = read('src/lib/i18nServer.ts');
+const ecSchema = read('schema.sql');
+const ecReg = fs.existsSync(path.join(root, 'scripts/email-change-regression.ts'))
+  ? read('scripts/email-change-regression.ts') : '';
+check(/app\.post\('\/email\/send'/.test(ecRoute) && /app\.post\('\/email\/confirm'/.test(ecRoute),
+  '资料路由提供发码与确认两个端点');
+check(/EMAIL_CHANGE_SCENE = 'email_change'/.test(ecRoute) && /email_change/.test(ecSchema),
+  '更换邮箱用独立验证码场景，与注册 / 重置密码隔离');
+check(/email_change: \{ subject: '更换邮箱验证码'/.test(ecMail) && /meta\.action/.test(ecMail),
+  '邮件模板按场景出「更换邮箱验证码」，不再误写「注册」');
+check(/mailEnabled\(cfg\)/.test(ecRoute) && /mailNotConfigured/.test(ecRoute),
+  '未配置邮件服务明确 503，不假装发送成功');
+check(/blockedEmailDomain\(mail\)/.test(ecRoute) && !/signupEmailOk/.test(ecRoute),
+  '换绑只保留硬性封禁域名，不套注册白名单 / edu 规则');
+check(/mail === currentEmail/.test(ecRoute) && /SELECT id FROM users WHERE email = \?/.test(ecRoute),
+  '拒绝与当前邮箱相同、以及已被其它账号占用的地址');
+check(/60_000/.test(ecRoute) && /AND scene = \? ORDER BY id DESC LIMIT 1/.test(ecRoute),
+  '同一新邮箱 60 秒内不重复发码');
+check(/checkCode\(c\.env, mail, EMAIL_CHANGE_SCENE, code\)/.test(ecRoute),
+  '确认时校验并消耗一次性验证码');
+check(/SELECT id FROM users WHERE email = \? AND id <> \?/.test(ecRoute),
+  '确认前二次查占用，挡发码到确认之间被抢注');
+check(/UPDATE users SET email = \? WHERE id = \?/.test(ecRoute) &&
+      /UPDATE oauth_quota_grants SET email = \?/.test(ecRoute),
+  '写入 users.email，并同步 /status 的 NodeLoc 领取记录邮箱');
+check(/user\.email_change/.test(ecRoute) && /notify\(/.test(ecRoute),
+  '换绑写审计日志并发站内通知');
+check(/id="btnChangeMail"/.test(ecPage) && /btnChangeMail/.test(ecCtrl),
+  '个人资料「安全设置」有更换邮箱入口');
+check(/api\.post\('\/api\/profile\/email\/send'/.test(ecCtrl) &&
+      /api\.post\('\/api\/profile\/email\/confirm'/.test(ecCtrl) &&
+      /btnChgSend/.test(ecCtrl) && /btnChgOk/.test(ecCtrl),
+  '弹窗里新邮箱 + 发码 + 验证码 + 确认四件套齐全');
+check(/refreshRuntime\(\)/.test(ecCtrl) && /await load\(\)/.test(ecCtrl),
+  '成功后刷新资料卡与全局用户态，页面仍显示旧邮箱的 bug 被挡住');
+check(!/暂不支持自助修改/.test(ecPage), '旧「暂不支持自助修改」提示已移除');
+for (const k of ['更换邮箱', '发送验证码', '确认更换', '邮箱已更换，下次请用新邮箱登录']) {
+  check(ecDict.includes(`'${k}'`), `英文词典含更换邮箱文案「${k}」`);
+}
+for (const k of ['新邮箱不能与当前邮箱相同', '该邮箱已被其它账号使用', '邮箱更新失败，请稍后重试']) {
+  check(ecServerDict.includes(`'${k}'`), `服务端词典含错误提示「${k}」`);
+}
+check(ecReg.length > 3000 && /更换邮箱回归/.test(ecReg) && /不套注册白名单/.test(ecReg),
+  '专项回归脚本覆盖完整换绑链路与注册白名单豁免');
+check(/modal-card \.field input:not/.test(read('src/app/styles/design-system.css')),
+  '弹窗输入框压回纸面，不被历史层染成 30% 墨灰（组件样式，不动全局几何）');
+
 /* NodeLoc OAuth 2.0 接入：把踩过的坑固化成阻断断言 */
 const nlSchema = read('schema.sql');
 const nlLib = read('src/lib/nodeloc.ts');

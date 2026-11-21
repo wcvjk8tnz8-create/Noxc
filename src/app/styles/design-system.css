@@ -655,3 +655,19 @@ html body .q-ico {
   color: var(--zx-ink) !important;
   border-color: var(--zx-hair) !important;
 }
+
+/* ── 更换邮箱弹窗（组件样式，不是收口层） ──────────────────────────────
+   shell.css 历史层有一条 `input:not([type=checkbox])… { background:
+   var(--zx-ink-a30) }`，会把所有输入框染成 30% 墨灰，看起来像禁用态。
+   这里只给新弹窗的输入框压回纸面，不动全局几何与其它页面。 */
+html body .modal-card .field input:not([type="checkbox"]):not([type="radio"]) {
+  background: var(--zx-paper) !important;
+  border: 1px solid var(--zx-hair) !important;
+  color: var(--zx-ink) !important;
+  min-height: 44px;
+}
+html body .modal-card .field input[disabled] {
+  background: var(--zx-paper-2) !important;
+  color: var(--zx-muted) !important;
+}
+html body .modal-card .btn.sm { min-height: 44px; }

@@ -420,7 +420,7 @@ CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read, create
 CREATE TABLE IF NOT EXISTS email_verifications (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   email      TEXT NOT NULL,
-  scene      TEXT NOT NULL,                -- register / reset
+  scene      TEXT NOT NULL,                -- register / reset / email_change
   code_hash  TEXT NOT NULL,                -- 验证码只存哈希，不存明文
   ip         TEXT,
   expires_at TEXT NOT NULL,

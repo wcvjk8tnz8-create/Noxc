@@ -2,7 +2,7 @@
  * Profile 页面控制器（由 profile.html 内联脚本平移）
  * 外部符号由 runtime 提供；DOM 查询作用于当前挂载的页面。
  */
-import { api, esc, fmtTime, toast, openModal, closeModal, loadBranding, applyBranding, mountShell, MeoyRenderAvatars } from '../lib/runtime';
+import { api, esc, fmtTime, toast, openModal, closeModal, loadBranding, applyBranding, mountShell, MeoyRenderAvatars, refreshRuntime } from '../lib/runtime';
 import { nodelocStartUrl } from '../lib/oauthUrl';
 
 import type { LegacyCtx } from '../lib/types';
@@ -242,6 +242,83 @@ export async function mountProfile(_root: HTMLElement | null): Promise<void> {
     };
   };
   
+  /* ---------- 更换邮箱：验证码发到新邮箱，验证通过即写入 ----------
+     NodeLoc 登录建出来的 nl.<hex>@oauth.local 占位账号、以及第三方邮箱
+     用户，都能在这里换成自己真正收得到邮件的地址，不用等管理员。 */
+  const btnChangeMail = document.getElementById('btnChangeMail');
+  if (btnChangeMail) btnChangeMail.onclick = () => {
+    const cur = String((data && data.email) || '');
+    openModal('更换邮箱', `
+      <div class="field">
+        <label>当前邮箱</label>
+        <input id="chgCur" disabled value="${esc(cur)}">
+      </div>
+      <div class="field">
+        <label>新邮箱</label>
+        <input id="chgMail" type="email" autocomplete="off" placeholder="填入你能收到邮件的新地址">
+        <div class="hint">验证码会发到这个新邮箱，收到后填在下面即可完成更换。更换后请用新邮箱登录。</div>
+      </div>
+      <div class="field">
+        <label>验证码</label>
+        <div class="row" style="gap:8px;align-items:center">
+          <input id="chgCode" inputmode="numeric" maxlength="6" placeholder="6 位验证码" style="flex:1;min-width:0">
+          <button type="button" class="btn sm" id="btnChgSend">发送验证码</button>
+        </div>
+        <div class="hint" id="chgTip"></div>
+      </div>
+      <div class="row end">
+        <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn primary" id="btnChgOk">确认更换</button>
+      </div>`);
+
+    const sendBtn = document.getElementById('btnChgSend') as HTMLButtonElement | null;
+    const okBtn = document.getElementById('btnChgOk') as HTMLButtonElement | null;
+    const tip = document.getElementById('chgTip');
+    const newMail = () => String((document.getElementById('chgMail') as HTMLInputElement | null)?.value || '').trim();
+    const say = (msg, bad = false) => {
+      if (!tip) return;
+      tip.textContent = msg;
+      tip.style.color = bad ? 'var(--danger)' : 'var(--ok)';
+    };
+    let left = 0, timer: any = null;
+    const tick = () => {
+      if (!sendBtn || !sendBtn.isConnected) { if (timer) clearInterval(timer); return; }
+      if (left <= 0) { sendBtn.disabled = false; sendBtn.textContent = '发送验证码'; if (timer) clearInterval(timer); return; }
+      sendBtn.disabled = true;
+      // 纯数字倒计时：不带中文，英文模式不会夹生
+      sendBtn.textContent = `${left}s`;
+      left--;
+    };
+
+    if (sendBtn) sendBtn.onclick = async () => {
+      const mail = newMail();
+      if (!mail) { say('请先填写新邮箱', true); return; }
+      sendBtn.disabled = true;
+      try {
+        await api.post('/api/profile/email/send', { email: mail });
+        say('验证码已发送到新邮箱，10 分钟内有效');
+        left = 60;
+        tick();
+        timer = setInterval(tick, 1000);
+      } catch (e) { sendBtn.disabled = false; say(e.message || '发送失败，请稍后重试', true); }
+    };
+
+    if (okBtn) okBtn.onclick = async () => {
+      const mail = newMail();
+      const code = String((document.getElementById('chgCode') as HTMLInputElement | null)?.value || '').trim();
+      if (!mail || !code) { say('请填写新邮箱和验证码', true); return; }
+      okBtn.disabled = true;
+      try {
+        await api.post('/api/profile/email/confirm', { email: mail, code });
+        if (timer) clearInterval(timer);
+        closeModal();
+        toast('邮箱已更换，下次请用新邮箱登录');
+        await load();
+        try { refreshRuntime(); } catch (e) { /* 顶栏刷新失败不影响本次修改 */ }
+      } catch (e) { okBtn.disabled = false; say(e.message || '更换失败，请稍后重试', true); }
+    };
+  };
+
   /* ---------- 壁纸切换联动资料卡横幅 ---------- */
   (function syncBanner() {
     const apply = () => {

@@ -548,6 +548,11 @@ export const SERVER_DICT: Record<string, string> = {
     'Enforcement may include warnings, record limits, subdomain suspension, account bans, IP bans and clearing DNS records, in any combination.',
   '封禁后用户仍有异议的，可通过站点公告中提供的联系方式申诉，是否恢复由本站决定。':
     'Banned users may appeal via the contact details in site announcements; reinstatement is at our discretion.',
+  '新邮箱不能与当前邮箱相同': 'The new email cannot be the same as the current one',
+  '该邮箱已被其它账号使用': 'This email is already used by another account',
+  '邮箱更新失败，请稍后重试': 'Could not update the email, please try again',
+  '你正在进行更换账号邮箱操作。': 'You are changing your account email.',
+  '更换邮箱验证码': 'Email change verification code',
 };
 
 /** 带变量的消息：正则 → 英文模板（按数组顺序匹配，先到先得） */

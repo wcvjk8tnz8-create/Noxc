@@ -3,10 +3,17 @@
  * 独立表 user_profiles，不动 users 结构（避免已存在表补列失败）。
  */
 import { Hono } from 'hono';
-import { ok, fail, now, audit } from '../lib/util.js';
+import { ok, fail, now, audit, clientIp } from '../lib/util.js';
 import { AVATARS, DEFAULT_AVATAR, LEGACY_AVATAR } from '../lib/avatars.js';
+import { issueCode, checkCode, mailConfig, mailEnabled } from '../lib/mail.js';
+import { notify } from '../lib/notify.js';
+import { blockedEmailDomain, BLOCKED_EMAIL_MESSAGE } from '../lib/emailRule.js';
 
 const app = new Hono();
+
+/** 更换邮箱专用的验证码场景，与注册 / 重置密码隔离 */
+const EMAIL_CHANGE_SCENE = 'email_change';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /**
  * 老用户资料里可能存着旧版猫脸 SVG 的路径。
@@ -126,6 +133,102 @@ app.put('/', async (c) => {
   });
 });
 
+
+/**
+ * 校验「想改成的新邮箱」是否可用。
+ *
+ * 只保留三道硬门槛：格式合法、不是硬性封禁域名（一次性 / 保留 TLD）、
+ * 没有和当前邮箱相同、没被别的账号占用。
+ * 刻意**不套注册白名单 / edu 规则**：那是「谁能新注册」的门槛，
+ * 不是「已登录账号能不能换绑」的门槛。NodeLoc 登录建出来的账号、
+ * 以及第三方邮箱申请通过的用户，都应该能靠「新邮箱收得到验证码」
+ * 换成自己真正使用的地址。
+ */
+async function checkNewEmail(c: any, mail: string, currentEmail: string) {
+  if (!EMAIL_RE.test(mail)) return '请填写有效的邮箱地址';
+  if (mail === currentEmail) return '新邮箱不能与当前邮箱相同';
+  if (blockedEmailDomain(mail)) return BLOCKED_EMAIL_MESSAGE;
+  const taken: any = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(mail).first();
+  if (taken) return '该邮箱已被其它账号使用';
+  return '';
+}
+
+/** POST /api/profile/email/send —— 给新邮箱发更换邮箱验证码 */
+app.post('/email/send', async (c) => {
+  const u = c.get('user');
+  if (!u) return fail(c, '请先登录', 401, { needLogin: true });
+  const body = await c.req.json().catch(() => ({}));
+  const mail = String(body?.email || '').trim().toLowerCase();
+
+  const cfg = await mailConfig(c.env);
+  if (!mailEnabled(cfg)) {
+    return fail(
+      c,
+      '站点未配置邮件服务，无法发送验证码。请联系管理员在「站点设置 → 邮件与验证码」中配置 Resend 或 Brevo。',
+      503,
+      { mailNotConfigured: true }
+    );
+  }
+
+  const current = String(u.email || '').trim().toLowerCase();
+  const err = await checkNewEmail(c, mail, current);
+  if (err) return fail(c, err, 400);
+
+  // 节流：同一邮箱 60 秒内不重复发送；按 IP 也限一次，防止换邮箱穷举
+  const recent: any = await c.env.DB.prepare(
+    'SELECT created_at FROM email_verifications WHERE email = ? AND scene = ? ORDER BY id DESC LIMIT 1'
+  ).bind(mail, EMAIL_CHANGE_SCENE).first();
+  if (recent?.created_at && Date.now() - Number(recent.created_at) < 60_000) {
+    return fail(c, '发送过于频繁，请 60 秒后再试');
+  }
+
+  const r = await issueCode(c.env, mail, EMAIL_CHANGE_SCENE, clientIp(c));
+  if (!r.sent) return fail(c, r.warning || '验证码发送失败', 502);
+  // 返回体不含验证码；devCode 只在未配置服务商时出现，上面已拦截
+  return ok(c, { sent: true, expiresIn: 600 });
+});
+
+/** POST /api/profile/email/confirm —— 校验验证码并写入新邮箱 */
+app.post('/email/confirm', async (c) => {
+  const u = c.get('user');
+  if (!u) return fail(c, '请先登录', 401, { needLogin: true });
+  const body = await c.req.json().catch(() => ({}));
+  const mail = String(body?.email || '').trim().toLowerCase();
+  const code = String(body?.code || '').trim();
+
+  const current = String(u.email || '').trim().toLowerCase();
+  const err = await checkNewEmail(c, mail, current);
+  if (err) return fail(c, err, 400);
+
+  // checkCode 通过后会把该码标记 used，天然一次性
+  const v = await checkCode(c.env, mail, EMAIL_CHANGE_SCENE, code);
+  if (!v.ok) return fail(c, v.reason || '验证码不正确', 400, { needCode: true });
+
+  // 并发兜底：发码到确认之间邮箱可能被人抢注，再查一次
+  const taken: any = await c.env.DB.prepare('SELECT id FROM users WHERE email = ? AND id <> ?')
+    .bind(mail, u.id).first();
+  if (taken) return fail(c, '该邮箱已被其它账号使用', 400);
+
+  try {
+    await c.env.DB.prepare('UPDATE users SET email = ? WHERE id = ?').bind(mail, u.id).run();
+  } catch {
+    return fail(c, '邮箱更新失败，请稍后重试');
+  }
+  // NodeLoc 绑定奖励记录里也存过邮箱，/status 要跟着显示新值。
+  // 注意：oauth_bindings 的 provider+sub 不变，用户自助改的邮箱不会被下次
+  // OAuth 登录覆盖（repairOauthEmail 只认 nl.<hex>@oauth.local 占位格式）。
+  await c.env.DB.prepare('UPDATE oauth_quota_grants SET email = ? WHERE provider = ? AND user_id = ?')
+    .bind(mail, 'nodeloc', u.id).run().catch(() => null);
+
+  await audit(c, u.id, 'user.email_change', current, `${current} → ${mail}（新邮箱验证码通过）`);
+  // 拆成固定短句 + 变量，英文模式下前端词典能逐句翻译，不会整段夹生
+  await notify(
+    c.env, u.id, 'system', '账号邮箱已更换',
+    `你的邮箱已更换。新邮箱：${mail}；原邮箱：${current}；操作 IP：${clientIp(c) || '未知'}。若非本人操作请立即联系管理员。`,
+    '/profile.html'
+  ).catch(() => null);
+  return ok(c, { email: mail });
+});
 
 /** POST /api/profile/avatar —— 上传自定义头像到 R2（multipart/form-data） */
 app.post('/avatar', async (c) => {

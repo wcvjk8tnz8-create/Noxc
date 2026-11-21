@@ -108,15 +108,21 @@ export async function issueCode(env, email, scene, ip) {
 
   const siteName =
     (await env.DB.prepare("SELECT value FROM settings WHERE key = 'site_name'").first())?.value || 'Noxc';
-  const isReset = scene === 'reset';
-  const subject = isReset ? `${siteName} 重置密码验证码` : `${siteName} 注册验证码`;
-  const text = `你的验证码是 ${code}，10 分钟内有效。如非本人操作请忽略此邮件。`;
+  /* 场景文案：注册 / 重置密码 / 更换账号邮箱，共用同一套验证码与节流 */
+  const SCENE: Record<string, { subject: string; action: string }> = {
+    register: { subject: '注册验证码', action: '注册' },
+    reset: { subject: '重置密码验证码', action: '重置密码' },
+    email_change: { subject: '更换邮箱验证码', action: '更换账号邮箱' },
+  };
+  const meta = SCENE[scene] || SCENE.register;
+  const subject = `${siteName} ${meta.subject}`;
+  const text = `你的验证码是 ${code}，10 分钟内有效。你正在进行${meta.action}操作。如非本人操作请忽略此邮件。`;
   const html = `
 <div style="font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;max-width:520px;margin:0 auto;padding:28px">
   <h2 style="margin:0 0 18px;color:#4f9bff">${siteName}</h2>
   <p style="color:#27345a;font-size:15px;line-height:1.7">你好，</p>
   <p style="color:#27345a;font-size:15px;line-height:1.7">
-    你正在进行${isReset ? '重置密码' : '注册'}操作，验证码为：
+    你正在进行${meta.action}操作，验证码为：
   </p>
   <div style="margin:22px 0;padding:18px;text-align:center;background:#eaf3ff;border-radius:14px">
     <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#2c4a86">${code}</span>

@@ -66,7 +66,7 @@ export default function ProfilePage() {
               <div className="field">
                 <label>邮箱</label>
                 <input id="fMail" disabled />
-                <div className="hint">邮箱即登录账号，暂不支持自助修改。如有需要请联系管理员。</div>
+                <div className="hint">邮箱即登录账号。如需更换，请在下方「安全设置」里通过新邮箱验证码修改。</div>
               </div>
               <div className="field">
                 <label>头像</label>
@@ -104,7 +104,7 @@ export default function ProfilePage() {
               </div>
               <div className="sec-row">
                 <div><div className="sec-t">账号邮箱</div><div className="sec-d" id="secMail">—</div></div>
-                <span className="badge">已绑定</span>
+                <button className="btn sm" id="btnChangeMail" type="button">更换邮箱</button>
               </div>
               {/* 站点启用 NodeLoc 登录后才由控制器显示 */}
               <div className="sec-row td-oauth-row" id="nodelocRow" hidden>
