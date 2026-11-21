@@ -10,6 +10,7 @@ import { reservedLabelsOf } from './lib/reserved.js';
 import { publicStats } from './lib/publicStats.js';
 import { nodelocEnabled } from './lib/nodeloc.js';
 import { rootPageFor } from './html/rootPages.js';
+import { docsHtml } from './html/docs.js';
 import { Hono } from 'hono';
 import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
 import { ok, fail, defaultQuotaOf } from './lib/util.js';
@@ -78,7 +79,8 @@ app.use('*', async (c, next) => {
 
   // ③ whois.<域>/<名称> 直接查询：仅限单一路径段且不是任何已知页面
   const KNOWN = new Set(['whois', 'whois.html', 'dashboard', 'dashboard.html',
-    'admin', 'admin.html', 'domain', 'domain.html', 'terms', 'terms.html', 'index.html']);
+    'admin', 'admin.html', 'domain', 'domain.html', 'terms', 'terms.html', 'index.html',
+    'docs', 'docs.html']);
   if (!KNOWN.has(root.toLowerCase()) && !/[./]/.test(root) && !u.search) {
     return c.redirect(`/whois.html?name=${encodeURIComponent(root)}`, 302);
   }
@@ -110,6 +112,11 @@ app.use('*', async (c, next) => {
   } catch { /* settings 表尚未建立等异常：降级走原环境变量，不影响站点 */ }
   return next();
 });
+
+/* 旧链接 /docs/dnshe 一律回到直出页的 DNSHE 章节，不留 404。
+   /docs 本体在下方 app.all('*') 里按 path 由 TypeScript 模板直出。 */
+app.get('/docs/dnshe', (c) => c.redirect('/docs#dnshe', 302));
+app.get('/docs/dnshe.html', (c) => c.redirect('/docs#dnshe', 302));
 
 // 健康检查
 app.get('/api/health', (c) =>
@@ -298,10 +305,10 @@ const SPA_PATHS = new Set([
   '/', '/index.html', '/home.html', '/dashboard.html', '/domain.html',
   '/register.html', '/whois.html', '/admin.html', '/checkin.html',
   '/rewards.html', '/chat.html', '/tickets.html', '/transfer.html',
-  '/profile.html', '/terms.html',
+  '/profile.html', '/terms.html', '/docs.html',
   '/login', '/login.html', '/home', '/dashboard', '/domain', '/register', '/whois',
   '/admin', '/checkin', '/rewards', '/chat', '/tickets', '/transfer',
-  '/profile', '/terms',
+  '/profile', '/terms', '/docs',
 ]);
 app.all('*', async (c) => {
   const reqUrl = new URL(c.req.url);
@@ -312,6 +319,11 @@ app.all('*', async (c) => {
     const rootPage = rootPageFor(reqUrl.hostname);
     if (rootPage) return c.html(rootPage);
   }
+  /* 服务文档：TypeScript 模板直出。纯阅读页不需要登录态、不需要
+     refreshRuntime 那一串首屏接口，也不挂载 React —— 一个 HTML 请求就完，
+     比走 SPA 快一截（用户反复反馈过切页 / 加载慢）。
+     /docs 仍留在 SPA_PATHS 里作兜底：直出不可用时 ASSETS 回落不会 404。 */
+  if (path === '/docs' || path === '/docs.html') return c.html(docsHtml);
   if (SPA_PATHS.has(path) || SPA_PATHS.has(path + '.html')) {
     const url = new URL('/', c.req.url);
     return c.env.ASSETS.fetch(new Request(url, c.req.raw));

@@ -763,6 +763,12 @@ check(
   /HOSTING_NS_PRESETS/.test(mdRec),
   'DNSHE 托管 NS 预设为用户给出的两台服务器'
 );
+const mdDelegation = read('src/lib/delegation.ts');
+check(
+  /ns: \['ns1\.dnshe\.org', 'ns2\.dnshe\.org'\]/.test(mdDelegation) &&
+  !/ns1\.dnshe\.com/.test(mdDelegation),
+  'NS 委派页与一键预设使用同一组 DNSHE 名称服务器'
+);
 check(
   /NS: \{/.test(mdRec) && /case 'NS'/.test(mdRec) &&
   /TYPE_NAMES = Object\.keys\(RECORD_TYPES\)/.test(mdRec),
@@ -787,6 +793,68 @@ check(
   /NS 记录也是普通 DNS 记录/.test(mdDomainPage) && /一键添加 DNSHE NS/.test(mdDict) &&
   /已添加 \(\\d\+\) 条 NS 记录/.test(mdI18n),
   '页面说明、英文词条与动态数量句式都齐，英文模式不夹生'
+);
+
+/* 站内服务文档入口：导航 / 页脚 / 根域名页 / 静态导出都要指向 /docs */
+const docIndex = read('src/index.ts');
+const docRuntime = read('src/app/lib/runtime.ts');
+const docHome = read('src/app/pages/Home.tsx');
+check(
+  /href="\/docs"/.test(docRuntime) && /href="\/docs"/.test(docHome) &&
+  /服务文档/.test(mdDict),
+  '控制台 / 首页 / 英文词条都有服务文档入口'
+);
+check(
+  /data-go="\/docs"/.test(read('src/html/root-meoy.ts')) &&
+  /data-go="\/docs"/.test(read('src/html/root-v1.ts')),
+  '两个根域名页也挂服务文档入口'
+);
+check(
+  /docs\.html/.test(read('scripts/emit-static-pages.ts')),
+  '静态托管也能一键导出 docs.html'
+);
+
+/* 服务文档静态直出页：TypeScript 模板 + 8 张截图 + 图 7→图 8 的关键一步 */
+const docStatic = read('src/html/docs.ts');
+const docApp = read('src/app/App.tsx');
+check(
+  !/'\/docs'\s*:\s*[A-Za-z]+Page/.test(docApp) && !/import DocsPage/.test(docApp),
+  '/docs 不注册成 SPA 路由：站内链接整页跳到直出页，不会被拦截成首页'
+);
+check(
+  /import \{ docsHtml \} from '\.\/html\/docs\.js'/.test(docIndex) &&
+  /path === '\/docs' \|\| path === '\/docs\.html'/.test(docIndex) &&
+  /c\.html\(docsHtml\)/.test(docIndex),
+  '/docs 由 TypeScript 模板在 Worker 直出，不经 SPA / 不发首屏接口'
+);
+check(
+  /<style>/.test(docStatic) && /<\/style>/.test(docStatic) &&
+  /data-en=/.test(docStatic) && /viewport/.test(docStatic) &&
+  !/<script[^>]+src="https?:/.test(docStatic),
+  '文档页自带样式 / 中英词条 / 手机 viewport，不依赖外部字体与脚本'
+);
+check(
+  Array.from({ length: 8 }, (_, i) => i + 1).every((n) =>
+    new RegExp('fig' + n + '\\.png').test(docStatic) &&
+    fs.existsSync(path.join(root, 'public/img/docs/fig' + n + '.png'))),
+  '图 1～图 8 全部引用且八张截图都在 public/img/docs 下'
+);
+const staticBridge = docStatic.slice(docStatic.indexOf('fig7.png'), docStatic.indexOf('fig8.png'));
+check(
+  /Add DNS records/.test(docStatic) && /Check again/.test(docStatic) &&
+  /Cancel/.test(docStatic) && staticBridge.length > 0 &&
+  /Add DNS records/.test(staticBridge) && /Check again/.test(staticBridge),
+  '文档明确写出：图 7 必须点 Add DNS records 才会出现图 8'
+);
+check(
+  /ns1\.dnshe\.org/.test(docStatic) && /ns1\.dnshe\.com/.test(docStatic) &&
+  /专属于在 DNSHE 注册的域名/.test(docStatic) && /api005\.dnshe\.com/.test(docStatic),
+  '静态文档同样写清 .org / .com 两套 NS 与 API 网关区别'
+);
+const staticNoBridge = docStatic.replace(/Add DNS records/g, 'Check again');
+check(
+  !/Add DNS records/.test(staticNoBridge) && staticNoBridge !== docStatic,
+  '反向对照：拿掉 Add DNS records，静态文档断言必须失败'
 );
 
 for (const m of ok) console.log('  ✓ ' + m);

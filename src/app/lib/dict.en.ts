@@ -10,6 +10,11 @@
  * 长句整译优先；短词用于 translateText 的全匹配与「全中文可消费」判定。
  */
 export const EXTRA_DICT: Record<string, string> = {
+  /* ── 站内服务文档 /docs ── */
+  '服务文档': 'Service Docs',
+  '一页读懂': 'in one page',
+  '目录': 'Contents',
+  '关于这套软件本身': 'About the software itself',
   /* ── 提交后弹窗滑块验证 ── */
   '提交前验证': 'Before you submit',
   '完成安全验证后自动提交': 'Verify once, then we submit automatically',

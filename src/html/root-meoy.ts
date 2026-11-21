@@ -268,6 +268,7 @@ ${reverieRootCss}
       <a id="reportLink" href="#"><span data-i18n="legalReport">Report abuse</span></a>
       <a id="abuseMail" href="#"><span data-i18n="legalMail">abuse@meoy.top</span></a>
       <a data-go="/terms" href="#"><span data-i18n="legalTos">Terms</span></a>
+      <a data-go="/docs" href="#"><span data-i18n="legalDocs">Service Docs</span></a>
       <a data-go="/register" href="#"><span data-i18n="legalReg">Register →</span></a>
     </div>
   </main>
@@ -302,7 +303,7 @@ var DICT = {
     rootNote:"Default root · 12 DNS record types",
     m1:"12 record types",m2:"Global Anycast",m3:"Free, forever",
     legal:"DNS resolution only. Owners are solely responsible for their content.",
-    legalReport:"Report abuse",legalMail:"abuse@" + ROOT,legalTos:"Terms",legalReg:"Register →"
+    legalReport:"Report abuse",legalMail:"abuse@" + ROOT,legalTos:"Terms",legalDocs:"Service Docs",legalReg:"Register →"
   },
   zh: {
     navWhois:"WHOIS 查询",navTos:"服务条款",navReport:"举报滥用",navConsole:"控制台",
@@ -314,7 +315,7 @@ var DICT = {
     rootNote:"默认根后缀 · 12 种 DNS 记录",
     m1:"12 种记录类型",m2:"全球 Anycast",m3:"永久免费",
     legal:"本站仅提供 DNS 解析，各子域名的内容与用途由所有者独立负责。",
-    legalReport:"举报滥用",legalMail:"abuse@" + ROOT,legalTos:"服务条款",legalReg:"免费注册 →"
+    legalReport:"举报滥用",legalMail:"abuse@" + ROOT,legalTos:"服务条款",legalDocs:"服务文档",legalReg:"免费注册 →"
   }
 };
 
