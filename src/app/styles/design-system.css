@@ -1,17 +1,22 @@
-/* ══════════════════════════════════════════════════════════════
-   Noxc · Zerexa Simple —— 收口层（最后加载）
-   ──────────────────────────────────────────────────────────────
-   目标：
-     · 移除任何绿色与毛玻璃元素：backdrop-filter 全清、玻璃渐变改实色；
-     · 只保留 logo 三色：冷白 / 近黑墨 / 一颗 Noxc 蓝 #1667f2；
-     · 侧边栏、顶栏的「形状」完全不动（不写 position/left/top/width/border-radius），
-       只换材质：实色面 + 1px 发丝线 + 零阴影；
-     · 回到 Zerexa 骨架：超大衬线标题、等宽小标、细线分栏、单屏留白；
-     · 英文模式全部走 Redaction 35；中文标题走衬线、正文走系统无衬线。
-   ══════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   Noxc · design-system.css
+   ──────────────────────────────────────────────────────────────────────
+   全站唯一视觉源。最后加载：定义令牌 + Zerexa 排版骨架 + 组件材质兜底。
+
+   架构（6 层，不再叠收口层）：
+     shell.css          结构 / 几何（历史 6 层按原顺序合并，颜色已令牌化）
+     responsive.css     断点几何
+     motion.css         动效
+     captcha.css        滑块验证（tdcap- 前缀，独立）
+     oauth.css          NodeLoc 登录（td-oauth- 前缀，独立）
+     design-system.css  本文件：令牌 + Zerexa 视觉
+
+   Zerexa 骨架：超大衬线标题 / 等宽小标 / 1px 发丝线分栏 / 单屏留白。
+   侧栏浮岛与胶囊顶栏的形状由 shell.css 决定，本文件不写几何。
+   ══════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── 设计令牌：logo 色 ── */
+  /* ── 面与墨：只取 logo 三色 ── */
   --zx-paper: #ffffff;
   --zx-paper-2: #f7f9fc;
   --zx-ink: #111318;
@@ -19,18 +24,34 @@
   --zx-muted: #8b94a3;
   --zx-hair: rgba(17, 19, 24, .13);
   --zx-hair-2: rgba(17, 19, 24, .07);
+  --zx-ink-a30: rgba(17, 19, 24, .30);
+
+  /* ── 唯一强调色：Noxc 蓝 ── */
   --zx-blue: #1667f2;
   --zx-blue-deep: #0b47c4;
   --zx-blue-soft: #e8f0ff;
+  --zx-blue-a8: rgba(22, 103, 242, .08);
+  --zx-blue-a16: rgba(22, 103, 242, .16);
+  --zx-blue-a30: rgba(22, 103, 242, .30);
 
-  /* ── 字体：英文 Redaction 35，中文标题衬线 / 正文无衬线 ── */
+  /* ── 功能语义色：不参与品牌色板，仅保可辨识 ── */
+  --zx-danger: #b4232c;
+  --zx-danger-a16: rgba(180, 35, 44, .16);
+  --zx-warn: #9a6700;
+
+  /* ── 材质 ── */
+  --zx-glass: var(--zx-paper);
+  --zx-shadow: none;
+  --zx-radius: 18px;
+
+  /* ── 字：英文 Redaction 35；中文标题衬线、正文无衬线 ── */
   --zx-serif: "Redaction 35", "Noto Serif CJK SC", "Source Han Serif SC",
     "Songti SC", "STSong", Georgia, "Times New Roman", serif;
   --zx-sans: "Redaction 35", -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
   --zx-mono: "Redaction 35", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
-  /* ── 历史层的绿色令牌一律换成 logo 蓝 ── */
+  /* ── 历史别名统一指向本组令牌（shell.css 内残留的 var() 自动生效） ── */
   --rv-fern: var(--zx-blue);
   --rv-fern-deep: var(--zx-blue-deep);
   --rv-fern-soft: var(--zx-blue-soft);
@@ -38,7 +59,7 @@
   --rv-blue-soft: var(--zx-blue-soft);
   --rv-paper: var(--zx-paper);
   --rv-paper-2: var(--zx-paper-2);
-  --rv-card: #ffffff;
+  --rv-card: var(--zx-paper);
   --rv-ink: var(--zx-ink);
   --rv-body: var(--zx-body);
   --rv-muted: var(--zx-muted);
@@ -47,24 +68,26 @@
   --rv-serif: var(--zx-serif);
   --rv-sans: var(--zx-sans);
   --rv-mono: var(--zx-mono);
+  --rv-bad: var(--zx-danger);
 
   --lg-green: var(--zx-blue);
   --lg-green-deep: var(--zx-blue-deep);
-  --lg-green-bright: #4a8bff;
-  --lg-green-soft: rgba(22, 103, 242, .10);
+  --lg-green-bright: var(--zx-blue);
+  --lg-green-soft: var(--zx-blue-a8);
   --lg-ink: var(--zx-ink);
   --lg-muted: var(--zx-muted);
   --lg-hair: var(--zx-hair);
   --lg-paper: var(--zx-paper);
-  --lg-glass: #ffffff;
-  --lg-glass-soft: #ffffff;
+  --lg-glass: var(--zx-paper);
+  --lg-glass-soft: var(--zx-paper-2);
   --lg-stroke: var(--zx-hair);
   --lg-input-line: var(--zx-hair);
-  --lg-active: rgba(22, 103, 242, .08);
+  --lg-active: var(--zx-blue-a8);
   --lg-shadow: none;
   --lg-shadow-sm: none;
   --lg-blur: none;
   --lg-blur-sm: none;
+  --lg-th: transparent;
 
   --td-paper: var(--zx-paper);
   --td-surface: var(--zx-paper);
@@ -75,15 +98,25 @@
   --td-line-2: var(--zx-hair-2);
   --td-accent: var(--zx-blue);
   --td-accent-soft: var(--zx-blue-soft);
+  --td-ok: var(--zx-blue);
+  --td-warn: var(--zx-warn);
+  --td-bad: var(--zx-danger);
+  --td-shadow: none;
   --td-serif: var(--zx-serif);
   --td-mono: var(--zx-mono);
+
   --blue: var(--zx-blue);
-  --blue2: #4a8bff;
+  --blue2: var(--zx-blue);
   --blue-soft: var(--zx-blue-soft);
   --c1: var(--zx-blue);
+  --shadow: none;
+  --primary: 217 91% 52%;
+  --ring: 217 91% 52%;
+  --info: 217 91% 52%;
+  --success: 217 91% 52%;
 }
 
-[data-theme="dark"] {
+html[data-theme="dark"] {
   --zx-paper: #0b0d11;
   --zx-paper-2: #141922;
   --zx-ink: #f5f7fb;
@@ -91,13 +124,26 @@
   --zx-muted: #7c8798;
   --zx-hair: rgba(226, 235, 250, .16);
   --zx-hair-2: rgba(226, 235, 250, .085);
+  --zx-ink-a30: rgba(226, 235, 250, .30);
   --zx-blue: #5b93ff;
   --zx-blue-deep: #8ab4ff;
   --zx-blue-soft: #16233c;
+  --zx-blue-a8: rgba(91, 147, 255, .08);
+  --zx-blue-a16: rgba(91, 147, 255, .16);
+  --zx-blue-a30: rgba(91, 147, 255, .30);
+  --zx-danger: #ff8089;
+  --zx-danger-a16: rgba(255, 128, 137, .16);
+  --zx-warn: #e0b46b;
   --rv-card: #141922;
   --lg-glass: #10151d;
   --lg-glass-soft: #10151d;
   --lg-active: rgba(91, 147, 255, .14);
+  --td-side: #141922;
+  --td-surface: #141922;
+  --primary: 217 91% 62%;
+  --ring: 217 91% 62%;
+  --info: 217 91% 62%;
+  --success: 217 91% 62%;
 }
 
 /* ── 1. 毛玻璃：任何元素都不再模糊背景（侧栏 / 顶栏形状不动） ── */
@@ -342,8 +388,6 @@ html body a.rv-pill.sm,
 html body button.rv-pill.sm,
 html body .rv-ask-btn { min-height: 44px !important; }
 
-
-
 /* ==========================================================================
    NOXC-DEGLASS-SEAL · 去绿色毛玻璃 / 简约收口（导入链最后一层）
    保留浮岛侧栏、胶囊顶栏、全圆角与尺寸；只把材质换成实色纸面，
@@ -403,4 +447,16 @@ html[data-theme="dark"] {
 html:not([data-theme="dark"]) {
   --lg-glass-soft: #f7f8fa; --lg-active: rgba(22,103,242,.08);
   --bl-jade: #1667f2; --bl-cyan: #5b93ff; --blue-soft: #e8f0ff;
+}
+
+/* ── 收口：历史层的彩色统计卡渐变 / 装饰底图一律不进 Zerexa 纸面 ──
+   .stat-card.sc-pink 之类自带 linear-gradient，特异性高于通用卡片规则，
+   必须用 !important 压成实色；logo 三色之外不再出现第二种品牌色。 */
+html body .stat-card,
+html body .quick,
+html body .card,
+html body .pane,
+html body .modal-card,
+html body .welcome {
+  background-image: none !important;
 }

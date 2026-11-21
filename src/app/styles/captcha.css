@@ -1,260 +1,227 @@
-/* Noxc · 滑块拼图验证
-   放在 Reverie 之后收口：Reverie 是视觉权威层，本层只用 tdcap- 前缀，
-   不覆盖全站类名；关键圆角/布局加 !important 防历史层 !important 回压。 */
+
 
 .tdcap {
-  --cap-ink: #111318;
-  --cap-green: #111318;
-  --cap-jade: #5b93ff;
-  --cap-paper: rgba(250, 249, 244, .88);
-  --cap-line: rgba(17,19,24,.16);
+  --cap-ink: var(--zx-blue-deep);
+  --cap-green: var(--zx-blue-deep);
+  --cap-jade: var(--zx-blue);
+  --cap-paper: var(--zx-danger-a16);
+  --cap-line: var(--zx-blue-a16);
   margin: 18px 0 4px;
   padding: 16px 16px 12px;
   background: var(--cap-paper);
-  -webkit-backdrop-filter: blur(18px) saturate(1.15);
-  backdrop-filter: blur(18px) saturate(1.15);
   border: 1px solid var(--cap-line);
   border-radius: 20px !important;
-  box-shadow: 0 10px 34px rgba(17,19,24,.09), inset 0 1px 0 rgba(255, 255, 255, .7);
-  max-width: 100%;
-}
+  box-shadow: none;
+  max-width: 100%;}
 
 .tdcap-head {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-bottom: 12px;
-}
+  margin-bottom: 12px;}
 .tdcap-title {
   font-size: 15px; font-weight: 600; letter-spacing: .02em;
-  color: var(--cap-green);
-}
-.tdcap-sub { font-size: 12px; color: #5b93ff; flex: 1 1 160px; }
+  color: var(--cap-green);}
+.tdcap-sub { font-size: 12px; color: var(--zx-blue); flex: 1 1 160px;}
 .tdcap-refresh {
   min-height: 44px; padding: 0 14px;
-  border: 1px solid var(--cap-line) !important;
+  border: 1px solid var(--cap-line);
   border-radius: 999px !important;
   background: transparent; color: var(--cap-green);
   font-size: 12px; cursor: pointer;
-  transition: background .2s ease, transform .2s ease;
-}
-.tdcap-refresh:hover { background: rgba(91,147,255,.16); transform: translateY(-1px); }
+  transition: background .2s ease, transform .2s ease;}
+.tdcap-refresh:hover { background: var(--zx-blue-a16); transform: translateY(-1px);}
 
 .tdcap-stage {
   position: relative; width: 100%;
   border-radius: 14px !important;
   overflow: hidden;
-  background: #e9f0ea;
-  box-shadow: inset 0 0 0 1px rgba(17,19,24,.1);
-  user-select: none; -webkit-user-select: none;
-}
+  background: var(--zx-blue-soft);
+  box-shadow: none;
+  user-select: none; -webkit-user-select: none;}
 .tdcap-bg {
   position: absolute; inset: 0;
   width: 100%; height: 100%; object-fit: cover;
   display: block; pointer-events: none;
-  -webkit-user-drag: none;
-}
+  -webkit-user-drag: none;}
 .tdcap-hole {
   position: absolute;
   border-radius: 10px !important;
-  background: rgba(17,19,24,.46);
-  border: 2px solid rgba(255, 255, 255, .86);
-  box-shadow: inset 0 3px 10px rgba(0, 0, 0, .5), 0 0 0 1px rgba(0, 0, 0, .18);
-  pointer-events: none;
-}
+  background: var(--zx-blue-a30);
+  border: 2px solid var(--zx-ink-a30);
+  box-shadow: none;
+  pointer-events: none;}
 .tdcap-piece {
   position: absolute;
   border-radius: 10px !important;
-  border: 2px solid rgba(255, 255, 255, .92);
+  border: 2px solid var(--zx-ink-a30);
   background-repeat: no-repeat;
-  box-shadow: 0 5px 16px rgba(17,19,24,.34);
+  box-shadow: none;
   will-change: transform;
-  pointer-events: none;
-}
+  pointer-events: none;}
 .tdcap-mask {
   position: absolute; inset: 0;
   display: grid; place-items: center;
-  background: rgba(247, 245, 239, .72);
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-  font-size: 13px; color: var(--cap-green);
-}
-.tdcap-click { cursor: pointer; }
+  background: var(--zx-danger-a16);
+  font-size: 13px; color: var(--cap-green);}
+.tdcap-click { cursor: pointer;}
 .tdcap-pass {
   position: absolute; left: 10px; bottom: 10px;
   padding: 6px 14px; border-radius: 999px !important;
-  background: rgba(17,19,24,.92); color: #fff;
+  background: var(--zx-blue-a30); color: var(--zx-paper);
   font-size: 12px; letter-spacing: .02em;
-  box-shadow: 0 4px 14px rgba(17,19,24,.28);
-  animation: tdcap-in .32s cubic-bezier(.22, 1, .36, 1) both;
-}
+  box-shadow: none;
+  animation: tdcap-in .32s cubic-bezier(.22, 1, .36, 1) both;}
 
 .tdcap-track {
   position: relative; height: 48px; margin-top: 14px;
   border-radius: 999px !important;
-  background: rgba(17,19,24,.07);
-  box-shadow: inset 0 0 0 1px var(--cap-line);
-  touch-action: none;              /* 手机拖动不带着页面滚 */
-  overflow: hidden;
-}
+  background: var(--zx-blue-a8);
+  box-shadow: none;
+  touch-action: none;              
+  overflow: hidden;}
 .tdcap-fill {
   position: absolute; left: 0; top: 0; bottom: 0;
   border-radius: 999px !important;
-  background: linear-gradient(90deg, rgba(91,147,255,.5), rgba(17,19,24,.42));
+  background: var(--zx-paper);
   pointer-events: none;
-  transition: width .06s linear;
-}
+  transition: width .06s linear;}
 .tdcap-hint {
   position: absolute; inset: 0;
   display: grid; place-items: center;
-  font-size: 12px; color: #5b93ff;
+  font-size: 12px; color: var(--zx-blue);
   pointer-events: none;
-  transition: opacity .22s ease;
-}
-.tdcap-hint.gone { opacity: 0; }
+  transition: opacity .22s ease;}
+.tdcap-hint.gone { opacity: 0;}
 .tdcap-knob {
   position: absolute; left: 0; top: 2px;
   width: 44px; height: 44px; min-width: 44px; min-height: 44px;
   display: grid !important; place-items: center;
   padding: 0 !important;
-  border: 2px solid #fff !important;
+  border: 2px solid var(--zx-paper);
   border-radius: 50% !important;
-  background: var(--cap-green) !important;
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(17,19,24,.28);
+  background: var(--cap-green);
+  color: var(--zx-paper);
+  box-shadow: none;
   cursor: grab; touch-action: none; user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: box-shadow .2s ease, background .2s ease;
-}
-.tdcap-knob:active { cursor: grabbing; box-shadow: 0 6px 20px rgba(17,19,24,.36); }
-.tdcap-knob img { width: 28px; height: 28px; object-fit: contain; pointer-events: none; }
-.tdcap-arrow { display: none; font-size: 24px; line-height: 1; }
-.tdcap-knob:focus-visible { outline: 3px solid var(--cap-jade); outline-offset: 3px; }
-.tdcap.is-ok .tdcap-knob { background: #4a8bff !important; cursor: default; }
-.tdcap.is-ok .tdcap-track { background: rgba(27,36,48,.12); }
-.tdcap.is-bad .tdcap-knob { animation: tdcap-shake .42s cubic-bezier(.36, .07, .19, .97) both; }
-.tdcap.is-bad .tdcap-foot { color: #b0443c; }
+  transition: box-shadow .2s ease, background .2s ease;}
+.tdcap-knob:active { cursor: grabbing; box-shadow: none;}
+.tdcap-knob img { width: 28px; height: 28px; object-fit: contain; pointer-events: none;}
+.tdcap-arrow { display: none; font-size: 24px; line-height: 1;}
+.tdcap-knob:focus-visible { outline: 3px solid var(--cap-jade); outline-offset: 3px;}
+.tdcap.is-ok .tdcap-knob { background: var(--zx-blue); cursor: default;}
+.tdcap.is-ok .tdcap-track { background: var(--zx-blue-a16);}
+.tdcap.is-bad .tdcap-knob { animation: tdcap-shake .42s cubic-bezier(.36, .07, .19, .97) both;}
+.tdcap.is-bad .tdcap-foot { color: var(--zx-danger);}
 
 .tdcap-foot {
   margin-top: 9px; min-height: 18px;
-  font-size: 12px; color: #5b93ff;
-}
-.tdcap.is-ok .tdcap-foot { color: #4a8bff; }
+  font-size: 12px; color: var(--zx-blue);}
+.tdcap.is-ok .tdcap-foot { color: var(--zx-blue);}
 
 @keyframes tdcap-in {
-  from { opacity: 0; transform: translateY(8px) scale(.96); }
-  to   { opacity: 1; transform: none; }
+  from { opacity: 0; transform: translateY(8px) scale(.96);}
+  to   { opacity: 1; transform: none;}
 }
 @keyframes tdcap-shake {
-  10%, 90% { transform: translateX(-1px); }
-  20%, 80% { transform: translateX(2px); }
-  30%, 50%, 70% { transform: translateX(-4px); }
-  40%, 60% { transform: translateX(4px); }
+  10%, 90% { transform: translateX(-1px);}
+  20%, 80% { transform: translateX(2px);}
+  30%, 50%, 70% { transform: translateX(-4px);}
+  40%, 60% { transform: translateX(4px);}
 }
 
-/* 深色：与全站壁纸夜色版一致（显式主题 + 跟随系统两种入口） */
+
 html[data-theme="dark"] .tdcap {
-  --cap-ink: #e9f1ec;
-  --cap-green: #e6ebf5;
-  --cap-jade: #5b93ff;
-  --cap-paper: rgba(17,19,24,.84);
-  --cap-line: rgba(226,235,250,.2);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(255, 255, 255, .06);
-}
+  --cap-ink: var(--zx-blue-soft);
+  --cap-green: var(--zx-blue-soft);
+  --cap-jade: var(--zx-blue);
+  --cap-paper: var(--zx-blue-a30);
+  --cap-line: var(--zx-blue-a16);
+  box-shadow: none;}
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]) .tdcap {
-    --cap-ink: #e9f1ec;
-    --cap-green: #e6ebf5;
-    --cap-jade: #5b93ff;
-    --cap-paper: rgba(17,19,24,.84);
-    --cap-line: rgba(226,235,250,.2);
-  }
+    --cap-ink: var(--zx-blue-soft);
+    --cap-green: var(--zx-blue-soft);
+    --cap-jade: var(--zx-blue);
+    --cap-paper: var(--zx-blue-a30);
+    --cap-line: var(--zx-blue-a16);}
 }
-html[data-theme="dark"] .tdcap-stage { background: #111318; }
-html[data-theme="dark"] .tdcap-track { background: rgba(226,235,250,.09); }
+html[data-theme="dark"] .tdcap-stage { background: var(--zx-blue-deep);}
+html[data-theme="dark"] .tdcap-track { background: var(--zx-blue-a8);}
 html[data-theme="dark"] .tdcap-sub,
 html[data-theme="dark"] .tdcap-hint,
-html[data-theme="dark"] .tdcap-foot { color: #e6ebf5; }
-html[data-theme="dark"] .tdcap-mask { background: rgba(17,19,24,.74); }
-html[data-theme="dark"] .tdcap-knob { background: #4a8bff !important; }
+html[data-theme="dark"] .tdcap-foot { color: var(--zx-blue-soft);}
+html[data-theme="dark"] .tdcap-mask { background: var(--zx-blue-a30);}
+html[data-theme="dark"] .tdcap-knob { background: var(--zx-blue);}
 
-/* 手机：触控目标全部 ≥44px，不撑出横向滚动 */
+
 @media (max-width: 480px) {
-  .tdcap { padding: 13px 12px 10px; border-radius: 18px !important; }
-  .tdcap-head { gap: 8px; }
-  .tdcap-sub { flex-basis: 100%; order: 3; }
-  .tdcap-refresh { margin-left: auto; }
-  .tdcap-track { height: 48px; }
+  .tdcap { padding: 13px 12px 10px; border-radius: 18px !important;}
+  .tdcap-head { gap: 8px;}
+  .tdcap-sub { flex-basis: 100%; order: 3;}
+  .tdcap-refresh { margin-left: auto;}
+  .tdcap-track { height: 48px;}
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tdcap *, .tdcap *::before, .tdcap *::after {
     animation-duration: .001ms !important;
-    transition-duration: .001ms !important;
-  }
+    transition-duration: .001ms !important;}
 }
 
-/* ── 提交后弹窗认证 ──
-   只在点击「提交注册」时挂载，容器可见、舞台宽度真实；
-   不放在 .reg-pane 里，避免隐藏步骤 display:none 量到 0 导致「有时显示不了」。 */
+
 .tdcap-overlay {
   position: fixed; inset: 0; z-index: 9999;
   display: grid; place-items: center; padding: 18px;
-  background: rgba(17,19,24,.48);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  animation: tdcap-fade .22s ease both;
-}
+  background: var(--zx-blue-a30);
+  animation: tdcap-fade .22s ease both;}
 .tdcap-dialog {
   width: min(100%, 420px);
   max-height: calc(100dvh - 36px); overflow-y: auto;
   padding: 18px 18px 6px;
-  border: 1px solid rgba(17,19,24,.16);
+  border: 1px solid var(--zx-blue-a16);
   border-radius: 24px !important;
-  background: rgba(250, 249, 244, .96);
-  box-shadow: 0 24px 70px rgba(17,19,24,.3), inset 0 1px 0 rgba(255, 255, 255, .8);
-  animation: tdcap-in .32s cubic-bezier(.22, 1, .36, 1) both;
-}
-.tdcap-dialog-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 2px; }
+  background: var(--zx-danger-a16);
+  box-shadow: none;
+  animation: tdcap-in .32s cubic-bezier(.22, 1, .36, 1) both;}
+.tdcap-dialog-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 2px;}
 .tdcap-dialog-eyebrow {
-  font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #5b93ff;
-}
+  font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--zx-blue);}
 .tdcap-dialog-head h3 {
   margin: 4px 0 0; flex: 1;
-  font-size: 16px; font-weight: 600; color: #111318;
-}
+  font-size: 16px; font-weight: 600; color: var(--zx-blue-deep);}
 .tdcap-close {
   flex: 0 0 44px; width: 44px; height: 44px; min-width: 44px; min-height: 44px;
   display: grid !important; place-items: center; padding: 0 !important;
-  border: 1px solid rgba(17,19,24,.16) !important;
+  border: 1px solid var(--zx-blue-a16);
   border-radius: 50% !important;
-  background: transparent; color: #111318;
+  background: transparent; color: var(--zx-blue-deep);
   font-size: 21px; line-height: 1; cursor: pointer;
-  transition: background .2s ease, transform .2s ease;
-}
-.tdcap-close:hover { background: rgba(91,147,255,.16); transform: rotate(90deg); }
-/* 弹窗里复用同一张玻璃卡，但去掉外层再叠一层的边框与阴影 */
+  transition: background .2s ease, transform .2s ease;}
+.tdcap-close:hover { background: var(--zx-blue-a16); transform: rotate(90deg);}
+
 .tdcap-dialog .tdcap {
   margin: 8px 0 0; padding: 0;
-  border: 0 !important; background: transparent;
-  box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
-}
+  border: 0; background: transparent;
+  box-shadow: none;}
 @keyframes tdcap-fade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from { opacity: 0;}
+  to   { opacity: 1;}
 }
 
 html[data-theme="dark"] .tdcap-dialog {
-  background: rgba(17,19,24,.96);
-  border-color: rgba(226,235,250,.2);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .06);
-}
-html[data-theme="dark"] .tdcap-dialog-head h3 { color: #e6ebf5; }
-html[data-theme="dark"] .tdcap-close { color: #e6ebf5; border-color: rgba(226,235,250,.2) !important; }
+  background: var(--zx-blue-a30);
+  border-color: var(--zx-blue-a16);
+  box-shadow: none;}
+html[data-theme="dark"] .tdcap-dialog-head h3 { color: var(--zx-blue-soft);}
+html[data-theme="dark"] .tdcap-close { color: var(--zx-blue-soft); border-color: var(--zx-blue-a16);}
 @media (prefers-color-scheme: dark) {
-  html:not([data-theme="light"]) .tdcap-dialog { background: rgba(17,19,24,.96); }
+  html:not([data-theme="light"]) .tdcap-dialog { background: var(--zx-blue-a30);}
 }
 
 @media (max-width: 480px) {
-  .tdcap-overlay { padding: 12px; }
-  .tdcap-dialog { padding: 14px 12px 4px; border-radius: 20px !important; }
+  .tdcap-overlay { padding: 12px;}
+  .tdcap-dialog { padding: 14px 12px 4px; border-radius: 20px !important;}
 }
 @media (prefers-reduced-motion: reduce) {
-  .tdcap-overlay, .tdcap-dialog { animation-duration: .001ms !important; }
+  .tdcap-overlay, .tdcap-dialog { animation-duration: .001ms !important;}
 }

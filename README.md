@@ -546,7 +546,7 @@ Worker 的 `SPA_PATHS` 白名单把这些路径统一回落到 SPA 外壳，由 
 > 以下为**历史记录**：当时项目还是原生 HTML/CSS/JS，现已迁移到 React + TypeScript；
 > 结论（手写着色器）保留，但「无 React」的前提已不成立。
 
-**样式**：Tailwind CSS 3（PostCSS）+ 一份合并后的组件表。早期版本叠加过两套手写 CSS（同名 `.sidebar` 被定义 16 次），已收敛为 `src/app/styles/components.css`（每选择器一条规则）+ `src/app/styles/index.css`（Tailwind 指令与权威层）。主题令牌通过 `vite.config.ts` 内联的 Tailwind 配置映射，深色自动跟随 `data-theme`。
+**样式**：Tailwind CSS 3（PostCSS）+ 一份合并后的组件表。早期版本叠加过两套手写 CSS（同名 `.sidebar` 被定义 16 次），已收敛为 `src/app/styles/shell.css`（唯一结构层，原 8 个样式文件按既有顺序合并、颜色全量令牌化）+ `src/app/styles/design-system.css`（唯一视觉源：Zerexa 排版与 logo 色令牌）威层）。主题令牌通过 `vite.config.ts` 内联的 Tailwind 配置映射，深色自动跟随 `data-theme`。
 
 早期曾试过第三方云层组件，但 registry 被网络策略挡住、且需要 React + Tailwind 运行时，与当时的原生结构不兼容，因此改为自绘 WebGL 体积云（FBM 噪声 + 时间动画，深浅主题各一套配色）。
 

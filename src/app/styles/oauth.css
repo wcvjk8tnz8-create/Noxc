@@ -1,27 +1,22 @@
-/* NodeLoc 第三方登录：按钮与分隔线。
-   独立 td-oauth- 前缀，不回压全站按钮；放在最后一层加载，避免被
-   theme-terra / Reverie 的 button 规则覆盖成直角或 38px。 */
+
 
 .td-oauth-wrap {
-  margin-top: 14px;
-}
+  margin-top: 14px;}
 
 .td-oauth-sep {
   display: flex;
   align-items: center;
   gap: 12px;
   margin: 0 0 12px;
-  color: var(--td-muted, #1667f2);
+  color: var(--td-muted, var(--zx-blue));
   font-size: 12px;
-  letter-spacing: .08em;
-}
+  letter-spacing: .08em;}
 .td-oauth-sep::before,
 .td-oauth-sep::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--td-line, rgba(17,19,24,.16));
-}
+  background: var(--td-line, var(--zx-blue-a16));}
 
 a.td-oauth-btn,
 button.td-oauth-btn {
@@ -32,33 +27,30 @@ button.td-oauth-btn {
   width: 100%;
   min-height: 44px;
   padding: 10px 18px;
-  border: 1px solid rgba(27,36,48,.28);
+  border: 1px solid var(--zx-blue-a30);
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(226,235,250,.92), rgba(226,235,250,.86));
-  color: #111318;
+  background: var(--zx-paper);
+  color: var(--zx-blue-deep);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: .01em;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(17,19,24,.06), inset 0 1px 0 rgba(255, 255, 255, .7);
-  transition: transform .28s cubic-bezier(.22, 1, .36, 1), box-shadow .28s cubic-bezier(.22, 1, .36, 1), background .28s ease;
-}
+  box-shadow: none;
+  transition: transform .28s cubic-bezier(.22, 1, .36, 1), box-shadow .28s cubic-bezier(.22, 1, .36, 1), background .28s ease;}
 a.td-oauth-btn:hover,
 button.td-oauth-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(17,19,24,.14), inset 0 1px 0 rgba(255, 255, 255, .8);
-  background: linear-gradient(135deg, rgba(226,235,250,.96), rgba(226,235,250,.92));
-}
+  box-shadow: none;
+  background: var(--zx-paper);}
 a.td-oauth-btn:active,
-button.td-oauth-btn:active { transform: translateY(0); }
+button.td-oauth-btn:active { transform: translateY(0);}
 a.td-oauth-btn:focus-visible,
 button.td-oauth-btn:focus-visible {
-  outline: 2px solid #0b47c4;
-  outline-offset: 3px;
-}
-.td-oauth-btn[disabled] { opacity: .55; cursor: not-allowed; transform: none; }
+  outline: 2px solid var(--zx-blue);
+  outline-offset: 3px;}
+.td-oauth-btn[disabled] { opacity: .55; cursor: not-allowed; transform: none;}
 
 .td-oauth-mark {
   display: inline-flex;
@@ -67,41 +59,37 @@ button.td-oauth-btn:focus-visible {
   width: 20px;
   height: 20px;
   border-radius: 7px;
-  background: #0b47c4;
-  color: #fff;
+  background: var(--zx-blue);
+  color: var(--zx-paper);
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
-  flex: none;
-}
+  flex: none;}
 
 html[data-theme="dark"] a.td-oauth-btn,
 html[data-theme="dark"] button.td-oauth-btn {
-  border-color: rgba(226,235,250,.22);
-  background: linear-gradient(135deg, rgba(17,19,24,.86), rgba(17,19,24,.9));
-  color: #e6ebf5;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .08);
-}
+  border-color: var(--zx-blue-a16);
+  background: var(--zx-paper);
+  color: var(--zx-blue-soft);
+  box-shadow: none;}
 html[data-theme="dark"] a.td-oauth-btn:hover,
 html[data-theme="dark"] button.td-oauth-btn:hover {
-  background: linear-gradient(135deg, rgba(17,19,24,.92), rgba(17,19,24,.95));
-  box-shadow: 0 8px 22px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .1);
-}
+  background: var(--zx-paper);
+  box-shadow: none;}
 
 .td-oauth-row .td-oauth-btn {
   width: auto;
   min-height: 40px;
   padding: 8px 16px;
-  font-size: 13px;
-}
+  font-size: 13px;}
 
 @media (max-width: 420px) {
-  .td-oauth-wrap { margin-top: 12px; }
-  a.td-oauth-btn, button.td-oauth-btn { min-height: 46px; font-size: 13.5px; }
+  .td-oauth-wrap { margin-top: 12px;}
+  a.td-oauth-btn, button.td-oauth-btn { min-height: 46px; font-size: 13.5px;}
 }
 
 @media (prefers-reduced-motion: reduce) {
-  a.td-oauth-btn, button.td-oauth-btn { transition: none; }
+  a.td-oauth-btn, button.td-oauth-btn { transition: none;}
   a.td-oauth-btn:hover, button.td-oauth-btn:hover,
-  a.td-oauth-btn:active, button.td-oauth-btn:active { transform: none; }
+  a.td-oauth-btn:active, button.td-oauth-btn:active { transform: none;}
 }

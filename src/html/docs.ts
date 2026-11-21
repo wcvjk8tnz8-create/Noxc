@@ -23,7 +23,7 @@ export const docsHtml = String.raw`<!doctype html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Redaction+35:ital,wght@0,400;0,700;1,400&display=swap" media="print" onload="this.media='all'">
 <style>
-/* ── Noxc · Node tokens（与 src/html/reverieRootCss.ts / src/app/styles/noxc-node.css 同一套） ── */
+/* ── Noxc · Node tokens（与 src/html/reverieRootCss.ts / src/app/styles/design-system.css 同一套） ── */
 .td-doc{
   --paper:#ffffff;--paper2:#f7f9fc;--card:#ffffff;
   --ink:#111318;--body:#49525f;--muted:#8b94a3;

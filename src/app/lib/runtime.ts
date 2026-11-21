@@ -228,8 +228,8 @@ export const PAW_SVG =
   '</svg>';
 
 /* ---------- 壁纸：花束 Miku 为控制台默认 ----------
-   历史遗留：components.css 末尾曾把 #bg 整体 display:none，切换器形同虚设。
-   现在由 liquid-glass.css 末尾的「花束重构层」在控制台页重新启用 #bg，
+   历史遗留：早期 components.css 末尾曾把 #bg 整体 display:none，切换器形同虚设。
+   现在由 shell.css 中合并进来的「花束重构层」在控制台页重新启用 #bg，
    且每张壁纸可带独立的深色版与缩略图，CSS 按变量自动取用。 */
 export const WALLPAPERS = [
   {

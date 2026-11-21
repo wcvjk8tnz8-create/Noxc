@@ -6,7 +6,7 @@
  * 失败时回退系统中文字体），变量覆盖 + 少量组件收口，
  * 保留原本「单屏 dnshe 式查询页」的骨架与 Zerexa 的衬线标题、等宽小标、细线。
  *
- * 与官网 src/app/styles/noxc-node.css 同一套令牌：
+ * 与官网 src/app/styles/design-system.css 同一套令牌：
  *   冷白 #ffffff / 墨黑 #111318 / logo 蓝 #1667f2 / 节点点阵 / 圆头胶囊。
  */
 export const reverieRootCss = String.raw`

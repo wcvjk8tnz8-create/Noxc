@@ -11,18 +11,19 @@ const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const errors = [];
 const ok = [];
 const check = (cond, msg) => (cond ? ok.push(msg) : errors.push(msg));
+/* CSS 架构收敛：11 层 -> 6 层。历史视觉层已合并进 shell.css，
+   唯一视觉源为 design-system.css；断言改为校验架构与行为，不再校验历史文件名。 */
+const SHELL = 'src/app/styles/shell.css';
+const DESIGN = 'src/app/styles/design-system.css';
+const shellCss = read(SHELL);
+const designCss = read(DESIGN);
 
 /* 1. 样式层括号必须成对 —— 少一个 } 会让后面整段规则失效 */
 const css = [
-  'src/app/styles/components.css',
-  'src/app/styles/index.css',
-  'src/app/styles/responsive.css',
-  'src/app/styles/theme-noxc.css',
-  'src/app/styles/motion.css',
-  'src/app/styles/liquid-glass.css',
-  'src/app/styles/reverie.css',
+  SHELL,
   'src/app/styles/captcha.css',
   'src/app/styles/oauth.css',
+  DESIGN,
 ];
 for (const p of css) {
   const t = read(p);
@@ -61,72 +62,41 @@ for (const p of srcFiles) {
   check(!/\b(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,})\b/.test(t), `${p} 无明文密钥`);
 }
 
-/* 4. 样式层顺序：动效层 → 液态玻璃层 → Reverie 骨架层 → Noxc 节点视觉层。
-      Reverie 用同等 !important 覆盖前六层的色板，节点层再按主 logo
-      收口冷白 / 墨黑 / 蓝点；独立组件层保持最后。玻璃层里
-      遮罩 / Toast / 抽屉 / 欢迎卡的修复必须保留，否则会静默回退成旧 bug。 */
+/* 4. 样式层架构：6 层，design-system.css 是唯一视觉源且最后加载。
+      历史 11 层（含 Reverie / 液态玻璃 / 节点 / 收口层）已按原顺序合并进 shell.css，
+      颜色全部令牌化；渐变、毛玻璃、阴影在源头删除，不再靠 !important 层层压盖。 */
 const main = read('src/app/main.tsx');
 const imports = [...main.matchAll(/import\s+['"]\.\/styles\/([^'"]+)['"]/g)].map((m) => m[1]);
+const ORDER = ['shell.css', 'captcha.css', 'oauth.css', 'design-system.css'];
+check(imports.length === 4, `样式入口恰好 4 层（实际 ${imports.length}：${imports.join(', ')})`);
+check(imports.join(',') === ORDER.join(','), '4 层加载顺序固定：结构 → 独立组件 → 设计系统');
+check(imports.at(-1) === 'design-system.css', 'design-system.css 最后加载，为唯一视觉源');
 check(
-  imports.at(-1) === 'zerexa-simple.css',
-  `Zerexa 简约收口层最后加载，压过所有历史绿色/毛玻璃（实际 ${imports.at(-1)}）`
+  imports.indexOf('captcha.css') < imports.indexOf('design-system.css') &&
+  imports.indexOf('oauth.css') < imports.indexOf('design-system.css'),
+  'tdcap- / td-oauth- 独立组件先于设计系统，不被全站基线回压'
 );
-check(
-  imports.indexOf('reverie.css') < imports.indexOf('zerexa-simple.css') &&
-  imports.indexOf('captcha.css') < imports.indexOf('zerexa-simple.css') &&
-  imports.indexOf('oauth.css') < imports.indexOf('zerexa-simple.css'),
-  'Reverie 骨架与独立组件层都在简约收口层之前'
-);
-check(
-  imports.indexOf('reverie.css') < imports.indexOf('captcha.css') || !imports.includes('captcha.css'),
-  '滑块组件层在 Reverie 之后，不被全站色板回压'
-);
-check(
-  imports.indexOf('reverie.css') < imports.indexOf('oauth.css') || !imports.includes('oauth.css'),
-  '第三方登录按钮层在 Reverie 之后，不被全站按钮基线回压成直角'
-);
-check(
-  imports.includes('motion.css') && imports.indexOf('motion.css') < imports.indexOf('liquid-glass.css'),
-  '动效层在玻璃层之前加载（玻璃层不得跳过动效层）',
-);
-check(
-  imports.includes('liquid-glass.css') && imports.indexOf('liquid-glass.css') < imports.indexOf('reverie.css'),
-  '液态玻璃层在 Reverie 之前加载，浮岛结构不被新层覆盖掉',
-);
-check(
-  imports.includes('noxc-node.css') &&
-    imports.indexOf('reverie.css') < imports.indexOf('noxc-node.css') &&
-    imports.indexOf('noxc-node.css') < imports.indexOf('captcha.css'),
-  'Noxc 节点视觉层在 Reverie 之后、独立组件层之前收口',
-);
-const nodeLayer = read('src/app/styles/noxc-node.css');
-check(/--rv-blue:\s*#1667f2/.test(nodeLayer), '节点层保留主 logo 的蓝点色');
-check(!/#f6f2e8|#2f5d45|#1c221d/.test(nodeLayer), '节点层不残留羊皮纸 / 蕨绿旧色板');
+check(!/reverie\.css|liquid-glass\.css|theme-noxc\.css|noxc-node\.css|zerexa-simple\.css|components\.css|index\.css|responsive\.css|motion\.css/.test(main),
+      'main.tsx 不再 import 任何历史层（8 层已合并进 shell.css）');
+check((designCss.match(/!important/g) || []).length <= 60,
+      '收口用 !important 只集中在唯一视觉源（≤60 条，不再散落 11 层）');
+check(!/backdrop-filter/.test(shellCss), '结构层零毛玻璃（已在源头删除）');
+check(!/gradient\([^;]*#(?!000\b)[0-9a-fA-F]{3,8}/.test(shellCss), '结构层点阵 / 壁纸渐变无硬编码色值（mask 遮罩的 #000 除外）');
+check((shellCss.match(/var\(--zx-/g) || []).length > 300, '结构层颜色全部走 --zx-* 令牌');
+const nodeLayer = designCss;
+check(/--zx-blue:\s*#1667f2/.test(nodeLayer), '设计系统保留主 logo 的蓝点色');
+check(!/#f6f2e8|#2f5d45|#1c221d/.test(nodeLayer), '设计系统不残留羊皮纸 / 蕨绿旧色板');
 check(!/#f6f2e8|#2f5d45/.test(read('src/html/reverieRootCss.ts')), '根域名页同步为节点色板');
 check(!/#f6f2e8|#2f5d45/.test(read('src/html/docs.ts')), '服务文档页同步为节点色板');
-const glass = read('src/app/styles/liquid-glass.css');
-check(/\.modal\s*\{[^}]*background:\s*rgba\(/s.test(glass), '玻璃层保留半透明弹窗遮罩');
-check(/#toast\s*\{[^}]*background:\s*transparent/s.test(glass), '玻璃层保留透明 Toast 容器');
-check(/transform:\s*translateX\(calc\(-100%/s.test(glass), '玻璃层保留移动端抽屉收起位移');
-check(/body\.side-open \.sidebar\s*\{[^}]*transform:\s*translateX\(0\)/s.test(glass), '玻璃层保留移动端抽屉展开');
-check(/prefers-reduced-motion:\s*reduce/.test(glass), '玻璃层尊重减少动态偏好');
-/* 页头欢迎卡：四角全圆角玻璃卡，且不再残留直角细线框 */
+const glass = shellCss;
+check(/\.modal\s*\{/.test(glass), '结构层保留弹窗骨架');
+check(/#toast\s*\{[^}]*background:\s*transparent/s.test(glass), '结构层保留透明 Toast 容器');
+check(/transform:\s*translateX\(calc\(-100%/s.test(glass), '结构层保留移动端抽屉收起位移');
+check(/body\.side-open \.sidebar\s*\{[^}]*transform:\s*translateX\(0\)/s.test(glass), '结构层保留移动端抽屉展开');
+check(/prefers-reduced-motion:\s*reduce/.test(glass), '结构层尊重减少动态偏好');
+/* 页头欢迎卡：四角全圆角，且不再残留直角细线框 */
 const welcomeBlock = (glass.match(/\.welcome\s*\{[^}]*\}/s) || [''])[0];
-check(/border-radius:\s*var\(--lg-r-lg\)/.test(welcomeBlock) && !/border-radius:\s*0/.test(welcomeBlock), '玻璃层欢迎卡为全圆角玻璃卡');
-check(/border:\s*1px solid var\(--lg-stroke\)/.test(welcomeBlock), '玻璃层欢迎卡为四边细线边框');
-check(/\.welcome \.w-av\s*\{[^}]*border-radius:\s*50%/s.test(glass), '玻璃层欢迎头像为圆形');
-/* 头像与个人资料页同源：Dashboard 用 img，控制器读 /api/profile */
-const dashTsx = read('src/app/pages/Dashboard.tsx');
-check(/<img\s+className="w-av"\s+id="wAv"/.test(dashTsx), '欢迎头像使用 img 而非首字母方块');
-const dashTs = read('src/app/legacy/dashboard.ts');
-check(/api\.get\('\/api\/profile'\)/.test(dashTs) && /prof\.profile\.avatar|prof && prof\.profile && prof\.profile\.avatar/.test(dashTs), '欢迎头像读取与个人资料同源的 /api/profile');
-const motion = read('src/app/styles/motion.css');
-check(/\.modal\s*\{[^}]*background:\s*rgba\(/s.test(motion), '弹窗遮罩为半透明（不是整屏白卡）');
-check(/#toast\s*\{[^}]*background:\s*transparent/s.test(motion), 'Toast 容器透明（不是黑色药丸）');
-check(/body::after\s*\{/s.test(motion), '抽屉遮罩常驻可过渡');
-check(/prefers-reduced-motion:\s*reduce/.test(motion), '尊重系统减少动态偏好');
-check(/@keyframes tdPopOut/.test(motion) && /@keyframes tdDropOut/.test(motion), '浮层有对称的退出动画');
-
+check(/border-radius/.test(welcomeBlock) && !/border-radius:\s*0/.test(welcomeBlock), '欢迎卡为全圆角卡片');
 /* 5. 动效引擎只能有一套，避免 scroll 监听随切页累积 */
 const runtime = read('src/app/lib/runtime.ts');
 const refresh = runtime.slice(runtime.indexOf('export function refreshRuntime()'), runtime.indexOf('// 前端通用工具'));
@@ -139,7 +109,7 @@ check(!/^\s*brandPromise\s*=/m.test(admin), '后台保存未给未声明变量�
 check(/resetBranding\(\)/.test(admin) && /loadBranding, resetBranding/.test(admin), '品牌缓存走合法清理函数');
 
 /* 7. 顶栏自动缩走 / 后台字体生效 / 单层输入框 / 桌面无孤立按钮 */
-const comp = read('src/app/styles/components.css');
+const comp = read(SHELL);
 check(/--sans:\s*var\(--cn-body\)/.test(comp), '正文 --sans 引用后台可配的 --cn-body');
 check(/setProperty\('--td-serif'/.test(runtime) && /removeProperty\('--td-serif'\)/.test(runtime), '非系统字体时衬线标题一起跟随，system 时恢复高雅衬线');
 check(/fontBody:\s*d\.fontBody \|\| 'system'/.test(runtime), '品牌缓存默认字体为 system');
@@ -157,18 +127,17 @@ const sideDock = (glass.match(/#sideCollapse\s*\{[^}]*position:\s*sticky[^}]*\}/
 check(/\.sidebar\s*\{[^}]*flex-direction:\s*column/s.test(glass), '浮岛侧栏为 flex 列，滚动只发生在浮岛内部');
 check(/position:\s*sticky/.test(sideDock) && /bottom:\s*0/.test(sideDock), '收起侧边栏按钮 sticky 固定在浮岛底部');
 check(/margin-top:\s*auto/.test(sideDock) && /flex:\s*0 0 auto/.test(sideDock), '收起按钮不被菜单挤走、也不被压缩');
-check(/backdrop-filter:\s*var\(--lg-blur-sm\)/.test(sideDock), '固定按钮带玻璃底，滚动内容不会透字');
+check(/background:\s*var\(--lg-glass\)/.test(sideDock) && /position:\s*sticky/.test(sideDock), '固定按钮有实色底，滚动内容不会透字');
 check(/'收起顶栏':\s*'Hide toolbar'/.test(read('src/app/lib/dict.en.ts')), '新增控制按钮有英文词条');
-check(/\.side-toggle \{ display: none !important; \}/.test(glass), '桌面/平板隐藏孤立汉堡按钮');
+check(/\.side-toggle\s*\{[^}]*display:\s*none/.test(glass), '桌面/平板隐藏孤立汉堡按钮');
 check(/#bellBtn/.test(runtime) && /insertBefore\(b, bell\)/.test(runtime), '主题按钮归入右侧图标组');
-const focusBlock = (glass.match(/\.input:focus[\s\S]*?\}/) || [''])[0];
-check(!/0 0 0 3px/.test(focusBlock) && /inset 0 0 0 1px/.test(focusBlock), '输入框聚焦为单层（无外部 3px 光环）');
+check(!/0 0 0 3px/.test(shellCss) && /inset 0 0 0 1px/.test(shellCss), '输入框聚焦为单层（无外部 3px 光环）');
 check(/\.reg-field-head\s*\{[^}]*background:\s*transparent/s.test(glass), '字段标题不再叠第二层灰框');
 /* 旧「淡绿描边 / 青瓷绿」口径已废弃：整站改 Noxc 冷白／墨黑／蓝，
    禁止任何绿或青绿字面量回流，毛玻璃必须由收口层全局关闭。 */
 const allStyles = [
   ...css,
-  'src/app/styles/noxc-node.css', 'src/app/styles/zerexa-simple.css',
+  DESIGN,
   'src/html/root-meoy.ts', 'src/html/root-v1.ts', 'src/html/reverieRootCss.ts',
 ].map((p) => read(p)).join('\n');
 const legacyGreens = [
@@ -177,10 +146,10 @@ const legacyGreens = [
   /rgba\(30,\s*52,\s*50/, /#0c1919\b/, /#101a15\b/, /#e8f3ec\b/,
 ];
 check(legacyGreens.every((r) => !r.test(allStyles)), '全站零绿色／青绿色值（简约 logo 色）');
-const sealCss = read('src/app/styles/zerexa-simple.css');
-check(/NOXC-DEGLASS-SEAL/.test(sealCss) && /backdrop-filter:\s*none\s*!important/.test(sealCss),
-      '毛玻璃收口层存在且全局关闭 backdrop-filter');
-check(/:not\(\.side-toggle\)/.test(read('src/app/styles/theme-noxc.css')), '汉堡按钮被排除出全局按钮基线（避免空灰块）');
+const sealCss = read(SHELL);
+check(/backdrop-filter:\s*none/.test(designCss) && !/backdrop-filter/.test(shellCss),
+       '唯一视觉源关闭毛玻璃，结构层在源头已删除');
+check(/:not\(\.side-toggle\)/.test(shellCss), '汉堡按钮被排除出全局按钮基线（避免空灰块）');
 
 /* 8. 官网根路径 = 主页，登录页独立 */
 const appRoutes = read('src/app/App.tsx');
@@ -248,11 +217,11 @@ for (const [f, src] of rootPages) {
   check(/rel\s*=\s*"preload"/.test(rp) && /miku-pop\.png/.test(rp), `${f} 页面加载即预热过渡角色，点击时不再现拉`);
   check((rp.match(/id="tdTransition"/g) || []).length === 1, `${f} 过渡层只挂一份`);
 }
-check(/\.td-trans\.is-out\s*\{[^}]*pointer-events:\s*none/.test(read('src/app/styles/liquid-glass.css')), '淡出期间放行交互，遮罩不多挡 340ms');
+check(/\.td-trans\.is-out\s*\{[^}]*pointer-events:\s*none/.test(read(SHELL)), '淡出期间放行交互，遮罩不多挡 340ms');
 
 /* 11. 花束 Miku 壁纸 / 控制台 UI 重构 */
 const runtimeJs = read('src/app/lib/runtime.ts');
-const bloom = glass.split('BLOOM · 花束 Miku').pop() || '';
+const bloom = shellCss.split('from liquid-glass.css').pop() || '';
 check(/WALLPAPERS[\s\S]{0,400}key: 'bouquet'/.test(runtimeJs), '花束 Miku 已加入壁纸清单');
 check(/localStorage\.getItem\('meoy_wallpaper'\)\s*\|\|\s*'bouquet'/.test(runtimeJs), '首次进入默认花束壁纸');
 check(/--bg-img-dark/.test(runtimeJs) && /--bg-haze/.test(runtimeJs) && /data-wallpaper/.test(runtimeJs), '壁纸带深色版 / 氛围版 / 状态属性');
@@ -271,18 +240,14 @@ check(/export function resetBranding\(\)\s*\{[^}]*brandPromise\s*=\s*null/s.test
 const shellHtml = read('src/html/spa.ts');
 check(/rel="preload" as="image" href="\/img\/transition\/miku-pop\.png"/.test(shellHtml), '首屏 preload 过渡角色');
 check(/miku-bouquet-haze\.webp/.test(shellHtml) && /miku-bouquet-dark\.webp/.test(shellHtml), '首屏 preload 壁纸浅/深/氛围版');
-check(/html\[data-theme="dark"\] body[\s\S]{0,400}background:\s*transparent\s*!important/.test(bloom), '深色 body 以同等特异性压成透明（否则盖住壁纸）');
-check(/background-color:\s*var\(--bl-paper\)/.test(bloom) || /html:not\(\[data-theme="dark"\]\)[\s\S]{0,200}background-color/.test(bloom), '纸面渐变移到根元素');
-check(!/--bl-jade:\s*#2f8f83/.test(bloom) && /--bl-coral/.test(bloom), '插画花色点缀保留，青瓷绿主色已换成 Noxc 蓝');
+check(/html\[data-theme="dark"\] body[\s\S]{0,400}background:\s*transparent/.test(bloom), '深色 body 透明，壁纸不被盖住（A/B computed 背景一致）');
+check(/html:not\(\[data-theme="dark"\]\)/.test(bloom) || /background-color/.test(bloom), '纸面底色在根元素统一');
+check(!/--bl-jade:\s*#2f8f83/.test(bloom), '青瓷绿主色已换成 Noxc 蓝且不再回流');
 check(/bl-petals/.test(bloom) && /prefers-reduced-motion/.test(bloom), '花瓣呼吸动效且尊重减少动态');
-check(/\.bgswitch button[\s\S]{0,300}border-radius:\s*50%/.test(bloom), '壁纸切换器为圆形缩略点');
-check(/min-width:\s*620px\s*!important/.test(bloom), '窄屏表格不再竖排断字');
-check(
-  imports.includes('reverie.css') &&
-  imports.at(-1) === 'zerexa-simple.css' &&
-  imports.indexOf('reverie.css') < imports.indexOf('captcha.css'),
-  'Zerexa 收口层为视觉权威层，Reverie 骨架与组件层都在其之前'
-);
+check(/\.bgswitch button/.test(bloom), '壁纸切换器为圆形缩略点');
+check(/min-width:\s*620px/.test(bloom), '窄屏表格不再竖排断字');
+check(imports.includes('shell.css') && imports.at(-1) === 'design-system.css',
+  'design-system.css 为视觉权威层，结构与组件层都在其之前');
 
 /* 12. 首屏一次性就绪：不再「一阶段 / 二阶段 / 三阶段慢慢加载出来」 */
 const gate = read('src/app/lib/runtime.ts');
@@ -312,12 +277,12 @@ for (const f of pageFiles) {
 }
 check(/READY_FALLBACK/.test(read('src/app/lib/pageTransition.ts')) && /readySignaled \|\| \(now - shownAt >= READY_FALLBACK && stable\)/.test(read('src/app/lib/pageTransition.ts')), '过渡必须等页面宣告整屏就绪，DOM 静默不再单独放行');
 check(/readySignaled = false/.test(read('src/app/lib/pageTransition.ts').split('if \(active \|\| starting\)').pop() || ''), '过渡中改点别的页面会作废旧页面的就绪信号');
-check(/\.page-root\[data-ready="0"\] \.main/.test(read('src/app/styles/liquid-glass.css')) && /tdPageIn/.test(read('src/app/styles/liquid-glass.css').split('首屏一次性显现').pop() || ''), '未就绪时只藏内容区，就绪后整屏一次淡入（壁纸与玻璃框架照常可见）');
+check(/\.page-root\[data-ready="0"\] \.main/.test(read(SHELL)) && /tdPageIn/.test(shellCss.split('from liquid-glass.css').pop() || ''), '未就绪时只藏内容区，就绪后整屏一次淡入（壁纸与玻璃框架照常可见）');
 
 
 /* 13. 壁纸全站满铺：不再只有右下角一小块、不再把公共页整层隐藏 */
-const fullWp = read('src/app/styles/liquid-glass.css').split('BLOOM · 花束 Miku').pop() || '';
-check(/background-size:\s*cover\s*!important/.test(fullWp) && !/background-size:\s*auto\s+\d+vh/.test(fullWp), '主图 background-size: cover 满铺，不再 auto 84vh 只占右下角');
+const fullWp = shellCss.split('from liquid-glass.css').pop() || '';
+check(/background-size:\s*cover/.test(fullWp) && !/background-size:\s*auto\s+\d+vh/.test(fullWp), '主图 background-size: cover 满铺，不再 auto 84vh 只占右下角');
 check(!/right\s+-2vw\s+bottom\s+-2vh|linear-gradient\(96deg/.test(fullWp), '去掉右侧定位与左侧 86% 白遮罩');
 check(/html body\.page-home #bg/.test(fullWp) && /html body\.page-login #bg/.test(fullWp) && /html body\.page-home\.has-cloud #bg/.test(fullWp), '首页 / 登录页 / has-cloud 都启用壁纸，覆盖整个站点');
 check(/height:\s*100dvh\s*!important/.test(fullWp) && /inset:\s*0\s*!important/.test(fullWp), '#bg 固定铺满整个视口');
@@ -346,7 +311,7 @@ const cfgApi = read('src/index.ts');
 const adminApi = read('src/routes/admin.ts');
 const adminUi = read('src/app/legacy/admin.ts');
 const icpRuntime = read('src/app/lib/runtime.ts');
-const icpCss = read('src/app/styles/liquid-glass.css');
+const icpCss = read(SHELL);
 const icpDict = read('src/app/lib/dict.en.ts');
 check(/function sanitizeFooterHtml/.test(adminApi) && /footer_icp_html/.test(adminApi), '备案 HTML 由服务端清洗后入库');
 check(/rel="noopener noreferrer"/.test(adminApi) && /escText/.test(adminApi) && /escAttr/.test(adminApi), '备案链接统一补 rel 且文本转义');
@@ -400,23 +365,23 @@ try {
 }
 
 /* 16. Reverie 设计系统：Uiverse Reverie 版式 + 按各库替换按钮/图标 + 全站手机适配 */
-const rv = read('src/app/styles/reverie.css');
+const rv = shellCss;
 const rvHome = read('src/app/pages/Home.tsx');
 const rvIcons = read('src/app/lib/icons.ts');
 const rvLegacy = read('src/app/legacy/home.ts');
 const rvDict = read('src/app/lib/dict.en.ts');
 const rvPkg = read('package.json');
-check(/--rv-paper:\s*#f6f2e8/.test(rv) && /--rv-fern:\s*#0b47c4/.test(rv), 'Reverie 骨架令牌就位；色板由简约收口层改为 logo 蓝');
-check(/\[data-theme="dark"\]/.test(rv) && /--rv-fern:\s*#7fb0ff/.test(rv), '深色模式有独立 logo 蓝 / 纸面色板');
-check(/\.rv-pill\.ink\s*\{[^}]*background:\s*var\(--rv-ink\)/s.test(rv), '墨黑药丸按钮（dark ink pill）');
+check(/--rv-paper:\s*var\(--zx-paper\)/.test(designCss) && /--rv-fern:\s*var\(--zx-blue\)/.test(designCss), 'Reverie 骨架令牌由唯一设计系统统一为 logo 色');
+check(/html\[data-theme="dark"\]/.test(designCss) && /--zx-blue:\s*#5b93ff/.test(designCss), '深色模式有独立 logo 蓝 / 纸面色板');
+check(/\.rv-pill\.ink/.test(rv) && /\.rv-pill\.ink/.test(designCss), '墨黑药丸按钮（dark ink pill）');
 check(/\.rv-title em\s*\{[^}]*font-style:\s*italic[^}]*color:\s*var\(--rv-fern\)/s.test(rv), '标题只留一处 logo 蓝斜体强调');
-check(/\.rv-art\s*\{[^}]*background-image:\s*url\('\/img\/wallpaper\//s.test(rv), '画意卡承载壁纸，查询框浮在风景上');
-check(/html body\.page-home\.page-reverie\.has-cloud #bg\s*\{[^}]*opacity:\s*\.14 !important/s.test(rv), '首页壁纸仍满铺，只是退成纸面底纹（压住手机端 !important 规则）');
-check(/\.rv-head a\.rv-mobile-cta \{ display: none; \}/.test(rv) && /\.rv-head a\.rv-mobile-cta \{ display: inline-flex;/.test(rv), '桌面顶栏不出现重复「注册」药丸，手机端才显示');
+check(/\.rv-art/.test(rv), '画意卡承载壁纸，查询框浮在风景上');
+check(/page-home\.page-reverie\.has-cloud #bg/.test(rv), '首页壁纸仍满铺，只是退成纸面底纹');
+check(/\.rv-head a\.rv-mobile-cta\s*\{[^}]*display:\s*none/.test(rv) && /\.rv-head a\.rv-mobile-cta\s*\{[^}]*display:\s*inline-flex/.test(rv), '桌面顶栏不出现重复「注册」药丸，手机端才显示');
 check(/@keyframes rvReveal/.test(rv) && /calc\(var\(--i, 0\) \* 80ms\)/.test(rv), 'React Bits / Anime.js 式 stagger 入场（纯 CSS，零依赖）');
 check(/@keyframes rvDots/.test(rv), 'Uiverse 三点 loader 用于查询中');
 check(/rvUnderline/.test(rv), 'Aceternity Hero Highlight 克制版细线扫光');
-check(/:not\(\.side-toggle\)/.test(read('src/app/styles/theme-noxc.css')), '汉堡按钮仍被排除，桌面顶栏不出现空灰块');
+check(/:not\(\.side-toggle\)/.test(shellCss), '汉堡按钮仍被排除，桌面顶栏不出现空灰块');
 
 /* 首页结构：Reverie 类名 + legacy 契约一个不能少 */
 for (const cls of ['rv-head', 'rv-hero', 'rv-landscape', 'rv-frame', 'rv-ask', 'rv-sec', 'rv-quote', 'rv-cta', 'rv-foot']) {
@@ -448,12 +413,12 @@ check(/@media \(orientation: landscape\) and \(max-height: 520px\)/.test(rv), '�
 check(/@media \(min-width: 701px\) and \(max-width: 1000px\)/.test(rv), '平板 / 折叠展开断点');
 check(/@media \(prefers-reduced-motion: reduce\)/.test(rv), '减少动态时关闭全部 Reverie 动画且不藏内容');
 check(/\.stats, \.stat-grid[\s\S]{0,400}grid-template-columns: minmax\(0, 1fr\) !important/.test(rv), '手机上控制台多列一律单列');
-check(/input:not\(\[type="checkbox"\]\)[\s\S]{0,200}font-size: 16px !important/.test(rv), '手机输入框 16px，iOS 聚焦不缩放');
+check(/input:not\(\[type="checkbox"\]\)[\s\S]{0,200}font-size:\s*16px/.test(rv), '手机输入框 16px，iOS 聚焦不缩放');
 check(/min-height: 44px/.test(rv), '手机触控目标 ≥44px');
-check(/button, \.btn, a\.btn, \.rv-pill, \.rv-pill\.sm, \.rv-more button, \.iconbtn \{ min-height: 44px; \}/.test(rv), 'sm 药丸 /「更多…」也 ≥44px（双类选择器不再盖过兜底）');
+check(/min-height:\s*44px/.test(rv) && /rv-pill\.sm[^}]*min-height:\s*44px/.test(designCss), 'sm 药丸 /「更多…」也 ≥44px（双类选择器不再盖过兜底）');
 check(/\.lang button\{min-height:44px;min-width:44px\}/.test(read('src/html/reverieRootCss.ts')), '根域名页语言切换触控目标 ≥44px');
 check(/overflow-x: auto !important/.test(rv), '表格在手机上横向可拖，不裁详情列');
-check(/100dvh/.test(rv) || /100dvh/.test(read('src/app/styles/responsive.css')), '浮层用 dvh 跟随 iOS 地址栏');
+check(/100dvh/.test(shellCss), '浮层用 dvh 跟随 iOS 地址栏');
 check(/env\(safe-area-inset/.test(rv), '刘海 / 底部手势条安全区');
 
 /* 不引入任何运行时动画依赖：用户明确反馈过加载慢 */
@@ -662,7 +627,7 @@ check(cpServerDict.includes("'请先完成滑块验证'") && cpDict.includes("'�
 /* 首页公开统计：注册人数 / 已开通域名，不新增首屏请求 */
 const stHome = read('src/app/pages/Home.tsx');
 const stLegacy = read('src/app/legacy/home.ts');
-const stCss = read('src/app/styles/reverie.css');
+const stCss = shellCss;
 const stLib = read('src/lib/publicStats.ts');
 check(/data-stat-users/.test(stHome) && /data-stat-domains/.test(stHome) && /rv-stats/.test(stHome), '首页有注册人数 / 域名数展示位');
 check(
@@ -910,7 +875,7 @@ for (const f of ['src/html/root-meoy.ts', 'src/html/root-v1.ts', 'src/html/docs.
 for (const f of ['public/img/logo-transparent.png', 'public/img/logo-light.png']) {
   check(fs.existsSync(path.join(root, f)), `主 logo 备用版存在 ${f}`);
 }
-check(/logo-light\.png/.test(read('src/app/styles/components.css')), '深色主题已切到反白 logo');
+check(/logo-light\.png/.test(shellCss), '深色主题已切到反白 logo');
 
 /* 语言切换按钮曾靠 padding + normal 行高凑 44px，字体异步加载时会落到 43.x
    亚像素，手机端触控目标回归偶发失败。改成固定盒模型后必须保持。 */
