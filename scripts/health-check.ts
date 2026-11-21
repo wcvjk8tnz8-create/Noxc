@@ -857,6 +857,17 @@ check(
   '反向对照：拿掉 Add DNS records，静态文档断言必须失败'
 );
 
+/* 首推后缀不得改写主域名 / 默认 Zone：曾误把 ROOT_DOMAIN 改成 noxc.uk，
+   meoy.top 不再回落现有 CF_ZONE_ID，后台被迫重新配置主域名。 */
+const wranglerToml = read('wrangler.toml');
+check(/ROOT_DOMAIN = "meoy\.top"/.test(wranglerToml), '主域名仍为 meoy.top（首推只改展示排序）');
+check(!/ROOT_DOMAIN = "noxc\.uk"/.test(wranglerToml), '默认根域名没有被首推后缀覆盖');
+check(/preferNoxc/.test(read('src/app/legacy/home.ts')), 'noxc.uk 仍排在后缀选择器首位');
+for (const f of ['public/img/logo.jpg', 'public/img/logo.png', 'public/favicon.ico',
+                 'public/img/apple-touch-icon.png', 'public/img/og-image.png', 'public/manifest.webmanifest']) {
+  check(fs.existsSync(path.join(root, f)), `Noxc 品牌资源存在 ${f}`);
+}
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

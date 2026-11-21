@@ -168,13 +168,13 @@ export default function HomePage() {
             <div className="rv-term">
               <div className="rv-term-bar"><i></i><i></i><i></i><span>bash</span></div>
               <pre className="rv-term-body"><code><span className="c-dim"># 查询子域名状态（公开接口）</span>
-<span className="c-cmd">curl</span> <span className="c-str">"<span id="apiHost">https://noxc.uk</span>/api/whois?name=mail"</span>
+<span className="c-cmd">curl</span> <span className="c-str">"<span id="apiHost">https://meoy.top</span>/api/whois?name=mail"</span>
 
 <span className="c-dim"># 返回示例</span>
 <span className="c-punc">{'{'}</span>
   <span className="c-key">"success"</span>: <span className="c-num">true</span>,
   <span className="c-key">"state"</span>: <span className="c-str">"registered"</span>,
-  <span className="c-key">"fqdn"</span>: <span className="c-str">"mail.noxc.uk"</span>,
+  <span className="c-key">"fqdn"</span>: <span className="c-str">"mail.meoy.top"</span>,
   <span className="c-key">"recordCount"</span>: <span className="c-num">4</span>
 <span className="c-punc">{'}'}</span></code></pre>
             </div>

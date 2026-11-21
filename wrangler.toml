@@ -32,16 +32,17 @@ database_name = "subdomain-hub-db"
 database_id = "00000000000000000000000000000000"
 
 [vars]
-# 根域名（用户申请到的子域名都挂在这个域下）
-# 首推后缀：noxc.uk。启用前请在 Cloudflare 建好该域 Zone，并配置 CF_ZONE_IDS="noxc.uk:<ZoneID>"；
+# 根域名（用户申请到的子域名都挂在这个域下、主域名）
+# noxc.uk 只是「首推后缀」（后缀列表排序第一位），不是主域名：
+# 默认 Zone 仍沿用现有的 CF_ZONE_ID（meoy.top），不要因为首推就更换 Zone ID。
 # CI 的 Variables（ROOT_DOMAIN / ROOT_DOMAINS / CF_ZONE_IDS）会覆盖这里的默认值。
-ROOT_DOMAIN = "noxc.uk"
+ROOT_DOMAIN = "meoy.top"
 # 多根域名（可选）：不填则只用上面的 ROOT_DOMAIN
 # 允许申请的根域名列表，逗号分隔
 ROOT_DOMAINS = ""
 # 每个根域名对应的 Cloudflare Zone ID，格式 "域名:ZoneID" 逗号分隔
-# 例：ROOT_DOMAINS = "noxc.uk,meoy.top,v-1.top"
-#     CF_ZONE_IDS  = "noxc.uk:aaa...,meoy.top:bbb..."
+# 例：ROOT_DOMAINS = "meoy.top,v-1.top"
+#     CF_ZONE_IDS  = "meoy.top:aaa...,v-1.top:bbb..."
 CF_ZONE_IDS = ""
 # 每个用户默认可持有的子域名数量
 DEFAULT_QUOTA = "5"

@@ -2,7 +2,7 @@
 
 **Noxc** —— 免费、开源的新一代二级域名分发与 DNS 管理系统。
 
-> 正式更名为 **Noxc**，首推 `noxc.uk` 子域名：它排在后缀选择器第一位、也是注册表单的默认后缀。启用前请在 Cloudflare 建好该域 Zone，并配置 `CF_ZONE_IDS="noxc.uk:<ZoneID>"`；CI 的 Variables（`ROOT_DOMAIN` / `ROOT_DOMAINS` / `CF_ZONE_IDS`）会覆盖 `wrangler.toml` 默认值。
+> 正式更名为 **Noxc**，首推 `noxc.uk` 子域名：它排在后缀选择器第一位并标注「首推」。**主域名仍是 `meoy.top`**，`ROOT_DOMAIN` 与默认 Cloudflare Zone（`CF_ZONE_ID`）都不变 —— 首推只是展示排序，不需要更换 Zone ID，也不需要在站点设置里重配主域名。若要把 `noxc.uk` 真正开放申请，再到后台添加该根域名及其 Zone 配置即可。
 
 前端 **React 18 + TypeScript + Vite**（单页应用，全站无手写 HTML 页面），后端 **TypeScript + Hono on Cloudflare Workers + D1 + R2**。用户自助申请 `xxx.你的根域名`，审核通过后自行添加 DNS 记录；每个根域名可单独选择通过 **Cloudflare API** 或 **Spaceship DNS API** 下发。
 

@@ -11,6 +11,11 @@ export const spaShellHtml = String.raw`<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Noxc · 二级域名分发</title>
   <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="192x192" href="/img/icon-192.png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta property="og:title" content="Noxc · Free Subdomains">
+  <meta property="og:image" content="/img/og-image.png">
   <!-- 切页过渡 / 控制台壁纸：首屏就开始拉，切页时只走内存缓存。
        字体 stylesheet 走 media=print 异步，不阻塞首屏渲染。 -->
   <link rel="preload" as="image" href="/img/transition/miku-pop.png">
