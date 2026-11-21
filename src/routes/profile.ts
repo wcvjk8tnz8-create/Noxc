@@ -234,10 +234,9 @@ app.post('/email/confirm', async (c) => {
 app.post('/avatar', async (c) => {
   const u = c.get('user');
   if (!u) return fail(c, '请先登录', 401, { needLogin: true });
-  // 头像上传一律按「未启用」处理：项目当前不绑定 R2（wrangler.toml 无 [[r2_buckets]]），
-  // 即使账号里存在桶也不启用 —— 避免因 R2 未就绪导致部署失败或上传报错。
-  // 用户仍可使用内置头像库或填写外链头像。
-  if (!c.env.AVATARS || String(c.env.AVATAR_ENABLED || '').trim() !== '1') {
+  // R2 由 CI 的 ensure-r2.ts 自动创建并绑定；只要绑定存在就开放上传。
+  // 绑定缺失（Token 无 R2 权限时降级）才回落到内置头像库 / 外链头像。
+  if (!c.env.AVATARS) {
     return fail(c, '当前未开放自定义头像上传，可从内置头像库中选择或填写头像链接', 501);
   }
 

@@ -16,8 +16,15 @@
 export interface Env {
   /** D1 数据库 */
   DB: D1Database;
-  /** R2 存储桶：用户自定义头像（未启用时不存在，运行时需判空） */
+  /** R2 存储桶：用户自定义头像（CI 自动绑定；降级时不存在，运行时需判空） */
   AVATARS?: R2Bucket;
+  /** Workers KV：CI 的 ensure-kv.ts 自动创建并绑定，业务一律判空使用。
+   *  最小结构声明，避免依赖 workers-types 的版本差异。 */
+  KV?: {
+    get(key: string, options?: unknown): Promise<string | null>;
+    put(key: string, value: string, options?: unknown): Promise<void>;
+    delete(key: string): Promise<void>;
+  };
   /** Workers 静态资源 */
   ASSETS?: Fetcher;
   /** Cloudflare Workers AI 绑定（wrangler.toml [ai]）。

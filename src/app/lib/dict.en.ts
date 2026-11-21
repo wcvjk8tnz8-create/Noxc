@@ -185,7 +185,7 @@ export const EXTRA_DICT: Record<string, string> = {
   '主机名片段': 'Hostname label', '含非法字符': 'Invalid characters',
   '主机名越界': 'Hostname out of range', '← 返回列表': '← Back to list',
   '② 选择平台': '2. Choose a platform', '本子域名 ·': 'This subdomain ·',
-  'SSL 证书': 'SSL certificate', '上传本地图片': 'Upload an image',
+'上传本地图片': 'Upload an image',
   '我的兑换记录': 'My redemptions', '仅显示你名下': 'Only your own',
   '我的转移记录': 'My transfers', '调整积分 ·': 'Adjust points ·',
   '留空则不显示': 'Blank = hidden', '每日签到奖励': 'Daily check-in reward',
@@ -1023,4 +1023,10 @@ export const EXTRA_DICT: Record<string, string> = {
   '操作 IP：': 'IP: ',
   '若非本人操作请立即联系管理员。': 'If this was not you, contact the site admin immediately.',
   '账号邮箱已更换': 'Account email changed',
+  /* 去 emoji 后的 AI 审核状态提示（与 legacy/register.ts 的新文案一一对应） */
+  'Workers AI 未绑定（需在 wrangler.toml 配置 [ai] binding）：申请会回落人工审核。': 'Workers AI is not bound (set [ai] binding = "AI" in wrangler.toml): requests fall back to manual review.',
+  'AI 自动审核未配置 API Key：申请会回落人工审核。': 'No API key configured for AI auto-review: requests fall back to manual review.',
+  'AI 自动审核开关已关闭：申请会回落人工审核。': 'AI auto-review is switched off: requests fall back to manual review.',
+  'Workers AI 自动审核已就绪（将使用 Cloudflare 内置模型）；管理员账号免审核，不会触发 AI。': 'Workers AI auto-review is ready (uses the built-in Cloudflare model); admin accounts skip review.',
+  'AI 自动审核已就绪（未指定模型，将使用 agnes-2.5-flash）；管理员账号免审核，不会触发 AI。': 'AI auto-review is ready (no model specified, agnes-2.5-flash will be used); admin accounts skip review.',
 };

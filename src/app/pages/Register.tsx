@@ -146,7 +146,7 @@ export default function RegisterPage() {
         {/* ── 1. 使用须知 ── */}
         <section className={`reg-pane ${step === 1 ? 'active' : ''}`}>
           <div className="card reg-card">
-            <div className="reg-field-head"><span className="reg-ico">📄</span><div><h3>使用须知 <em>必读</em></h3><p>注册前请先确认以下事项</p></div></div>
+            <div className="reg-field-head"><span className="reg-ico">01</span><div><h3>使用须知 <em>必读</em></h3><p>注册前请先确认以下事项</p></div></div>
             <div className="reg-acc">
               <div className="acc open">1. 域名一经注册不可自助注销</div>
               <div className="acc-body">子域名注册成功后无法自行删除，请在提交前确认名称与后缀无误。</div>
@@ -166,7 +166,7 @@ export default function RegisterPage() {
         {/* ── 2. 选择域名（含 legacy 表单 id） ── */}
         <section className={`reg-pane ${step === 2 ? 'active' : ''}`}>
           <div className="card reg-card">
-            <div className="reg-field-head"><span className="reg-ico">✎</span><div><h3>域名前缀 <em>必填</em></h3><p>请输入域名前缀，选择后缀</p></div></div>
+            <div className="reg-field-head"><span className="reg-ico">02</span><div><h3>域名前缀 <em>必填</em></h3><p>请输入域名前缀，选择后缀</p></div></div>
 
             {/* 输入框与后缀选择器合为一体 */}
             <div className="reg-domain-box">
@@ -186,7 +186,7 @@ export default function RegisterPage() {
             <div className="hint" id="aiRootTip" style={{display: "none"}}></div>
             <div className="hint" id="aiStatusTip" style={{display: "none"}}></div>
 
-            <div className="reg-field-head" style={{marginTop: "22px"}}><span className="reg-ico warm">💬</span><div><h3>用途说明 <em>必填</em></h3><p>请简单描述您的使用用途</p></div></div>
+            <div className="reg-field-head" style={{marginTop: "22px"}}><span className="reg-ico warm">03</span><div><h3>用途说明 <em>必填</em></h3><p>请简单描述您的使用用途</p></div></div>
             <textarea id="note" className="input reg-note" placeholder="请简单描述您的使用用途（必填）" maxLength={200}
                       onInput={e => setNoteCount((e.target as HTMLTextAreaElement).value.length)} />
             <div className="reg-note-count">管理员审核时会看到这段说明。<span>{noteCount} / 200</span></div>

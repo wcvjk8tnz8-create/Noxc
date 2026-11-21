@@ -1074,7 +1074,7 @@ export function mountDecor() {
   const plain = document.documentElement.getAttribute('data-skin') === 'doc';
   const wrap = document.createElement('div');
   wrap.innerHTML = NEKO_SPRITE + (plain ? '' :
-    SPARKS.map((p) => `<span class="spark" style="left:${p.l};top:${p.t};font-size:${p.fs}px;animation-delay:${p.d}s">✦</span>`).join(''));
+    SPARKS.map((p) => `<span class="spark" style="left:${p.l};top:${p.t};font-size:${p.fs}px;animation-delay:${p.d}s">·</span>`).join(''));
   while (wrap.firstChild) document.body.appendChild(wrap.firstChild);
 }
 
@@ -1345,7 +1345,7 @@ export function pawBurst(anchor) {
   for (let i = 0; i < 5; i++) {
     const h = document.createElement('i');
     h.className = 'heart';
-    h.textContent = '♥';
+    h.textContent = '·';
     h.style.setProperty('--hx', ((Math.random() * 40) - 20).toFixed(0) + 'px');
     h.style.setProperty('--hy', (-24 - Math.random() * 26).toFixed(0) + 'px');
     h.style.animationDelay = (i * 0.055).toFixed(3) + 's';

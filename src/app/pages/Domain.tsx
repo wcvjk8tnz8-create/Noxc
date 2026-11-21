@@ -10,7 +10,7 @@ function ShowcaseSettings() {
   const [on, setOn] = useState(false);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
-  const [emoji, setEmoji] = useState('🌐');
+  const [emoji, setEmoji] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const id = new URLSearchParams(window.location.search).get('id');
@@ -25,7 +25,7 @@ function ShowcaseSettings() {
         setOn(!!s.showcase);
         setTitle(String(s.showcase_title || ''));
         setDesc(String(s.showcase_desc || ''));
-        setEmoji(String(s.showcase_emoji || '🌐'));
+        setEmoji(String(s.showcase_emoji || ''));
       })
       .catch(() => { /* 读不到时保持预设「不展示」 */ });
     return () => { alive = false; };
@@ -64,8 +64,8 @@ function ShowcaseSettings() {
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="这个站点是做什么的" maxLength={160} rows={2} />
       </div>
       <div className="field">
-        <label>图标（emoji）</label>
-        <input value={emoji} onChange={(e) => setEmoji(e.target.value)} placeholder="🌐" maxLength={8} />
+        <label>图标（可选，留空显示域名首字母）</label>
+        <input value={emoji} onChange={(e) => setEmoji(e.target.value)} placeholder="留空即可" maxLength={8} />
       </div>
       <div className="row between" style={{ alignItems: 'center' }}>
         <a href="/showcase" className="showcase-preview-link">查看展示页 ↗</a>
@@ -227,7 +227,6 @@ export default function DomainPage() {
                 <button className="op-btn" data-act="ns"><span>◎</span>DNS 服务器</button>
                 <button className="op-btn" data-act="whois"><span>⌕</span>WHOIS 查询</button>
                 <button className="op-btn" data-act="renew"><span>↻</span>续期</button>
-                <button className="op-btn" data-act="ssl"><span>🔒</span>SSL 证书</button>
               </div>
             </div>
             <ShowcaseSettings />

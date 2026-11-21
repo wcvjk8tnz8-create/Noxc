@@ -579,9 +579,6 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
       } else if (a === 'renew') {
         if (Number(sub.perpetual) === 1 || !sub.expires_at) return toast('该域名永久有效，无需续期');
         doRenew();
-      } else if (a === 'ssl') {
-        switchTab('dns');
-        toast('本站不签发证书：可在 DNS 解析里添加 ACME 验证记录，并用 CAA 记录限制签发机构', 'info');
       }
     };
   });

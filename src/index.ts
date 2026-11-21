@@ -9,6 +9,7 @@ import { DEFAULT_FOOTER_CONTACT_HTML } from './lib/footerContact.js';
 import { reservedLabelsOf } from './lib/reserved.js';
 import { publicStats } from './lib/publicStats.js';
 import { nodelocEnabled } from './lib/nodeloc.js';
+import { ensureCoreColumns } from './lib/showcase.js';
 import { rootPageFor } from './html/rootPages.js';
 import { docsHtml } from './html/docs.js';
 import { Hono } from 'hono';
@@ -39,6 +40,10 @@ import showcaseRoutes from './routes/showcase.js';
 const app = new Hono();
 
 // /api/xxx/ 与 /api/xxx 等价（去掉结尾斜杠后重新分发）
+/* 老库补列：任何请求进来先跑一次（模块级缓存，成功即不再查 PRAGMA）。
+   以前靠 schema.sql 重建表补列，每次部署都会清空用户案例展示开关。 */
+app.use('*', async (c, next) => { await ensureCoreColumns(c.env); await next(); });
+
 app.use('/api/*', async (c, next) => {
   const url = new URL(c.req.url);
   if (url.pathname.length > 1 && url.pathname.endsWith('/') && !c.req.header('x-rewrite')) {
@@ -128,8 +133,8 @@ app.get('/api/health', (c) =>
 app.get('/api/avatar/:key', async (c) => {
   const key = String(c.req.param('key') || '');
   if (!/^[A-Za-z0-9._-]{1,120}$/.test(key)) return c.text('bad key', 400);
-  // 与上传一致：未显式启用（AVATAR_ENABLED=1）时一律当作未配置
-  if (!c.env.AVATARS || String(c.env.AVATAR_ENABLED || '').trim() !== '1') {
+  // 与上传一致：绑定存在即启用（R2 由 CI 自动绑定）
+  if (!c.env.AVATARS) {
     return c.text('avatar storage not configured', 404);
   }
   const obj = await c.env.AVATARS.get(key);
@@ -192,6 +197,9 @@ app.get('/api/config', async (c) => {
     captchaEnabled: await captchaEnabled(c.env),
     // NodeLoc 第三方登录：只有后台开启且凭据齐备才显示按钮，不下发任何密钥
     nodelocEnabled: await nodelocEnabled(c.env),
+    // 存储绑定状态：只给布尔值，方便一眼确认 KV / R2 是否已自动挂上
+    kvBound: !!c.env.KV,
+    avatarUpload: !!c.env.AVATARS,
     // 注册页后缀菜单据此显示每个后缀的积分（0 = Free，未配置 = 按全局规则）
     rootPointCosts: parseRootCosts(s.root_point_costs),
     pointRules: {

@@ -323,7 +323,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
       <p data-en="Delegate a Noxc subdomain to DNSHE, using ksdk.noxc.uk as the running example. The eight screenshots correspond to figures 1–8 below.">把 Noxc 子域名交给 DNSHE 解析，以 <code>ksdk.noxc.uk</code> 为例；下面 8 张图与文内编号一一对应。</p>
       <div class="callout"><span class="tag">ONE SENTENCE</span><p data-en="Delegation means writing two NS records in the parent zone (Noxc). After that, every A / AAAA / CNAME / MX / TXT under this name is managed inside DNSHE.">托管 = <strong>在父区（Noxc）写两条 NS 记录</strong>，把解析权交出去；之后该名字下所有 A / AAAA / CNAME / MX / TXT 都在 DNSHE 里管。</p></div>
 
-      <h3 data-en="Two sets of nameservers — do not mix them up">两套 NS 别搞混（最容易错的地方）★</h3>
+      <h3 data-en="Two sets of nameservers — do not mix them up">两套 NS 别搞混（最容易错的地方）</h3>
       <div class="table-scroll"><table>
         <thead><tr><th data-en="Use case">用途</th><th data-en="Correct NS">正确的 NS</th></tr></thead>
         <tbody>
@@ -347,7 +347,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
       <div class="step"><div class="step-no">2</div><div class="step-body">
         <h3 data-en="Get the assigned nameservers (see Fig 7)">拿到分配的 NS（先看图 7）</h3>
         <p data-en="A New domain setup dialog appears with three steps: 1. Add domain (done), 2. Add DNS records (current), 3. Update nameservers. It lists ns1.dnshe.org and ns2.dnshe.org with Copy / Copy all. The yellow notice says the nameserver change has not been detected yet — that is normal until you update the parent zone and wait.">创建后弹出 <em>New domain setup</em>，步骤条为 <code>1. Add domain</code>（已完成）→ <code>2. Add DNS records</code>（当前）→ <code>3. Update nameservers</code>；正文列出 <code>ns1.dnshe.org</code> / <code>ns2.dnshe.org</code>，右侧有 <em>Copy</em>、<em>Copy all</em>。黄色提示「尚未检测到 NS 变更」是正常的，改完等一会儿再复查。</p>
-        <p data-en="Update nameservers here means go to your registrar / parent zone and change NS — for Noxc users that is the one-click preset in step 3, not something you do inside DNSHE. Do NOT click any bottom button yet; switch to Noxc first.">⚠️ 步骤条里的 <em>Update nameservers</em> 指「到上级去改 NS」，对 Noxc 用户就是下面第 3 步的一键模板，不是在 DNSHE 里改。<strong>先别点底部任何按钮</strong>，切到 Noxc 把 NS 写进去再回来。</p>
+        <p data-en="Update nameservers here means go to your registrar / parent zone and change NS — for Noxc users that is the one-click preset in step 3, not something you do inside DNSHE. Do NOT click any bottom button yet; switch to Noxc first.">注意：步骤条里的 <em>Update nameservers</em> 指「到上级去改 NS」，对 Noxc 用户就是下面第 3 步的一键模板，不是在 DNSHE 里改。<strong>先别点底部任何按钮</strong>，切到 Noxc 把 NS 写进去再回来。</p>
         <figure class="doc-fig"><picture><source srcset="/img/docs/fig7.png" type="image/webp"><img src="/img/docs/fig7.png" width="2666" height="1624" loading="lazy" alt="图 7 New domain setup 给出两条 ns.dnshe.org"></picture><figcaption data-en="Fig 7 · New domain setup with the two .org NS and the three bottom buttons">图 7 · <em>New domain setup</em>：两条 <code>.org</code> NS + 底部三个按钮（<em>Check again</em> / <em>Add DNS records</em> / <em>Cancel</em>）</figcaption></figure>
       </div></div>
 
@@ -362,14 +362,14 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
       </div></div>
 
       <div class="step"><div class="step-no">4</div><div class="step-body">
-        <h3 data-en="Fig 7 → Fig 8: the button you must press">图 7 → 图 8 的关键一步 ★★</h3>
+        <h3 data-en="Fig 7 → Fig 8: the button you must press">图 7 → 图 8 的关键一步</h3>
         <p data-en="Back in the New domain setup dialog (if closed, open Manage → on that row in the domain list). The three bottom buttons do completely different things:">回到 <em>New domain setup</em> 弹窗（若已关掉，在域名列表该行点 <em>Manage →</em> 重新进入）。底部三个按钮作用完全不同：</p>
         <div class="table-scroll"><table>
           <thead><tr><th data-en="Button">按钮</th><th data-en="What it does">作用</th><th data-en="Opens Fig 8?">会不会跳到图 8</th></tr></thead>
           <tbody>
-            <tr><td><code>Check again</code></td><td data-en="Re-checks whether the parent-zone NS is live">重新检测父区 NS 是否已生效</td><td data-en="No — only refreshes the yellow notice in place">❌ 只原地刷新那句黄色提示</td></tr>
-            <tr><td><code>Add DNS records</code></td><td data-en="Opens the DNS records page for this domain">进入该域名的 DNS records 管理页</td><td data-en="YES — this is the one">✅ 就是它</td></tr>
-            <tr><td><code>Cancel</code></td><td data-en="Closes the guide and returns to the domain list">关闭引导，回域名列表</td><td data-en="No">❌</td></tr>
+            <tr><td><code>Check again</code></td><td data-en="Re-checks whether the parent-zone NS is live">重新检测父区 NS 是否已生效</td><td data-en="No — only refreshes the yellow notice in place">否 只原地刷新那句黄色提示</td></tr>
+            <tr><td><code>Add DNS records</code></td><td data-en="Opens the DNS records page for this domain">进入该域名的 DNS records 管理页</td><td data-en="YES — this is the one">是 就是它</td></tr>
+            <tr><td><code>Cancel</code></td><td data-en="Closes the guide and returns to the domain list">关闭引导，回域名列表</td><td data-en="No">否</td></tr>
           </tbody>
         </table></div>
         <div class="callout star"><span class="tag">MUST READ</span><p data-en="You MUST click the blue Add DNS records button to see the Fig 8 screen. Check again only re-checks, Cancel exits the guide. Fig 7 gives you the NS and tells you to change them; Fig 8 is where you add records — the bridge between them is Add DNS records."><strong>必须点中间蓝色的 <code>Add DNS records</code>，才会看到图 8 的界面。</strong>点 <em>Check again</em> 只会重新检测、不会跳转；点 <em>Cancel</em> 直接退出引导。记住：图 7 是「给你 NS、让你去改 NS」，图 8 是「进来加记录」，中间那座桥就是 <em>Add DNS records</em>。</p></div>

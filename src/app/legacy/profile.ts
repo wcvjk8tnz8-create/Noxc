@@ -170,8 +170,8 @@ export async function mountProfile(_root: HTMLElement | null): Promise<void> {
   const upTip = document.getElementById('upTip');
   
   function pickFile() { fileInput.click(); }
-  /* 自定义上传默认关闭（当前不绑定 R2）。
-     后台在 /api/config 里返回 avatarUpload: true 时才显示并启用。 */
+  /* 自定义上传由 /api/config 的 avatarUpload 决定：
+     R2 绑定存在即显示，未绑定（CI 降级）时自动隐藏。 */
   const btnUp = document.getElementById('btnUploadAv');
   if (btnUp) btnUp.onclick = pickFile;
   try {

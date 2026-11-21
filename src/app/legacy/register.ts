@@ -24,7 +24,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     if (inAi) bits.push('该后缀由 AI 自动审核，通过后立即开通（无需人工同意）');
     else if (d) bits.push('该后缀不在 AI 自动审核名单内，申请会进入人工审核');
     if (DNS_UNLIMITED.indexOf(d) >= 0) bits.push('DNS 记录数不限');
-    el.textContent = bits.length ? (inAi ? '✨ ' : 'ℹ ') + bits.join(' · ') : '';
+    el.textContent = bits.length ? (inAi ? '' : '') + bits.join(' · ') : '';
     el.style.display = bits.length ? '' : 'none';
   }
   var APPLY_PAUSED = false;
@@ -129,13 +129,13 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
         var isWorkers = st.provider === 'workers-ai';
         var msg = '';
         if (!st.ready) msg = isWorkers
-          ? '⚠ Workers AI 未绑定（需在 wrangler.toml 配置 [ai] binding）：申请会回落人工审核。'
-          : '⚠ AI 自动审核未配置 API Key：申请会回落人工审核。';
-        else if (!st.enabled) msg = '⚠ AI 自动审核开关已关闭：申请会回落人工审核。';
+          ? 'Workers AI 未绑定（需在 wrangler.toml 配置 [ai] binding）：申请会回落人工审核。'
+          : 'AI 自动审核未配置 API Key：申请会回落人工审核。';
+        else if (!st.enabled) msg = 'AI 自动审核开关已关闭：申请会回落人工审核。';
         else if (!st.modelSelected) msg = isWorkers
-          ? '✓ Workers AI 自动审核已就绪（将使用 Cloudflare 内置模型）；管理员账号免审核，不会触发 AI。'
-          : '✓ AI 自动审核已就绪（未指定模型，将使用 agnes-2.5-flash）；管理员账号免审核，不会触发 AI。';
-        else msg = '✓ AI 自动审核已就绪，审核模型 ' + esc(st.model) + '；管理员账号免审核，不会触发 AI。';
+          ? 'Workers AI 自动审核已就绪（将使用 Cloudflare 内置模型）；管理员账号免审核，不会触发 AI。'
+          : 'AI 自动审核已就绪（未指定模型，将使用 agnes-2.5-flash）；管理员账号免审核，不会触发 AI。';
+        else msg = 'AI 自动审核已就绪，审核模型 ' + esc(st.model) + '；管理员账号免审核，不会触发 AI。';
         aiTip.textContent = msg;
         aiTip.style.display = '';
       }

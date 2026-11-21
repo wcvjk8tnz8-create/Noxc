@@ -4,7 +4,7 @@ import { api, refreshRuntime, cleanupPage, readUserCache, authProbe } from '../l
 /**
  * Showcase · 用户案例
  *
- * 对齐参考图（Leo Free Page）：独立顶栏、✨ 标题与一句副标题、
+ * 对齐参考图（Leo Free Page）：独立顶栏、标题与一句副标题、
  * 三列圆角白卡片，每张卡有 emoji / 标题 / 站长 / 描述 / 域名链接。
  *
  * 隐私：只展示用户主动开启展示（showcase=1）且已开通的域名，
@@ -71,7 +71,7 @@ export default function ShowcasePage() {
       <main className="rv-main showcase-main">
         <section className="showcase-head rv-reveal">
           <p className="rv-eyebrow">COMMUNITY <span>·</span> MADE WITH NOXC</p>
-          <h1 className="rv-title"><span className="showcase-spark" aria-hidden="true">✦</span> 用户案例</h1>
+          <h1 className="rv-title">用户案例</h1>
           <p className="rv-lede">由用户自愿展示的主页，点击卡片即可访问</p>
           <p className="showcase-note">所有域名预设都不展示，只有你主动开启才会出现在这里。</p>
           <p className="showcase-note"><a href="/dashboard">去域名管理开启展示 →</a></p>
@@ -80,7 +80,6 @@ export default function ShowcasePage() {
         {loading && <div className="showcase-empty">加载中…</div>}
         {!loading && items.length === 0 && (
           <div className="showcase-empty">
-            <span aria-hidden="true">✦</span>
             <p>还没有用户开启展示。</p>
             <p>在自己的域名详情里打开「用户案例展示」，它就会出现在这里。</p>
           </div>
@@ -90,7 +89,7 @@ export default function ShowcasePage() {
             {items.map((it) => (
               <a key={it.fqdn} className="showcase-card"
                  href={`https://${it.fqdn}`} target="_blank" rel="noopener noreferrer">
-                <span className="showcase-emoji" aria-hidden="true">{it.emoji}</span>
+                <span className="showcase-emoji" aria-hidden="true">{it.emoji || it.fqdn.slice(0, 1).toUpperCase()}</span>
                 <h3 className="showcase-title">{it.title}</h3>
                 <p className="showcase-owner">站长：{it.owner}</p>
                 <p className="showcase-desc">{it.desc || '——'}</p>

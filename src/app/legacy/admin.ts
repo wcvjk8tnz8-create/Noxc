@@ -665,7 +665,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
           const src = r.source === 'gateway' ? '网关 /models'
             : r.source === 'workers-ai' ? 'Workers AI 内置清单' : '内置 Agnes 官方清单';
           if (aiModelHint) {
-            aiModelHint.innerHTML = (r.ok ? '✓ ' : '⚠ ')
+            aiModelHint.innerHTML = (r.ok ? '✓ ' : '! ')
               + esc(r.message || '探测异常') + `（来源：${src}），审核模型 <b>${esc(chosen || '未选定')}</b>`
               + (r.autoPicked ? '（已自动选择并保存）' : '')
               + (r.inList === false && chosen ? '；当前模型不在清单中，可从下拉改选' : '')

@@ -649,6 +649,66 @@ check(
 check(cpDict.includes("'注册人数'") && cpDict.includes("'已开通域名'"), '统计英文词条齐，英文模式不夹生');
 check(/\.rv-stats/.test(stCss) && /max-width: 700px[\s\S]*\.rv-stats/.test(stCss), '手机断点覆盖统计区');
 
+/* 用户案例每次部署不丢：schema.sql 不再重建业务表 */
+const spSchema = read('schema.sql');
+const spLib = read('src/lib/showcase.ts');
+const spIndex = read('src/index.ts');
+const spReg = fs.existsSync(path.join(root, 'scripts/schema-persistence.py'))
+  ? read('scripts/schema-persistence.py') : '';
+check(!/ALTER TABLE subdomains RENAME|CREATE TABLE IF NOT EXISTS subdomains_mr|DROP TABLE IF EXISTS subdomains_old_mr/.test(spSchema),
+  '用户案例每次部署不丢：schema.sql 不再 RENAME / 重建 subdomains 表');
+check(/root_domain\s+TEXT\s+NOT NULL DEFAULT ''/.test(spSchema) &&
+      /showcase\s+INTEGER NOT NULL DEFAULT 0/.test(spSchema) &&
+      /showcase_title TEXT/.test(spSchema) && /showcase_desc  TEXT/.test(spSchema),
+  '主表一次建成最终结构：root_domain + showcase 四列都在');
+check(/export async function ensureCoreColumns/.test(spLib) &&
+      /add\('root_domain'/.test(spLib) && /UPDATE subdomains SET root_domain/.test(spLib),
+  '老库缺列改由 Worker 运行时 PRAGMA+ALTER 补齐并回填 root_domain');
+check(/await ensureCoreColumns\(c\.env\)/.test(spIndex), '补列中间件挂在所有请求最前面');
+check(spReg.length > 1000 && /第 2 次部署/.test(spReg) && /展示开关被重置为 0/.test(spReg),
+  'CI 跑真实 SQLite 双次部署回归，防止重建表问题回流');
+check(/python3 scripts\/schema-persistence\.py/.test(read('.github/workflows/deploy.yml')),
+  '持久化回归已挂进部署工作流');
+
+/* SSL 证书入口已移除 */
+check(!/data-act="ssl"/.test(read('src/app/pages/Domain.tsx')) &&
+      !/a === 'ssl'/.test(read('src/app/legacy/domain.ts')),
+  '域名详情不再有「SSL 证书」按钮与处理分支');
+check(!/'SSL 证书'/.test(read('src/app/lib/dict.en.ts')), 'SSL 证书词条已从词典移除');
+
+/* 前台不再使用彩色 emoji */
+const noEmojiFiles = [
+  'src/app/pages/Domain.tsx', 'src/app/pages/Register.tsx',
+  'src/app/pages/Showcase.tsx', 'src/lib/showcase.ts',
+  'src/html/docs.ts', 'src/app/legacy/register.ts',
+];
+const PICTO = /[\u{1F300}-\u{1FAFF}\u2764\u26A0\u2705\u274C\u2728\u2139]/u;
+for (const f of noEmojiFiles) {
+  check(!PICTO.test(read(f)), `前台无彩色 emoji：${f}`);
+}
+check(/it\.emoji \|\| it\.fqdn\.slice\(0, 1\)\.toUpperCase\(\)/.test(read('src/app/pages/Showcase.tsx')),
+  '案例卡片图标留空时用域名首字母兜底，不再塞默认 emoji');
+
+/* KV / R2 自动绑定 */
+const bdToml = read('wrangler.toml');
+const bdCi = read('.github/workflows/deploy.yml');
+const bdKv = read('scripts/ensure-kv.ts');
+const bdTypes = read('src/types.d.ts');
+const bdCfg = read('src/index.ts');
+const bdUpload = read('src/routes/profile.ts');
+check(/\[\[r2_buckets\]\][\s\S]{0,120}binding = "AVATARS"/.test(bdToml),
+  'R2 绑定直接写在 wrangler.toml（桶名固定，CI 自动建桶）');
+check(/scripts\/ensure-kv\.ts/.test(bdCi) && /KV_NAMESPACE_ID/.test(bdCi),
+  'CI 有 KV 自动准备步骤，支持 Variables 复用已有 namespace');
+check(/storage\/kv\/namespaces/.test(bdKv) && /\[\[kv_namespaces\]\]/.test(bdKv) &&
+      /KV_ENABLED=false/.test(bdKv), 'ensure-kv 覆盖查找 / 创建 / 降级移除绑定');
+check(/KV\?:/.test(bdTypes), 'Env 类型声明含 KV 绑定（判空使用）');
+check(/kvBound: !!c\.env\.KV/.test(bdCfg) && /avatarUpload: !!c\.env\.AVATARS/.test(bdCfg),
+  '/api/config 返回绑定状态，前端上传按钮随绑定自动出现');
+check(!/AVATAR_ENABLED/.test(bdUpload) && !/AVATAR_ENABLED/.test(bdCfg),
+  '头像上传不再要求手工配 AVATAR_ENABLED，绑定存在即启用');
+check(/检查绑定状态/.test(bdCi), '部署前打印 wrangler.toml 的绑定状态，便于排查');
+
 /* 深色可读性：--zx-blue-soft 是「深墨软背景」，不能当文字色 */
 const dkCss = read('src/app/styles/design-system.css');
 const dkShell = read('src/app/styles/shell.css');

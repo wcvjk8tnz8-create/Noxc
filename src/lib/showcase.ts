@@ -8,7 +8,15 @@
 
 let colsChecked = false;
 
-export async function ensureShowcaseColumns(env: any): Promise<void> {
+/**
+ * 老库补列（一次性，模块级缓存）。
+ *
+ * 早期版本靠 schema.sql 里的「重建表」迁移补 root_domain，那段迁移每次部署
+ * 都会重跑并把 showcase_* 四列清空。现在改为在 Worker 首次请求时按 PRAGMA
+ * 逐列 ALTER，业务表永远不被重建，用户设置的展示开关得以持久化。
+ * 补完顺手把历史行的 root_domain 从 fqdn 反推回填（幂等，只填空值）。
+ */
+export async function ensureCoreColumns(env: any): Promise<void> {
   if (colsChecked) return;
   try {
     const info: any = await env.DB.prepare('PRAGMA table_info(subdomains)').all();
@@ -17,13 +25,22 @@ export async function ensureShowcaseColumns(env: any): Promise<void> {
       if (have.has(col)) return;
       await env.DB.prepare(`ALTER TABLE subdomains ADD COLUMN ${col} ${ddl}`).run();
     };
+    await add('root_domain', "TEXT NOT NULL DEFAULT ''");
     await add('showcase', 'INTEGER NOT NULL DEFAULT 0');
     await add('showcase_title', 'TEXT');
     await add('showcase_desc', 'TEXT');
     await add('showcase_emoji', 'TEXT');
+    await env.DB.prepare(
+      `UPDATE subdomains SET root_domain =
+         CASE WHEN instr(fqdn, '.') > 0 THEN substr(fqdn, instr(fqdn, '.') + 1) ELSE '' END
+       WHERE root_domain IS NULL OR root_domain = ''`
+    ).run().catch(() => null);
     colsChecked = true;
   } catch { /* 表不存在 / D1 抖动：公开页降级为空列表，不影响站点 */ }
 }
+
+/** 兼容旧调用点 */
+export const ensureShowcaseColumns = ensureCoreColumns;
 
 export type ShowcaseItem = {
   fqdn: string;
@@ -36,7 +53,7 @@ export type ShowcaseItem = {
 
 /** 公开列表：不含邮箱、user_id、审核备注等任何非展示信息 */
 export async function showcaseItems(env: any): Promise<ShowcaseItem[]> {
-  await ensureShowcaseColumns(env);
+  await ensureCoreColumns(env);
   const sql = `
     SELECT s.fqdn, s.label, s.showcase_title, s.showcase_desc, s.showcase_emoji,
            COALESCE(p.nickname, '') AS nickname, u.email AS email
@@ -67,7 +84,7 @@ export async function showcaseItems(env: any): Promise<ShowcaseItem[]> {
     return {
       fqdn: String(r.fqdn || ''),
       label: String(r.label || ''),
-      emoji: (String(r.showcase_emoji || '').trim() || '🌐').slice(0, 8),
+      emoji: String(r.showcase_emoji || '').trim().slice(0, 8),
       title: (String(r.showcase_title || '').trim() || String(r.label || '') || String(r.fqdn || '')).slice(0, 60),
       desc: String(r.showcase_desc || '').trim().slice(0, 160),
       owner: owner.slice(0, 40),
