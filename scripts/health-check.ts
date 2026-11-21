@@ -61,9 +61,10 @@ for (const p of srcFiles) {
   check(!/\b(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,})\b/.test(t), `${p} 无明文密钥`);
 }
 
-/* 4. 样式层顺序：动效层 → 液态玻璃层 → Reverie 设计系统层收口在最后。
-      Reverie 用同等 !important 覆盖前六层的色板，必须保留玻璃层里
-      遮罩 / Toast / 抽屉 / 欢迎卡的修复，否则会静默回退成旧 bug。 */
+/* 4. 样式层顺序：动效层 → 液态玻璃层 → Reverie 骨架层 → Noxc 节点视觉层。
+      Reverie 用同等 !important 覆盖前六层的色板，节点层再按主 logo
+      收口冷白 / 墨黑 / 蓝点；独立组件层保持最后。玻璃层里
+      遮罩 / Toast / 抽屉 / 欢迎卡的修复必须保留，否则会静默回退成旧 bug。 */
 const main = read('src/app/main.tsx');
 const imports = [...main.matchAll(/import\s+['"]\.\/styles\/([^'"]+)['"]/g)].map((m) => m[1]);
 check(
@@ -86,6 +87,17 @@ check(
   imports.includes('liquid-glass.css') && imports.indexOf('liquid-glass.css') < imports.indexOf('reverie.css'),
   '液态玻璃层在 Reverie 之前加载，浮岛结构不被新层覆盖掉',
 );
+check(
+  imports.includes('noxc-node.css') &&
+    imports.indexOf('reverie.css') < imports.indexOf('noxc-node.css') &&
+    imports.indexOf('noxc-node.css') < imports.indexOf('captcha.css'),
+  'Noxc 节点视觉层在 Reverie 之后、独立组件层之前收口',
+);
+const nodeLayer = read('src/app/styles/noxc-node.css');
+check(/--rv-blue:\s*#1667f2/.test(nodeLayer), '节点层保留主 logo 的蓝点色');
+check(!/#f6f2e8|#2f5d45|#1c221d/.test(nodeLayer), '节点层不残留羊皮纸 / 蕨绿旧色板');
+check(!/#f6f2e8|#2f5d45/.test(read('src/html/reverieRootCss.ts')), '根域名页同步为节点色板');
+check(!/#f6f2e8|#2f5d45/.test(read('src/html/docs.ts')), '服务文档页同步为节点色板');
 const glass = read('src/app/styles/liquid-glass.css');
 check(/\.modal\s*\{[^}]*background:\s*rgba\(/s.test(glass), '玻璃层保留半透明弹窗遮罩');
 check(/#toast\s*\{[^}]*background:\s*transparent/s.test(glass), '玻璃层保留透明 Toast 容器');
@@ -878,6 +890,14 @@ for (const f of ['public/img/logo-transparent.png', 'public/img/logo-light.png']
   check(fs.existsSync(path.join(root, f)), `主 logo 备用版存在 ${f}`);
 }
 check(/logo-light\.png/.test(read('src/app/styles/components.css')), '深色主题已切到反白 logo');
+
+/* 语言切换按钮曾靠 padding + normal 行高凑 44px，字体异步加载时会落到 43.x
+   亚像素，手机端触控目标回归偶发失败。改成固定盒模型后必须保持。 */
+for (const f of ['src/html/root-meoy.ts', 'src/html/root-v1.ts']) {
+  const css = read(f);
+  check(/\.lang button\{[^}]*min-height:44px[^}]*display:inline-flex/.test(css),
+    `${f} 语言按钮为固定 44px 盒模型（不依赖字体行高）`);
+}
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);

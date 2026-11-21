@@ -1,0 +1,352 @@
+/* ══════════════════════════════════════════════════════════════
+   Noxc · Node —— 由主 logo 反推的整站视觉层
+   ──────────────────────────────────────────────────────────────
+   logo 只有三样东西：白底、墨黑的圆头折线 N、一个蓝点。
+   所以整站也只留这三样：
+     · 冷白面 / 近黑墨 / 单一 Noxc 蓝 #1667f2 作强调
+     · 几何无衬线标题、圆头粗线、999px 胶囊、24–32px 大圆角
+     · 节点点阵 + 圆点徽记，呼应「节点连线」而不是花草风景
+   骨架、浮岛侧栏、满铺壁纸、Miku 切页过渡、全站手机适配全部保留；
+   本层只收口色板 / 字体 / 圆角 / 装饰，不写 left/top/width。
+   加载顺序：reverie.css 之后，captcha.css / oauth.css 之前。
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── 令牌换血：Reverie 的羊皮纸 / 蕨绿 / 衬线整体退场 ── */
+  --rv-paper: #ffffff;
+  --rv-paper-2: #f4f7fc;
+  --rv-card: rgba(255, 255, 255, .88);
+  --rv-ink: #111318;
+  --rv-body: #49525f;
+  --rv-muted: #8b94a3;
+  --rv-fern: #1667f2;
+  --rv-fern-deep: #0b47c4;
+  --rv-fern-soft: #e8f0ff;
+  --rv-hair: rgba(17, 19, 24, .13);
+  --rv-hair-2: rgba(17, 19, 24, .065);
+  --rv-blue: #1667f2;
+  --rv-blue-soft: #e8f0ff;
+  --rv-serif: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --rv-sans: var(--rv-serif);
+  --rv-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --rv-r: 24px;
+  --rv-r-lg: 32px;
+
+  /* ── 玻璃层令牌同步（浮岛结构不动，只换材质） ── */
+  --lg-green: #1667f2;
+  --lg-green-deep: #0b47c4;
+  --lg-green-bright: #4a8bff;
+  --lg-green-soft: rgba(22, 103, 242, .10);
+  --lg-ink: #111318;
+  --lg-muted: #7b8594;
+  --lg-hair: rgba(17, 19, 24, .12);
+  --lg-paper: #ffffff;
+  --lg-glass: linear-gradient(152deg, rgba(255, 255, 255, .86) 0%, rgba(244, 247, 252, .72) 58%, rgba(232, 240, 255, .60) 100%);
+  --lg-glass-soft: linear-gradient(152deg, rgba(255, 255, 255, .72), rgba(238, 244, 255, .46));
+  --lg-stroke: rgba(17, 19, 24, .14);
+  --lg-input-line: rgba(17, 19, 24, .16);
+  --lg-active: linear-gradient(140deg, rgba(22, 103, 242, .14), rgba(22, 103, 242, .06));
+  --lg-shadow: 0 18px 42px rgba(17, 19, 24, .08), inset 0 1px 0 rgba(255, 255, 255, .9);
+  --lg-shadow-sm: 0 8px 20px rgba(17, 19, 24, .06), inset 0 1px 0 rgba(255, 255, 255, .85);
+  --lg-blur: blur(22px) saturate(130%);
+  --lg-blur-sm: blur(14px) saturate(120%);
+
+  /* ── theme-noxc.css / components.css 的旧令牌同步 ── */
+  --td-paper: #ffffff;
+  --td-surface: #ffffff;
+  --td-side: #f5f7fb;
+  --td-ink: #111318;
+  --td-muted: #7b8594;
+  --td-line: rgba(17, 19, 24, .13);
+  --td-line-2: rgba(17, 19, 24, .065);
+  --td-accent: #1667f2;
+  --td-accent-soft: #e8f0ff;
+  --td-ok: #0f8f5a;
+  --td-warn: #b47a12;
+  --td-bad: #d0464e;
+  --td-serif: var(--rv-serif);
+  --td-mono: var(--rv-mono);
+  --td-radius: 24px;
+  --td-shadow: 0 1px 2px rgba(17, 19, 24, .05);
+  --primary: 217 89% 52%;
+  --ring: 217 89% 52%;
+  --blue: #1667f2;
+  --blue2: #4a8bff;
+  --blue-soft: #e8f0ff;
+  --c1: #1667f2;
+  --radius: 24px;
+  --shadow: 0 10px 30px rgba(17, 19, 24, .08), 0 2px 6px rgba(17, 19, 24, .04);
+}
+
+[data-theme="dark"] {
+  --rv-paper: #0b0d11;
+  --rv-paper-2: #141922;
+  --rv-card: rgba(22, 27, 35, .88);
+  --rv-ink: #f5f7fb;
+  --rv-body: #b6c0cf;
+  --rv-muted: #7c8798;
+  --rv-fern: #5b93ff;
+  --rv-fern-deep: #8ab4ff;
+  --rv-fern-soft: #16233c;
+  --rv-hair: rgba(226, 235, 250, .16);
+  --rv-hair-2: rgba(226, 235, 250, .085);
+  --rv-blue: #5b93ff;
+  --rv-blue-soft: #16233c;
+
+  --lg-green: #5b93ff;
+  --lg-green-deep: #8ab4ff;
+  --lg-green-bright: #86b0ff;
+  --lg-green-soft: rgba(91, 147, 255, .16);
+  --lg-ink: #f5f7fb;
+  --lg-muted: #8c97a8;
+  --lg-hair: rgba(226, 235, 250, .14);
+  --lg-paper: #0b0d11;
+  --lg-glass: linear-gradient(152deg, rgba(30, 37, 48, .82), rgba(16, 21, 29, .62));
+  --lg-glass-soft: linear-gradient(152deg, rgba(30, 37, 48, .66), rgba(16, 21, 29, .44));
+  --lg-stroke: rgba(226, 235, 250, .16);
+  --lg-input-line: rgba(226, 235, 250, .18);
+  --lg-active: linear-gradient(140deg, rgba(91, 147, 255, .20), rgba(91, 147, 255, .08));
+  --lg-shadow: 0 18px 42px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .06);
+  --lg-shadow-sm: 0 8px 20px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .05);
+
+  --td-paper: #0b0d11;
+  --td-surface: #141922;
+  --td-side: #10151d;
+  --td-ink: #f5f7fb;
+  --td-muted: #8c97a8;
+  --td-line: rgba(226, 235, 250, .16);
+  --td-line-2: rgba(226, 235, 250, .085);
+  --td-accent: #5b93ff;
+  --td-accent-soft: #16233c;
+  --td-ok: #5cc79a;
+  --td-warn: #e6bd72;
+  --td-bad: #f3979b;
+  --td-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  --primary: 217 90% 68%;
+  --ring: 217 90% 68%;
+  --blue: #5b93ff;
+  --blue2: #8ab4ff;
+  --blue-soft: #16233c;
+  --c1: #5b93ff;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .45);
+}
+
+/* ── 纸面：玻璃层的暖绿渐变换成冷白 + 极淡蓝晕 + 节点点阵 ── */
+html:not([data-theme="dark"]) {
+  background-color: #ffffff !important;
+  background-image:
+    radial-gradient(circle at center, rgba(17, 19, 24, .055) 1px, transparent 1.5px),
+    radial-gradient(760px 560px at 88% 92%, rgba(22, 103, 242, .06), transparent 68%),
+    radial-gradient(680px 520px at 96% 8%, rgba(120, 160, 255, .09), transparent 66%),
+    linear-gradient(160deg, #ffffff 0%, #f8fafd 56%, #f1f5fc 100%) !important;
+  background-size: 30px 30px, auto, auto, auto !important;
+  background-attachment: fixed !important;
+}
+html[data-theme="dark"] {
+  background-color: #0b0d11 !important;
+  background-image:
+    radial-gradient(circle at center, rgba(226, 235, 250, .07) 1px, transparent 1.5px),
+    radial-gradient(760px 560px at 88% 92%, rgba(22, 103, 242, .14), transparent 68%),
+    linear-gradient(160deg, #0d1117 0%, #0b0e13 56%, #080b10 100%) !important;
+  background-size: 30px 30px, auto, auto !important;
+  background-attachment: fixed !important;
+}
+html:not([data-theme="dark"]) body { color: var(--rv-ink) !important; }
+html:not([data-theme="dark"]) ::selection { background: rgba(22, 103, 242, .20); color: var(--rv-ink); }
+html ::-webkit-scrollbar-thumb { background: rgba(22, 103, 242, .28); }
+
+/* 满铺壁纸保留，但退成极淡冷调底纹：主视觉交给节点图形与留白 */
+html body #bg,
+html body.page-home #bg,
+html body.page-login #bg,
+html body.page-home.page-reverie.has-cloud #bg,
+html[data-theme="dark"] body #bg {
+  opacity: .075 !important;
+  filter: grayscale(.45) saturate(.5) contrast(1.03) !important;
+}
+html[data-theme="dark"] body #bg {
+  opacity: .10 !important;
+  mix-blend-mode: normal !important;
+}
+html body #bg::before { opacity: .30 !important; }
+body.page-reverie #bg::after { display: none !important; }
+
+/* ── 字体：几何无衬线、不斜体，标题一律 700 ── */
+h1, h2, h3, .zx-title, .nk-h2, .auth-lead, .side-brand b, .brand b,
+.rv-title, .rv-h2, .rv-brand b, .rv-fbrand, .rv-quote p, .rv-hero-foot,
+.rv-stat, .card h2, .card h3, .head-row h3, .w-hi {
+  font-family: var(--rv-serif) !important;
+  font-weight: 700 !important;
+  font-style: normal !important;
+  letter-spacing: -.04em;
+}
+
+/* 强调不再是「绿色斜体」，而是 logo 里那一颗蓝点 / 一条圆头粗线 */
+.rv-title em, .rv-h2 em, .rv-cta h2 em, .zx-title span, .nk-h2 em,
+h1 em, h2 em {
+  font-style: normal !important;
+  font-weight: 700 !important;
+  color: var(--rv-blue) !important;
+  -webkit-text-fill-color: var(--rv-blue) !important;
+  background: none !important;
+}
+.rv-title em::after, .zx-title span::after {
+  background: var(--rv-blue) !important;
+  height: 4px !important;
+  border-radius: 999px !important;
+  opacity: .85 !important;
+}
+.rv-eyebrow::before, .rv-sec-no::before {
+  content: '';
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--rv-blue);
+  margin-right: 10px;
+  vertical-align: middle;
+  box-shadow: 0 0 0 4px var(--rv-blue-soft);
+}
+.rv-title::after {
+  content: '';
+  display: block;
+  width: 62px; height: 6px;
+  border-radius: 999px;
+  background: var(--rv-blue);
+  margin: 24px auto 0;
+}
+.rv-pill.ink::after, .rv-ask-btn.rv-pill.ink::after {
+  content: '';
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--rv-blue);
+  flex: 0 0 auto;
+}
+.rv-fullstop { color: var(--rv-blue) !important; }
+
+/* ── 画意卡 → 节点面板：淡化的去字 N 图形 + 点阵 ── */
+.rv-frame {
+  background: var(--rv-paper-2) !important;
+  border-color: var(--rv-hair) !important;
+  border-radius: var(--rv-r-lg) !important;
+}
+.rv-art {
+  background-image: url('/img/logo-transparent.png') !important;
+  background-size: min(58%, 440px) auto !important;
+  background-position: center 42% !important;
+  background-repeat: no-repeat !important;
+  background-color: transparent !important;
+  filter: none !important;
+  opacity: .13 !important;
+  transform: none !important;
+}
+html[data-theme="dark"] .rv-art {
+  background-image: url('/img/logo-light.png') !important;
+  opacity: .16 !important;
+}
+.rv-frame:hover .rv-art { transform: none !important; }
+.rv-art-veil,
+html[data-theme="dark"] .rv-art-veil {
+  background: radial-gradient(circle, var(--rv-hair) 1px, transparent 1.5px) !important;
+  background-size: 26px 26px !important;
+  mix-blend-mode: normal !important;
+  opacity: .7 !important;
+}
+.rv-art-cap {
+  background: rgba(255, 255, 255, .88) !important;
+  border-color: var(--rv-hair) !important;
+  color: var(--rv-ink) !important;
+}
+html[data-theme="dark"] .rv-art-cap { background: rgba(22, 27, 35, .88) !important; }
+.rv-ask {
+  background: rgba(255, 255, 255, .94) !important;
+  border-color: var(--rv-hair) !important;
+  box-shadow: 0 14px 40px rgba(17, 19, 24, .10) !important;
+}
+html[data-theme="dark"] .rv-ask { background: rgba(22, 27, 35, .94) !important; }
+.rv-ask-ico { color: var(--rv-blue) !important; }
+
+/* ── 顶栏 / 输入 / 终端：清掉残余的暖黄硬编码 ── */
+.rv-head {
+  background: rgba(255, 255, 255, .80) !important;
+  border-bottom-color: var(--rv-hair-2) !important;
+}
+html[data-theme="dark"] .rv-head { background: rgba(13, 16, 22, .80) !important; }
+.rv-brand img, .rv-fbrand img, .home-brand img { border-radius: 10px !important; }
+input:not([type="checkbox"]):not([type="radio"]),
+textarea, select, .input, .textarea {
+  background: rgba(255, 255, 255, .72) !important;
+  border-color: var(--rv-hair) !important;
+  border-radius: 14px !important;
+  color: var(--rv-ink) !important;
+}
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background: rgba(22, 27, 35, .62) !important;
+}
+input:focus, textarea:focus, select:focus, .input:focus, .textarea:focus {
+  border-color: var(--rv-blue) !important;
+  box-shadow: 0 0 0 3px rgba(22, 103, 242, .12) !important;
+}
+/* 查询框内的输入仍浮在面板上，不能被全局输入底色压成白块 */
+html body .rv-ask input {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--rv-blue) !important;
+}
+.nk-term, .rv-term {
+  background: #111318 !important;
+  border-color: #111318 !important;
+}
+.rv-term-body { color: #dfe6f2 !important; }
+.mask { background: rgba(11, 13, 17, .52) !important; }
+
+/* 历史层给主按钮留了绿色渐变 + 半透明白边（顶栏「立即注册」最明显）。
+   用同等及以上特异性 + !important 压成纯墨黑，深色自动反白。 */
+html body .rv-pill.ink,
+html body .zx-nav-cta,
+html body .zx-search-btn,
+html body .home-top .btn.primary,
+html body .btn.primary,
+html body button.primary,
+html body .btn-primary,
+html body:not(.page-home) .btn.primary,
+html[data-theme="dark"] body .btn.primary,
+html[data-theme="dark"] body:not(.page-home) .btn.primary {
+  background-image: none !important;
+  background-color: var(--rv-ink) !important;
+  color: var(--rv-paper) !important;
+  border: 1px solid var(--rv-ink) !important;
+}
+html body .btn.primary:hover,
+html body .rv-pill.ink:hover {
+  background-color: var(--rv-fern-deep) !important;
+  border-color: var(--rv-fern-deep) !important;
+}
+
+/* 卡片 / 徽章 / 图标：更大的圆角与圆形节点 */
+.card, .pane, .reg-card, .auth-card, .notice, .modal-card, .rv-col, .nk-svc-card {
+  border-radius: var(--rv-r) !important;
+  border-color: var(--rv-hair) !important;
+  background: var(--rv-card) !important;
+}
+.rv-col-ico, .dlg-icon, .sc-ico { border-radius: 50% !important; }
+.badge, .tag, .pill, .nk-tag { border-radius: 999px !important; }
+.tab, .tabs { border-radius: 999px !important; }
+
+/* ── 手机：只收装饰尺寸，布局仍交给 reverie.css 的断点 ── */
+@media (max-width: 700px) {
+  .rv-title::after { width: 48px; height: 5px; margin-top: 18px; }
+  .rv-art { background-size: min(76%, 320px) auto !important; }
+  .rv-eyebrow::before, .rv-sec-no::before {
+    width: 6px; height: 6px;
+    box-shadow: 0 0 0 3px var(--rv-blue-soft);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rv-title em::after, .rv-art { animation: none !important; transition: none !important; }
+}

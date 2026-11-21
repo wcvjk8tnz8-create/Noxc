@@ -11,7 +11,7 @@ export const docsHtml = String.raw`<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f6f2e8">
+<meta name="theme-color" content="#ffffff">
 <title>服务文档 · Noxc</title>
 <link rel="icon" type="image/png" href="data:image/png;base64,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">
 
@@ -19,30 +19,30 @@ export const docsHtml = String.raw`<!doctype html>
 <meta property="og:title" content="服务文档 · Noxc">
 <meta property="og:description" content="二级域名分发与 DNS 管理系统的完整使用说明。">
 <style>
-/* ── Reverie tokens（与 src/html/reverieRootCss.ts / src/app/styles/reverie.css 同一套） ── */
+/* ── Noxc · Node tokens（与 src/html/reverieRootCss.ts / src/app/styles/noxc-node.css 同一套） ── */
 .td-doc{
-  --paper:#f6f2e8;--paper2:#efe8da;--card:rgba(255,253,247,.82);
-  --ink:#1c221d;--body:#4a5148;--muted:#8a8f83;
-  --line:rgba(38,58,44,.16);--line2:rgba(38,58,44,.09);
-  --acc:#2f5d45;--accSoft:#e6efe6;--red:#a8464e;--warn:#8a6a24;--warnSoft:#fbf3dd;
-  --radius:18px;
-  --serif:"Redaction 35","Noto Serif CJK SC","Songti SC","STSong",Georgia,"Times New Roman",serif;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --paper:#ffffff;--paper2:#f4f7fc;--card:rgba(255,255,255,.90);
+  --ink:#111318;--body:#49525f;--muted:#8b94a3;
+  --line:rgba(17,19,24,.13);--line2:rgba(17,19,24,.065);
+  --acc:#1667f2;--accSoft:#e8f0ff;--red:#d0464e;--warn:#b47a12;--warnSoft:#fff5e2;
+  --radius:24px;
+  --serif:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --sans:var(--serif);
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --ease:cubic-bezier(.22,1,.36,1);--dur2:280ms;--dur3:420ms;
 }
 html[data-theme="dark"] .td-doc{
-  --paper:#121713;--paper2:#1a211b;--card:rgba(28,36,29,.82);
-  --ink:#f1eee3;--body:#bfc7ba;--muted:#8b9689;
-  --line:rgba(214,232,216,.16);--line2:rgba(214,232,216,.09);
-  --acc:#9dc9a8;--accSoft:#1c3024;--red:#ef8b90;--warn:#e6c886;--warnSoft:#332b18;
+  --paper:#0b0d11;--paper2:#141922;--card:rgba(22,27,35,.90);
+  --ink:#f5f7fb;--body:#b6c0cf;--muted:#7c8798;
+  --line:rgba(226,235,250,.16);--line2:rgba(226,235,250,.085);
+  --acc:#5b93ff;--accSoft:#16233c;--red:#f3979b;--warn:#e6bd72;--warnSoft:#2b2418;
 }
 @media (prefers-color-scheme: dark){
   html:not([data-theme="light"]):not([data-theme="dark"]) .td-doc{
-    --paper:#121713;--paper2:#1a211b;--card:rgba(28,36,29,.82);
-    --ink:#f1eee3;--body:#bfc7ba;--muted:#8b9689;
-    --line:rgba(214,232,216,.16);--line2:rgba(214,232,216,.09);
-    --acc:#9dc9a8;--accSoft:#1c3024;--red:#ef8b90;--warn:#e6c886;--warnSoft:#332b18;
+    --paper:#0b0d11;--paper2:#141922;--card:rgba(22,27,35,.90);
+    --ink:#f5f7fb;--body:#b6c0cf;--muted:#7c8798;
+    --line:rgba(226,235,250,.16);--line2:rgba(226,235,250,.085);
+    --acc:#5b93ff;--accSoft:#16233c;--red:#f3979b;--warn:#e6bd72;--warnSoft:#2b2418;
   }
 }
 .td-doc,.td-doc *{box-sizing:border-box}
@@ -50,16 +50,21 @@ html[data-theme="dark"] .td-doc{
 .td-doc{
   margin:0;color:var(--ink);background:var(--paper);font-family:var(--sans);
   -webkit-font-smoothing:antialiased;line-height:1.75;
-  background-image:radial-gradient(900px 560px at 12% -10%,var(--accSoft),transparent 66%),
-                   radial-gradient(760px 520px at 100% 110%,var(--paper2),transparent 70%);
+  background-image:
+    radial-gradient(circle at center,var(--line2) 1px,transparent 1.5px),
+    radial-gradient(900px 560px at 12% -10%,var(--accSoft),transparent 66%),
+    radial-gradient(760px 520px at 100% 110%,var(--paper2),transparent 70%);
+  background-size:30px 30px,auto,auto;
   background-attachment:fixed;
 }
 .td-doc a{color:inherit;text-decoration:none}
 .td-doc button{font:inherit}
 .td-doc code,.td-doc .mono{font-family:var(--mono);font-size:.92em;background:var(--accSoft);color:var(--acc);
   padding:1px 6px;border-radius:6px;word-break:break-word}
-.td-doc h1,.td-doc h2,.td-doc h3,.td-doc .brand,.td-doc .doc-sec-no{font-family:var(--serif);letter-spacing:-.035em}
-.td-doc h1 em,.td-doc h2 em{font-style:italic;color:var(--acc);font-weight:400}
+.td-doc h1,.td-doc h2,.td-doc h3,.td-doc .brand,.td-doc .doc-sec-no{font-family:var(--serif);letter-spacing:-.04em}
+.td-doc h1 em,.td-doc h2 em{font-style:normal;color:var(--acc);font-weight:700}
+.doc-hero h1 em::after{content:'';position:absolute;left:0;right:0;bottom:.02em;height:4px;
+  border-radius:999px;background:var(--acc);opacity:.8}
 .td-doc :focus-visible{outline:2px solid var(--acc);outline-offset:3px}
 
 /* ── 顶栏 ── */
@@ -69,7 +74,7 @@ html[data-theme="dark"] .td-doc{
   border-bottom:1px solid var(--line2);
 }
 .brand{display:inline-flex;align-items:center;gap:10px;font-size:23px;font-weight:700;white-space:nowrap}
-.brand i{width:9px;height:9px;border-radius:2px;background:var(--acc);transform:rotate(45deg);display:inline-block}
+.brand i{width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 4px var(--accSoft);display:inline-block}
 .brand small{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--muted);font-weight:400;margin-left:6px}
 .doc-top-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pill{
@@ -272,7 +277,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
       </div>
       <h3 data-en="How it is built">技术构成</h3>
       <p data-en="TypeScript end to end: React 18 + Vite for the console, Hono on Cloudflare Workers for the API, D1 for data, R2 for avatars. The repository tracks no .html source — the SPA shell and both root-domain landing pages are emitted from TypeScript templates, and this page is one of them.">全栈 TypeScript：控制台是 React 18 + Vite，接口层是 Cloudflare Workers 上的 Hono，数据存 D1、头像存 R2。仓库里不跟踪任何 <code>.html</code> 源文件 —— SPA 外壳、两个根域名落地页、以及你正在看的这一页，都由 TypeScript 模板输出。</p>
-      <p data-en="Visual language is the Reverie pass: warm paper, deep fern green, ink pills, hairline rules, one italic serif accent, a full-page wallpaper, and a Miku page-transition that only appears on real navigation (never on refresh).">视觉语言沿用 Reverie 重构：暖纸色、深蕨绿、墨黑药丸、发丝线、只有一处衬线绿斜体、满铺壁纸，以及只在真正跳转时出现的 Miku 过渡动画（刷新不播）。</p>
+      <p data-en="Visual language comes from the Noxc logo: cool white, near-black geometric type, one Noxc-blue dot, rounded node lines, a dot-grid texture, and a Miku page-transition that only appears on real navigation (never on refresh).">视觉语言来自 Noxc 主 logo：冷白底、近黑几何无衬线、一颗 Noxc 蓝点、圆头节点线条与点阵底纹，以及只在真正跳转时出现的 Miku 过渡动画（刷新不播）。</p>
     </section>
 
     <!-- 02 -->
@@ -484,7 +489,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
     root.setAttribute('data-theme', next);
     try { localStorage.setItem('meoy_theme', next); } catch (e) {}
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', next === 'dark' ? '#0a1220' : '#ffffff');
+    if (meta) meta.setAttribute('content', next === 'dark' ? '#0b0d11' : '#ffffff');
     tb.title = next === 'dark' ? '切换到浅色' : '切换到深色';
     tb.setAttribute('aria-label', tb.title);
   });

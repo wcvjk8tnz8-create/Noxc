@@ -13,14 +13,16 @@ import './styles/theme-noxc.css';
    并把四层各写各的时长/缓动收口到同一组令牌。 */
 import './styles/motion.css';
 /* 布局重构层：浮起的玻璃侧栏 / 顶栏 + 全站液态玻璃材质。
-   保留浮岛结构与满铺壁纸，材质色板交给 Reverie 层收口。 */
+   保留浮岛结构与满铺壁纸，材质色板交给后面的节点层收口。 */
 import './styles/liquid-glass.css';
-/* Reverie 设计系统层必须最后加载：Uiverse Reverie 的羊皮纸 / 深蕨绿 /
-   衬线绿斜体 / 墨黑药丸 / 发丝线 + 全站手机适配。
-   它用同等 specificity 收口前六层，是唯一的视觉权威层。 */
+/* Reverie 骨架层：单列版式 / 圆头胶囊 / 发丝线 + 全站手机适配。
+   色板由后面的 Noxc 节点层按主 logo 收口，本层不再决定颜色。 */
 import './styles/reverie.css';
+/* Noxc 节点视觉层：由主 logo（墨黑圆头 N + 一颗蓝点）反推的整站设计语言。
+   放在骨架层之后收口色板 / 字体 / 圆角，独立组件层保持最后加载。 */
+import './styles/noxc-node.css';
 /* 滑块拼图验证是独立组件层：类名全部 tdcap- 前缀，不参与全站色板，
-   放在 Reverie 之后收口，避免被按钮/圆角基线回压成直角。 */
+   放在节点层之后收口，避免被按钮/圆角基线回压成直角。 */
 import './styles/captcha.css';
 /* NodeLoc 第三方登录按钮：独立前缀，最后加载以免被按钮基线回压。 */
 import './styles/oauth.css';

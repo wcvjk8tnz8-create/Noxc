@@ -1,48 +1,62 @@
 /**
- * 两个根域名页（meoy.top / v-1.top）共用的 Reverie 收口层。
+ * 两个根域名页（meoy.top / v-1.top）共用的 Noxc · Node 收口层。
  *
  * 它们仍是自包含静态页：把这段 CSS 拼进 <head> 末尾即可，
  * 不用引入官网的 Vite 构建产物，也不加载任何外部字体或脚本。
  * 变量覆盖 + 少量组件收口，保留原本「单屏 dnshe 式查询页」的骨架。
  *
- * 与官网 src/app/styles/reverie.css 同一套令牌：
- *   羊皮纸 #f6f2e8 / 深蕨绿 #2f5d45 / 墨黑药丸 / 发丝线 / 衬线绿斜体。
+ * 与官网 src/app/styles/noxc-node.css 同一套令牌：
+ *   冷白 #ffffff / 墨黑 #111318 / logo 蓝 #1667f2 / 节点点阵 / 圆头胶囊。
  */
 export const reverieRootCss = String.raw`
-/* ── Noxc · Reverie (root domains) ───────────────────────── */
+/* ── Noxc · Node (root domains) ───────────────────────────── */
 :root{
-  --paper:#f6f2e8;--paper2:#efe8da;--card:rgba(255,253,247,.78);
-  --ink:#1c221d;--body:#4a5148;--muted:#8a8f83;
-  --line:rgba(38,58,44,.16);--line2:rgba(38,58,44,.09);
-  --acc:#2f5d45;--accSoft:#e6efe6;--red:#a8464e;
-  --radius:18px;
-  --serif:"Redaction 35","Noto Serif CJK SC","Songti SC","STSong",Georgia,"Times New Roman",serif;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
-  --mono:"Redaction 35",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --paper:#ffffff;--paper2:#f4f7fc;--card:rgba(255,255,255,.90);
+  --ink:#111318;--body:#49525f;--muted:#8b94a3;
+  --line:rgba(17,19,24,.13);--line2:rgba(17,19,24,.065);
+  --acc:#1667f2;--accSoft:#e8f0ff;--red:#d0464e;
+  --radius:24px;
+  --serif:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --sans:var(--serif);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --ease:cubic-bezier(.22,1,.36,1);--dur2:280ms;--dur3:420ms;
-  --rv-fern:#2f5d45;--rv-ink:#1c221d;--rv-hair:rgba(38,58,44,.16);
+  --rv-fern:#1667f2;--rv-ink:#111318;--rv-hair:rgba(17,19,24,.13);
+  --blue:#1667f2;--blueSoft:#e8f0ff;
 }
 @media(prefers-color-scheme:dark){
   :root{
-    --paper:#121713;--paper2:#1a211b;--card:rgba(28,36,29,.78);
-    --ink:#f1eee3;--body:#bfc7ba;--muted:#8b9689;
-    --line:rgba(214,232,216,.16);--line2:rgba(214,232,216,.09);
-    --acc:#9dc9a8;--accSoft:#1c3024;--red:#ef8b90;
-    --rv-fern:#9dc9a8;--rv-ink:#f1eee3;--rv-hair:rgba(214,232,216,.16);
+    --paper:#0b0d11;--paper2:#141922;--card:rgba(22,27,35,.90);
+    --ink:#f5f7fb;--body:#b6c0cf;--muted:#7c8798;
+    --line:rgba(226,235,250,.16);--line2:rgba(226,235,250,.085);
+    --acc:#5b93ff;--accSoft:#16233c;--red:#f3979b;
+    --rv-fern:#5b93ff;--rv-ink:#f5f7fb;--rv-hair:rgba(226,235,250,.16);
+    --blue:#5b93ff;--blueSoft:#16233c;
   }
 }
 html,body{max-width:100%;overflow-x:clip}
 body{
   color:var(--ink);background:var(--paper);
   font-family:var(--sans);
-  background-image:radial-gradient(900px 560px at 12% -10%,var(--accSoft),transparent 66%),
-                   radial-gradient(760px 520px at 100% 110%,var(--paper2),transparent 70%);
+  background-image:
+    radial-gradient(circle at center,var(--line2) 1px,transparent 1.5px),
+    radial-gradient(900px 560px at 12% -10%,var(--accSoft),transparent 66%),
+    radial-gradient(760px 520px at 100% 110%,var(--paper2),transparent 70%);
+  background-size:30px 30px,auto,auto;
 }
-.brand,h1,.rv-serif{font-family:var(--serif);letter-spacing:-.035em}
-h1 em{font-style:italic;color:var(--acc);font-weight:400}
+.brand,h1,.rv-serif{font-family:var(--serif);letter-spacing:-.04em}
+/* 强调不再是绿色斜体，而是 logo 的蓝点与圆头粗线 */
+h1 em{font-style:normal;color:var(--acc);font-weight:700;position:relative}
+h1 em::after{content:'';position:absolute;left:0;right:0;bottom:.02em;height:4px;
+  border-radius:999px;background:var(--acc);opacity:.8;transform-origin:left;
+  animation:rvUnderline 900ms var(--ease) 380ms both}
+.brand i{border-radius:50%!important;transform:none!important;
+  background:var(--acc)!important;box-shadow:0 0 0 4px var(--accSoft)}
 .eyebrow{font-family:var(--mono);letter-spacing:.24em;color:var(--acc)}
+.eyebrow::before{content:'';display:inline-block;width:8px;height:8px;
+  border-radius:50%;background:var(--acc);margin-right:10px;vertical-align:middle;
+  box-shadow:0 0 0 4px var(--accSoft)}
 .sub{color:var(--body);line-height:1.8}
-/* 发丝线 + 纸面，去掉玻璃重阴影 */
+/* 发丝线 + 冷白面，去掉玻璃重阴影 */
 .head{border-bottom:1px solid var(--line2)}
 .checker,.metrics,.status,.legal,.pill,.icp-slot{
   background:var(--card)!important;border:1px solid var(--line)!important;
@@ -54,18 +68,22 @@ h1 em{font-style:italic;color:var(--acc);font-weight:400}
   color:var(--ink)!important;font-size:16px;
 }
 .field input:focus,.suffix select:focus{outline:none}
-/* 墨黑药丸（Uiverse ink pill 范式） */
+/* 墨黑圆头胶囊 + 一颗蓝点（Uiverse ink pill 范式） */
 .check,.lang button,.nav a,.pill,button{
   border-radius:999px!important;
   transition:transform var(--dur2) var(--ease),background var(--dur2) var(--ease),
              border-color var(--dur2) var(--ease),color var(--dur2) var(--ease);
 }
+/* 语言切换在任何视口都保持 44px 触控目标（不只手机） */
+.lang button{min-height:44px;min-width:44px}
 .check{
   background:var(--rv-ink)!important;color:var(--paper)!important;
   border:1px solid var(--rv-ink)!important;min-height:44px;
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
 }
-.check:hover{background:var(--rv-fern)!important;border-color:var(--rv-fern)!important;transform:translateY(-2px)}
+.check::after{content:'';width:7px;height:7px;border-radius:50%;
+  background:var(--acc);flex:0 0 auto}
+.check:hover{background:var(--acc)!important;border-color:var(--acc)!important;transform:translateY(-2px)}
 .check:active{transform:translateY(0) scale(.985)}
 .lang button.on{background:var(--rv-ink)!important;color:var(--paper)!important}
 .nav a:hover{color:var(--acc)}
@@ -74,14 +92,11 @@ h1 em{font-style:italic;color:var(--acc);font-weight:400}
 .foot a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--line)}
 .foot a:hover{color:var(--acc);border-color:var(--acc)}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{
-  outline:2px solid var(--rv-fern);outline-offset:3px
+  outline:2px solid var(--acc);outline-offset:3px
 }
 /* 统一的细线扫光与三点 loader（与官网同一套语言） */
 @keyframes rvUnderline{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes rvDots{0%,80%,100%{opacity:.25}40%{opacity:1}}
-h1 em::after{content:'';position:absolute;left:0;right:0;bottom:.04em;height:2px;
-  background:var(--acc);opacity:.32;transform-origin:left;animation:rvUnderline 900ms var(--ease) 380ms both}
-h1 em{position:relative}
 .rise{animation:rvRise var(--dur3) var(--ease) both}
 @keyframes rvRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 

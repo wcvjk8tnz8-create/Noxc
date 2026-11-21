@@ -4,16 +4,15 @@ import { refreshRuntime, cleanupPage, readUserCache, authProbe } from '../lib/ru
 import { ICON_PATHS, type IconName } from '../lib/icons';
 
 /**
- * Home · Uiverse「Reverie」设计系统
+ * Home · Noxc「Node」设计系统（由主 logo 反推）
  *
- * 参考 https://uiverse.io/design/systems/reverie ：
- *  · 羊皮纸底 + 深蕨绿，衬线大字里只有一处绿色斜体强调
+ *  · 冷白底 + 墨黑几何无衬线 + 一颗 Noxc 蓝点作唯一强调
  *  · 单列居中、发丝细线、大量留白，不做卡片阴影堆叠
- *  · 墨黑药丸按钮（dark ink pills）、focus 态才是绿色
- *  · 一张「画意」大圆角卡承载画面，输入/查询框浮在风景之上
+ *  · 墨黑圆头胶囊按钮，圆点徽记与圆头粗线呼应 logo 的节点连线
+ *  · 节点面板里放淡化的去字 N 图形，查询框浮在面板之上
  *
- * 仍保留 Zerexa 的高雅骨架（衬线标题、细线、克制），
- * 也保留上一轮「壁纸满铺整页」：#bg 在底层铺满，画意卡里是同一张图的近景。
+ * 仍保留浮岛骨架与「壁纸满铺整页」：#bg 铺满但退成极淡冷调底纹，
+ * 主视觉由节点图形、点阵与留白承担。
  *
  * 注意：所有 id / data-* 都是 legacy 控制器与品牌注入的契约，不能改：
  *   searchForm qName qRoot results suffixGrid rtTags rtMore apiHost yr toast
@@ -77,7 +76,7 @@ export default function HomePage() {
       </header>
 
       <main className="rv-main">
-        {/* ══ Hero：单列、衬线、一处绿色斜体 ══ */}
+        {/* ══ Hero：单列、几何无衬线、蓝点强调 ══ */}
         <section className="rv-hero rv-reveal" style={{ '--i': 0 } as CSSProperties}>
           <p className="rv-eyebrow">OPEN REGISTRATION <span>·</span> <span data-default-quota data-no-i18n>5</span> FREE DOMAINS PER EMAIL</p>
           <h1 className="rv-title">属于你的<em>专属子域名</em><span className="rv-fullstop">.</span></h1>
@@ -95,12 +94,12 @@ export default function HomePage() {
           <p className="rv-hero-foot">Kept open all day by small studios and long-form writers</p>
         </section>
 
-        {/* ══ 画意卡：输入框浮在风景上（Reverie 的核心画面） ══ */}
+        {/* ══ 节点面板：输入框浮在淡化的 N 图形与点阵之上 ══ */}
         <section className="rv-landscape rv-reveal" style={{ '--i': 1 } as CSSProperties} id="check">
           <div className="rv-frame">
             <div className="rv-art" aria-hidden="true"></div>
             <div className="rv-art-veil" aria-hidden="true"></div>
-            <span className="rv-art-cap">Reverie Meadow · Noxc</span>
+            <span className="rv-art-cap">NODES · NOXC</span>
             <form className="rv-ask" id="searchForm">
               <Ico name="search" size={19} className="rv-ask-ico" />
               <input id="qName" placeholder="输入你想要的前缀" autoComplete="off" spellCheck={false} aria-label="域名前缀" />
