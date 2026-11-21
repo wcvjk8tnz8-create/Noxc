@@ -560,6 +560,9 @@ export function currentLang(): Lang { return _lang; }
 
 const origText = new WeakMap<Text, string>();
 const origAttr = new WeakMap<Element, Record<string, string>>();
+/* data-en：整段替换（用于被 <b>/<em> 拆成多个文本节点、或位于 <pre><code>
+   里被 SKIP_TAGS 跳过的文案）。原文按文本节点存在 WeakMap，切回中文精确还原。 */
+const origDataEn = new WeakMap<Element, string[]>();
 /* TEXTAREA 不能整块跳过：它的 placeholder 属于界面文案，必须翻。
    只跳过它内部的文本节点（那是可编辑的默认内容，可能含用户输入）。 */
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE', 'KBD', 'SVG', 'PATH', 'NOSCRIPT']);
@@ -575,6 +578,29 @@ function isSkipped(el: Element | null): boolean {
   return false;
 }
 
+/**
+ * 带 data-en 的元素：英文模式整段替换为属性值，中文模式逐节点还原。
+ * 只动文本节点，不碰子节点结构与属性；第一个文本节点承载整句，其余清空。
+ * 这样「属于你的<em>专属</em>子域名」不会因为逐节点翻译变成
+ * 「Your own专属 Subdomain」，代码块里的中文注释也能精确翻译而不碰代码。
+ */
+function applyDataEn(el: Element): void {
+  const texts: Text[] = [];
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let n: Node | null;
+  while ((n = walker.nextNode())) texts.push(n as Text);
+  if (!texts.length) return;
+  if (!origDataEn.has(el)) origDataEn.set(el, texts.map((t) => t.data));
+  const saved = origDataEn.get(el)!;
+  const en = el.getAttribute('data-en') || '';
+  for (let i = 0; i < texts.length; i++) {
+    const v = _lang === 'zh' ? saved[i] : (i === 0 ? en : '');
+    if (texts[i].data !== v) texts[i].data = v;
+    // 同步 origText，避免 MutationObserver 把译文误认成新原文
+    origText.set(texts[i], saved[i]);
+  }
+}
+
 function translateNode(node: Node): void {
   if (node.nodeType === Node.TEXT_NODE) {
     const t = node as Text;
@@ -588,7 +614,15 @@ function translateNode(node: Node): void {
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const el = node as Element;
-  if (isSkipped(el)) return;
+  // data-en 优先于 SKIP_TAGS：代码块里的注释也能精确翻译
+  if (el.hasAttribute?.('data-en')) { applyDataEn(el); return; }
+  if (isSkipped(el)) {
+    // <pre><code> 内只放行带 data-en 的注释节点，其余代码文本一律不碰
+    if (SKIP_TAGS.has(el.tagName)) {
+      el.querySelectorAll<Element>('[data-en]').forEach(applyDataEn);
+    }
+    return;
+  }
 
   let saved = origAttr.get(el);
   if (!saved) { saved = {}; origAttr.set(el, saved); }
@@ -738,6 +772,9 @@ export function startI18n(): void {
             }
             continue;
           }
+          // data-en 管理的节点由 applyDataEn 独占，观察器不插手，
+          // 否则会把整句译文拆成逐节点翻译，切回中文也还原不了。
+          if (t.parentElement?.closest?.('[data-en]')) continue;
           if (!isSkipped(t.parentElement)) {
             const saved = origText.get(t);
             // 我们自己写入的译文会再次触发本回调：与预期完全一致时直接忽略，

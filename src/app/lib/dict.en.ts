@@ -1029,4 +1029,21 @@ export const EXTRA_DICT: Record<string, string> = {
   'AI 自动审核开关已关闭：申请会回落人工审核。': 'AI auto-review is switched off: requests fall back to manual review.',
   'Workers AI 自动审核已就绪（将使用 Cloudflare 内置模型）；管理员账号免审核，不会触发 AI。': 'Workers AI auto-review is ready (uses the built-in Cloudflare model); admin accounts skip review.',
   'AI 自动审核已就绪（未指定模型，将使用 agnes-2.5-flash）；管理员账号免审核，不会触发 AI。': 'AI auto-review is ready (no model specified, agnes-2.5-flash will be used); admin accounts skip review.',
+  /* ── 首页 Zerexa 改版漏译（英文模式仍显示中文） ───────────────────
+     实测 75 条首页文案有 10 条翻不了；另有「服务概览」被子串拼成
+     ServicesOverview。整句说明走整句词条，绝不靠短词拼贴。 */
+  '主导航': 'Main navigation',
+  '站点数据': 'Site stats',
+  '服务概览': 'At a glance',
+  '个 / 邮箱': 'per email',
+  '30 秒': '30 seconds',
+  'NS 委托': 'NS delegation',
+  '长期有效': 'No expiry',
+  '首推': 'Start with',
+  '不限': 'Unlimited',
+  '免费注册子域名，通过 NS 委托掌控解析。每个邮箱都有免费额度，超出后可随时在控制台购买额外配额。':
+    'Register a free subdomain and manage DNS through NS delegation. Every email gets a free quota; buy more in the console any time.',
+  '免费额度、自动配置、NS 委托和独立控制台，适合个人站点、Demo 和轻量服务。':
+    'Free quota, automatic setup, NS delegation and a standalone console — built for personal sites, demos and lightweight services.',
+  '，挑一个顺口的前缀，再挑一个喜欢的结尾。': ' — pick a prefix you like, then pick an ending.',
 };

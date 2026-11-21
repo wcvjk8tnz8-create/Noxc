@@ -79,7 +79,7 @@ export default function HomePage() {
         {/* ══ Hero：超大无衬线黑体，强调只灰一档（Zerexa Domains 实拍口径） ══ */}
         <section className="rv-hero rv-reveal" style={{ '--i': 0 } as CSSProperties}>
           <p className="rv-eyebrow">OPEN REGISTRATION <span>·</span> <span data-default-quota data-no-i18n>5</span> FREE DOMAINS PER EMAIL</p>
-          <h1 className="rv-title">属于你的<em>专属</em>子域名<span className="rv-fullstop">.</span></h1>
+          <h1 className="rv-title" data-en="Your own subdomain.">属于你的<em>专属</em>子域名<span className="rv-fullstop">.</span></h1>
           <p className="rv-lede">免费注册子域名，通过 NS 委托掌控解析。每个邮箱都有免费额度，超出后可随时在控制台购买额外配额。</p>
           <div className="rv-actions">
             <a className="rv-pill ink lg" href="/register">开始注册 <Ico name="arrow" size={17} /></a>
@@ -126,7 +126,7 @@ export default function HomePage() {
         <section className="rv-sec rv-reveal" style={{ '--i': 2 } as CSSProperties} id="suffix">
           <p className="rv-sec-no">01 <span>/</span> SUFFIXES</p>
           <h2 className="rv-h2">可选后缀</h2>
-          <p className="rv-sec-lede">首推 <b>noxc.uk</b>，挑一个顺口的前缀，再挑一个喜欢的结尾。</p>
+          <p className="rv-sec-lede" data-en="Start with noxc.uk — pick a prefix you like, then pick an ending.">首推 <b>noxc.uk</b>，挑一个顺口的前缀，再挑一个喜欢的结尾。</p>
           <div className="nk-suffix rv-suffix" id="suffixGrid">
             <div className="nk-sk">加载中…</div>
           </div>
@@ -174,10 +174,10 @@ export default function HomePage() {
           <div className="rv-tools">
             <div className="rv-term">
               <div className="rv-term-bar"><i></i><i></i><i></i><span>bash</span></div>
-              <pre className="rv-term-body"><code><span className="c-dim"># 查询子域名状态（公开接口）</span>
+              <pre className="rv-term-body"><code><span className="c-dim" data-en="# Check subdomain status (public API)"># 查询子域名状态（公开接口）</span>
 <span className="c-cmd">curl</span> <span className="c-str">"<span id="apiHost">https://meoy.top</span>/api/whois?name=mail"</span>
 
-<span className="c-dim"># 返回示例</span>
+<span className="c-dim" data-en="# Example response"># 返回示例</span>
 <span className="c-punc">{'{'}</span>
   <span className="c-key">"success"</span>: <span className="c-num">true</span>,
   <span className="c-key">"state"</span>: <span className="c-str">"registered"</span>,

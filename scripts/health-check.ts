@@ -649,6 +649,27 @@ check(
 check(cpDict.includes("'注册人数'") && cpDict.includes("'已开通域名'"), '统计英文词条齐，英文模式不夹生');
 check(/\.rv-stats/.test(stCss) && /max-width: 700px[\s\S]*\.rv-stats/.test(stCss), '手机断点覆盖统计区');
 
+/* 首页 i18n：英文模式零中文残留 */
+const hiHome = read('src/app/pages/Home.tsx');
+const hiI18n = read('src/app/lib/i18n.ts');
+const hiDict = read('src/app/lib/dict.en.ts');
+const hiReg = fs.existsSync(path.join(root, 'scripts/home-i18n-regression.ts'))
+  ? read('scripts/home-i18n-regression.ts') : '';
+check(/function applyDataEn/.test(hiI18n) &&
+      /querySelectorAll<Element>\('\[data-en\]'\)/.test(hiI18n) &&
+      /closest\?\.\('\[data-en\]'\)/.test(hiI18n),
+  '首页 i18n：运行时支持 data-en 整段替换、代码块注释、切回中文还原');
+check((hiHome.match(/data-en=/g) || []).length === 4,
+  '首页 i18n：主标题 / 后缀段 / 两条代码注释均挂 data-en');
+check(/免费注册子域名，通过 NS 委托掌控解析/.test(hiDict) &&
+      /免费额度、自动配置、NS 委托和独立控制台/.test(hiDict) &&
+      /'服务概览': 'At a glance'/.test(hiDict),
+  '首页 i18n：两条最长说明与「服务概览」都有整句词条，不靠短词拼贴');
+check(hiReg.length > 1000 && /零中文残留/.test(hiReg),
+  '首页 i18n：有逐条抽取 Home.tsx 中文的回归脚本');
+check(/home-i18n-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  '首页 i18n 回归已挂进部署工作流');
+
 /* 底部署名：Zerexa 改版后不被任意 <footer> 吞掉 */
 const ftRuntime = read('src/app/lib/runtime.ts');
 check(!/document\.querySelector\('\.site-foot'\)\s*\|\|\s*document\.querySelector\('footer'\)/.test(ftRuntime),

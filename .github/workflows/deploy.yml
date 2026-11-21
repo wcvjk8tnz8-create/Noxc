@@ -81,6 +81,10 @@ jobs:
       - name: 静态健康巡检
         run: npx tsx scripts/health-check.ts
 
+      # 首页 i18n：逐条抽取中文文案，断言英文模式零残留
+      - name: 首页 i18n 回归
+        run: npx tsx scripts/home-i18n-regression.ts
+
       # 注册邮箱规则纯函数回归：edu 漏洞已修 + @oauth.local 解封
       - name: 邮箱规则回归
         run: npx tsx scripts/email-rule-regression.ts
