@@ -6034,3 +6034,17 @@ table .mono, .tablewrap .mono {
 
 @keyframes dropIn { from { opacity: 0; transform: translateY(-100%); } to { opacity: 1; transform: none; } }
 /* riseIn 已在文件上方定义过一次，这里原为重复副本，已移除 */
+
+/* 主 logo 换成去字后的 N 节点图形：深色主题改用反白版，蓝点仍是品牌蓝 */
+html[data-theme="dark"] img[data-logo-img],
+html[data-theme="dark"] #navLogo,
+html[data-theme="dark"] .rv-fbrand img {
+  content: url('/img/logo-light.png');
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) img[data-logo-img],
+  html:not([data-theme="light"]) #navLogo,
+  html:not([data-theme="light"]) .rv-fbrand img {
+    content: url('/img/logo-light.png');
+  }
+}

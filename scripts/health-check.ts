@@ -868,6 +868,17 @@ for (const f of ['public/img/logo.jpg', 'public/img/logo.png', 'public/favicon.i
   check(fs.existsSync(path.join(root, f)), `Noxc 品牌资源存在 ${f}`);
 }
 
+/* 主 logo 去掉下方 NOXC 字样后：静态页内联图标必须与 /img/favicon.png 同源，
+   否则会出现「站内换了图、两个根域名页和文档页仍是旧图标」。 */
+const inlineFavicon = fs.readFileSync(path.join(root, 'public/img/favicon.png')).toString('base64');
+for (const f of ['src/html/root-meoy.ts', 'src/html/root-v1.ts', 'src/html/docs.ts']) {
+  check(read(f).includes(`data:image/png;base64,${inlineFavicon}`), `内联 favicon 已同步为新图形 ${f}`);
+}
+for (const f of ['public/img/logo-transparent.png', 'public/img/logo-light.png']) {
+  check(fs.existsSync(path.join(root, f)), `主 logo 备用版存在 ${f}`);
+}
+check(/logo-light\.png/.test(read('src/app/styles/components.css')), '深色主题已切到反白 logo');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);
