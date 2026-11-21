@@ -15,6 +15,12 @@
  * 都能绕过白名单建号。现在：
  *   1) 硬性封禁域名优先于一切规则与精确白名单（封了就是封了）；
  *   2) edu 只在「域名」里按标签判定，本地部分含 edu 一律不算。
+ *
+ * ── 同日解封 @oauth.local ────────────────────────────────────
+ * 漏洞根因是 edu 判定，不是 oauth.local 这个域名本身；且已确认
+ * `nl.<hex>@oauth.local` 是 NodeLoc 登录创建的合法第三方账号。
+ * 判定修好后不再有绕过风险，因此把 oauth.local 从封禁名单移除，
+ * 并对保留 TLD 'local' 开精确豁免（其它 .local / .test 仍拒绝）。
  * ────────────────────────────────────────────────────────────
  */
 
@@ -25,13 +31,13 @@ export const DEFAULT_EMAIL_RULE: EmailRule = 'whitelist_edu';
 export const DEFAULT_ALLOWED_DOMAINS = ['gmail.com', 'googlemail.com', 'qq.com', 'foxmail.com'];
 
 /**
- * 硬性封禁的邮箱域名。oauth.local 是本次漏洞利用的来源；其余为常见
- * 一次性 / 临时邮箱服务。命中后四种模式、精确白名单全部拒绝，并且
- * 已有账号在登录时会被就地封禁（见 routes/auth.ts）。
+ * 硬性封禁的邮箱域名（常见一次性 / 临时邮箱服务）。命中后四种模式、
+ * 精确白名单全部拒绝，并且已有账号在登录时会被就地封禁（见 routes/auth.ts）。
  * 用「域名等于或以 .域名 结尾」匹配，子域一并覆盖。
+ *
+ * 注意：oauth.local 已解封（见文件头说明），不在此列表里。
  */
 export const BLOCKED_EMAIL_DOMAINS = [
-  'oauth.local',
   'mailinator.com',
   'guerrillamail.com', 'guerrillamail.net', 'guerrillamail.biz', 'guerrillamail.de',
   '10minutemail.com', '10minutemail.net', '10minutemail.co.uk',
@@ -48,6 +54,12 @@ export const BLOCKED_EMAIL_DOMAINS = [
 export const BLOCKED_EMAIL_TLDS = new Set([
   'local', 'localhost', 'internal', 'test', 'example', 'invalid', 'onion',
 ]);
+
+/**
+ * NodeLoc 内部占位域名：精确豁免保留 TLD 'local'。
+ * 只放行 oauth.local 及其子域，其它 .local / .test / .invalid 仍拒绝。
+ */
+export const OAUTH_INTERNAL_DOMAINS = ['oauth.local'];
 
 /** 固定句式，便于服务端 i18n 精确翻译成英文 */
 export const BLOCKED_EMAIL_MESSAGE =
@@ -69,6 +81,8 @@ export function blockedEmailDomain(mail: string): string | null {
   if (!domain) return null;
   const labels = domain.split('.');
   const tld = labels[labels.length - 1] || '';
+  // oauth.local 已解封：先于保留 TLD 判定放行
+  if (OAUTH_INTERNAL_DOMAINS.some((d) => domain === d || domain.endsWith('.' + d))) return null;
   if (BLOCKED_EMAIL_TLDS.has(tld)) return tld;
   for (const b of BLOCKED_EMAIL_DOMAINS) {
     if (domain === b || domain.endsWith('.' + b)) return b;

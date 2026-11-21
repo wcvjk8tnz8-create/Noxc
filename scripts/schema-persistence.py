@@ -73,6 +73,40 @@ def main():
         if c not in cols:
             print(f'✗ 主表缺列 {c}')
             return 1
+    # ── @oauth.local 解封：恢复上一版被误封的 NodeLoc 内部账号 ──
+    con.execute(
+        "INSERT INTO users (email,password_hash,role,status,ban_reason,quota,created_at) "
+        "VALUES ('nl.0123456789abcdef0123@oauth.local','oauth:disabled:x','user',"
+        "'banned','违规注册：一次性 / 非公开邮箱域名',5,1)"
+    )
+    con.execute(
+        "INSERT INTO users (email,password_hash,role,status,ban_reason,quota,created_at) "
+        "VALUES ('x@mailinator.com','x','user','banned',"
+        "'违规注册：一次性 / 非公开邮箱域名',5,1)"
+    )
+    con.execute(
+        "INSERT INTO users (email,password_hash,role,status,ban_reason,quota,created_at) "
+        "VALUES ('manual@oauth.local','x','user','banned','管理员手动封禁',5,1)"
+    )
+    con.commit()
+    deploy(con, '第 3 次部署（跑解封语句）')
+    rows = dict(
+        (r[0], (r[1], r[2])) for r in con.execute(
+            'SELECT email,status,ban_reason FROM users'
+        ).fetchall()
+    )
+    print('  oauth.local 解封后:', rows)
+    if rows['nl.0123456789abcdef0123@oauth.local'] != ('active', None):
+        print('✗ NodeLoc 内部账号未被解封')
+        return 1
+    if rows['x@mailinator.com'][0] != 'banned':
+        print('✗ 真临时邮箱被误放')
+        return 1
+    if rows['manual@oauth.local'] != ('banned', '管理员手动封禁'):
+        print('✗ 管理员手动封禁被覆盖')
+        return 1
+    print('✓ 结论：oauth.local 存量恢复 / 真临时邮箱仍封 / 手动封禁不动')
+
     print('✓ 结论：连续部署两次后展示开关 / 标题 / 描述 / 域名数据完整保留')
     return 0
 

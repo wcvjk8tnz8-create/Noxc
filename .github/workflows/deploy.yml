@@ -81,6 +81,10 @@ jobs:
       - name: 静态健康巡检
         run: npx tsx scripts/health-check.ts
 
+      # 注册邮箱规则纯函数回归：edu 漏洞已修 + @oauth.local 解封
+      - name: 邮箱规则回归
+        run: npx tsx scripts/email-rule-regression.ts
+
 
       # 真实 SQLite 回归：连续两次执行 schema.sql，确认用户案例展示开关不被抹掉
       - name: 用户案例持久化回归

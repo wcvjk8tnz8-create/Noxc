@@ -649,6 +649,38 @@ check(
 check(cpDict.includes("'注册人数'") && cpDict.includes("'已开通域名'"), '统计英文词条齐，英文模式不夹生');
 check(/\.rv-stats/.test(stCss) && /max-width: 700px[\s\S]*\.rv-stats/.test(stCss), '手机断点覆盖统计区');
 
+/* 底部署名：Zerexa 改版后不被任意 <footer> 吞掉 */
+const ftRuntime = read('src/app/lib/runtime.ts');
+check(!/document\.querySelector\('\.site-foot'\)\s*\|\|\s*document\.querySelector\('footer'\)/.test(ftRuntime),
+  '底部署名不再被任意 footer 吞掉（旧过宽去重已删除）');
+check(/if \(document\.querySelector\('\.site-foot'\)\) return;/.test(ftRuntime) &&
+      /Noxc \+ GitHub 链接/.test(ftRuntime) && /href="\/docs">服务文档/.test(ftRuntime),
+  'mountSiteFooter 只对自己去重，仍注入 Noxc / GitHub / 服务文档');
+check(/refreshRuntime[\s\S]{0,400}mountSiteFooter\(\)/.test(ftRuntime),
+  '切页后 refreshRuntime 仍会重挂底部署名');
+
+/* @oauth.local 已解封（漏洞根因是 edu 判定，不是这个域名） */
+const ubRule = read('src/lib/emailRule.ts');
+const ubSchema = read('schema.sql');
+const ubAuth = read('src/routes/auth.ts');
+const ubEc = read('scripts/email-change-regression.ts');
+check(!/^\s*'oauth\.local',\s*$/m.test(ubRule), 'BLOCKED_EMAIL_DOMAINS 不再含 oauth.local');
+check(/OAUTH_INTERNAL_DOMAINS/.test(ubRule) &&
+      /OAUTH_INTERNAL_DOMAINS\.some\([^\n]*domain\.endsWith\('\.' \+ d\)\)\) return null/.test(ubRule),
+  '对 oauth.local 精确豁免保留 TLD local，其它 .local / .test 仍拒绝');
+check(!/lower\(email\) LIKE '%@oauth\.local'\s*OR\s*lower\(email\) LIKE '%@%\.oauth\.local'\s*OR\s*lower\(email\) LIKE '%@mailinator/.test(ubSchema),
+  'schema 封禁语句不再封 oauth.local');
+check(/UPDATE users SET status = 'active', ban_reason = NULL[\s\S]{0,260}lower\(email\) LIKE '%@oauth\.local'/.test(ubSchema),
+  'schema 幂等解封上一版误封的 oauth.local 存量账号');
+check(/ban_reason = '违规注册：一次性 \/ 非公开邮箱域名'/.test(ubSchema),
+  '解封只认那次自动封禁的 ban_reason，不覆盖管理员手动封禁');
+check(/oauth\.local 已解封/.test(ubAuth), '登录接口注释同步，不再把 oauth.local 当违规域名');
+check(/@oauth\.local 已解封，可以正常发码/.test(ubEc), '换绑回归覆盖 oauth.local 解封');
+check(/BLOCKED_EMAIL_DOMAINS = \[[\s\S]{0,80}'mailinator\.com'/.test(ubRule),
+  '真临时邮箱域名仍在封禁名单里，解封没有放宽其它域名');
+check(/scripts\/email-rule-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  'emailRule 纯函数回归已挂进部署工作流');
+
 /* 用户案例每次部署不丢：schema.sql 不再重建业务表 */
 const spSchema = read('schema.sql');
 const spLib = read('src/lib/showcase.ts');

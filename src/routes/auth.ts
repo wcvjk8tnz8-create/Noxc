@@ -115,7 +115,8 @@ app.post('/login', async (c) => {
   const mail = String(email || '').trim().toLowerCase();
   if (!mail || !password) return fail(c, '请输入邮箱和密码');
 
-  /* 立即封锁：一次性 / 非公开邮箱域名（oauth.local 等）的违规注册账号，
+  /* 立即封锁：一次性 / 非公开邮箱域名的违规注册账号。
+      oauth.local 已解封（见 emailRule.ts），不再命中这里。
      不依赖 D1 迁移是否跑过 —— 只要有人拿它登录，当场标记为封禁。
      管理员账号不动，避免把站点锁死。
      例外：`nl.<hex>@oauth.local` 是 NodeLoc 自动建号时期的合法第三方账号，

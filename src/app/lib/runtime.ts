@@ -689,7 +689,12 @@ export function mountSiteFooter() {
   var REPO = 'https://github.com/wcvjk8tnz8-create/MeoyDomain';
   function inject() {
     try {
-      if (document.querySelector('.site-foot') || document.querySelector('footer')) return;
+      /* Zerexa 改版后，首页 / 展示页自带 <footer class="nk-foot">，控制台
+         mountShell 也会 append <footer class="main-foot">。旧判定只要页面里
+         出现任意 <footer> 就跳过注入，把这条「Noxc / GitHub / 服务文档」
+         底部署名整段吞掉了 —— 这正是新版里圈着的那条消失的原因。
+         只对自己去重：别的 footer 再多，也照样补上这条。 */
+      if (document.querySelector('.site-foot')) return;
       var f = document.createElement('footer');
       f.className = 'site-foot';
       f.innerHTML =

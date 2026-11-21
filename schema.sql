@@ -556,18 +556,16 @@ INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_scope_email_v2', '1'
 INSERT OR IGNORE INTO settings(key, value) VALUES ('nodeloc_redirect_uri', '');
 
 -- ============================================================
---  安全修订：封锁利用「邮箱任意位置含 edu」漏洞批量注册的一次性邮箱
---  oauth.local 是实际来源；其余为常见临时邮箱域。
---  幂等：只处理尚未封禁的非管理员账号，管理员手动解封不受覆盖
---  （如需恢复某个账号，请改用真实邮箱重新注册）。
+--  安全修订：封锁利用「邮箱任意位置含 edu」漏洞批量注册的一次性邮箱。
+--  edu 判定已改为只看域名标签，漏洞根因已消除；oauth.local 是 NodeLoc
+--  登录账号的占位域名，已解封，不在此封禁范围。
+--  幂等：只处理尚未封禁的非管理员账号，管理员手动解封不受覆盖。
 --  运行时另有兜底：登录时命中封禁域名会就地标记，见 routes/auth.ts。
 -- ============================================================
 UPDATE users SET status = 'banned',
                  ban_reason = '违规注册：一次性 / 非公开邮箱域名'
 WHERE status <> 'banned' AND role <> 'admin' AND (
-     lower(email) LIKE '%@oauth.local'
-  OR lower(email) LIKE '%@%.oauth.local'
-  OR lower(email) LIKE '%@mailinator.com'
+     lower(email) LIKE '%@mailinator.com'
   OR lower(email) LIKE '%@guerrillamail.com'
   OR lower(email) LIKE '%@10minutemail.com'
   OR lower(email) LIKE '%@temp-mail.org'
@@ -578,6 +576,14 @@ WHERE status <> 'banned' AND role <> 'admin' AND (
   OR lower(email) LIKE '%@getnada.com'
   OR lower(email) LIKE '%@emailondeck.com'
 );
+
+-- 解封 @oauth.local：恢复上一版因「一次性 / 非公开邮箱域名」被误封的
+-- NodeLoc 内部账号。只认这条 ban_reason，精确匹配，不动管理员手动封禁、
+-- 也不放行 mailinator 等真临时邮箱。幂等，重复部署无副作用。
+UPDATE users SET status = 'active', ban_reason = NULL
+WHERE status = 'banned'
+  AND ban_reason = '违规注册：一次性 / 非公开邮箱域名'
+  AND (lower(email) LIKE '%@oauth.local' OR lower(email) LIKE '%@%.oauth.local');
 
 -- ============================================================
 --  用户案例展示列：旧库由 src/lib/showcase.ts 的 PRAGMA + ALTER 补齐，

@@ -160,7 +160,6 @@ reset();
 for (const [mail, label] of [
   ['not-an-email', '格式不合法'],
   ['nl.0123456789abcdef0123@oauth.local', '与当前相同'],
-  ['x@oauth.local', '硬性封禁域名 oauth.local'],
   ['x@mailinator.com', '一次性邮箱域名'],
   ['x@foo.test', '保留 TLD .test'],
 ] as [string, string][]) {
@@ -168,6 +167,12 @@ for (const [mail, label] of [
   check(r.status === 400, `${label}被拒绝`);
 }
 check(sentMails.length === 0, '被拒绝的请求不会真的发邮件');
+
+/* @oauth.local 已解封：不再被硬性封禁域名拦下（其它保留 TLD 仍拒绝） */
+reset();
+r = await call('/api/profile/email/send', { email: 'x@oauth.local' });
+check(r.status === 200 && sentMails.length === 1 && sentMails[0].to === 'x@oauth.local',
+  '@oauth.local 已解封，可以正常发码');
 
 reset({ extraUsers: [{ id: 2, email: 'taken@gmail.com', status: 'active' }] });
 r = await call('/api/profile/email/send', { email: 'taken@gmail.com' });
