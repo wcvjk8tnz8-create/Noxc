@@ -10,6 +10,11 @@
  * 长句整译优先；短词用于 translateText 的全匹配与「全中文可消费」判定。
  */
 export const EXTRA_DICT: Record<string, string> = {
+  '按后缀单独暂停新申请': 'Pause applications per suffix',
+  '暂停申请': 'Applications paused',
+  '该后缀已暂停新申请': 'Applications paused for this suffix',
+  '部分后缀由环境变量 ROOT_APPLY_PAUSED 强制暂停，后台不可取消。':
+    'Some suffixes are forced by the ROOT_APPLY_PAUSED environment variable and cannot be cleared here.',
   /* ── 站内服务文档 /docs ── */
   '服务文档': 'Service Docs',
   '一页读懂': 'in one page',

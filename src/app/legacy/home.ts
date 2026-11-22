@@ -27,15 +27,19 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
   /* HOT = 实际已开通子域名最多的后缀（与「首推」是两个不同维度）。
      用户没展开统计也能在首页后缀卡片上直接看到。 */
   let HOTTEST = '';
+  /* 后台「按后缀单独暂停新申请」：只拦新建，查询与其它后缀照常 */
+  let PAUSED_ROOTS = [];
   function renderSuffix(list, rules) {
     const box = document.getElementById('suffixGrid');
     if (!list.length) { box.innerHTML = '<div class="nk-sk">暂未配置根域名</div>'; return; }
     const tip = esc(expiryTipText(rules));
     box.innerHTML = list.map((d, i) => {
       const isHot = HOTTEST && String(d).toLowerCase() === HOTTEST;
+      const paused = PAUSED_ROOTS.indexOf(String(d).toLowerCase()) >= 0;
       const badges = [
         i === 0 ? '<span class="nk-badge">首推</span>' : '',
         isHot ? '<span class="nk-badge nk-badge-hot">HOT</span>' : '',
+        paused ? '<span class="nk-badge nk-badge-paused" data-en="Applications paused">暂停申请</span>' : '',
       ].filter(Boolean).join('');
       return `
       <div class="card nk-suf">
@@ -46,6 +50,8 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
         <div class="nk-suf-tip" data-expiry-tip>${tip}</div>
       </div>`;
     }).join('');
+    /* 动态徽标带 data-en，刷新一次让英文模式立即生效 */
+    try { startI18n(); } catch {}
   }
   
   /* ---------- 记录类型标签 ---------- */
@@ -131,6 +137,8 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
         const v = Number(n);
         return Number.isFinite(v) ? v.toLocaleString('zh-CN') : '—';
       };
+      PAUSED_ROOTS = Array.isArray(cfg.pausedRoots)
+        ? cfg.pausedRoots.map((d) => String(d).trim().toLowerCase()) : [];
       if (st && typeof st === 'object') {
         document.querySelectorAll('[data-stat-users]').forEach((el) => { el.textContent = fmt(st.users); });
         document.querySelectorAll('[data-stat-domains]').forEach((el) => { el.textContent = fmt(st.domains); });
@@ -182,10 +190,13 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
       const st = data.state || data.status || '';
       const txt = STATE[st] || st || '未知';
       const free = ['free', 'available'].includes(st);
+      const paused = PAUSED_ROOTS.indexOf(String(root).toLowerCase()) >= 0;
       return `<div class="card nk-res ${free ? 'ok' : 'no'}">
         <div class="nk-res-name mono">${esc((label + '.' + root).toUpperCase())}</div>
         <div class="nk-res-state">${esc(txt)}</div>
-        <div class="nk-res-act">${free
+        <div class="nk-res-act">${free && paused
+          ? `<span class="nk-res-dim" data-en="Applications paused for this suffix">该后缀已暂停新申请</span>`
+          : free
           ? `<a class="btn sm primary" href="/register?label=${encodeURIComponent(label)}&root=${encodeURIComponent(root)}">立即注册 ${svgIcon('arrow', 15)}</a>`
           : `<span class="nk-res-dim">域名不可用</span>`}</div>
       </div>`;

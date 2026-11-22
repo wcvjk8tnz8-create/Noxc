@@ -9,6 +9,7 @@ import { DEFAULT_FOOTER_ICP_HTML } from './lib/footerIcp.js';
 import { DEFAULT_FOOTER_CONTACT_HTML } from './lib/footerContact.js';
 import { reservedLabelsOf } from './lib/reserved.js';
 import { publicStats } from './lib/publicStats.js';
+import { parsePausedRoots } from './lib/applyGate.js';
 import { nodelocEnabled } from './lib/nodeloc.js';
 import { githubEnabled } from './lib/github.js';
 import { ensureCoreColumns } from './lib/showcase.js';
@@ -209,7 +210,7 @@ app.use('/api/stats', publicCors);
 // 公开配置（含站点品牌，登录页也要用）
 app.get('/api/config', async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota','announcement')"
+    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota','announcement','root_apply_paused')"
   ).all();
   const s = Object.fromEntries(results.map((r) => [r.key, r.value]));
   // 显式取「生效列表」：不依赖中间件是否成功替换 c.env 引用，
@@ -257,6 +258,12 @@ app.get('/api/config', async (c) => {
     requireApproval: c.env.REQUIRE_APPROVAL === '1',
     applyPaused: String(c.env.APPLY_PAUSED || s.apply_paused || '').trim() === '1',
     applyPausedMessage: String(s.apply_paused_message || '').trim() || DEFAULT_MESSAGE,
+    // 按后缀单独暂停：公开名单（不含任何敏感信息），首页 / 注册页据此标注与锁定。
+    // 环境变量 ROOT_APPLY_PAUSED 与后台设置取并集，与注册接口的 applyGate 同口径。
+    pausedRoots: parsePausedRoots([
+      String(c.env.ROOT_APPLY_PAUSED || ''), String(s.root_apply_paused || ''),
+    ].join(',')),
+    rootApplyPausedFromEnv: parsePausedRoots(c.env.ROOT_APPLY_PAUSED || '').length > 0,
     recordTypes: TYPE_NAMES.map((k) => ({ key: k, ...RECORD_TYPES[k] })),
     ttlChoices: TTL_CHOICES,
     verifyPresets: VERIFY_PRESETS,

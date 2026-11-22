@@ -7,6 +7,7 @@ import { POINT_DEFAULTS } from '../../lib/pointDefaults';
 import { expiryTipText } from '../../lib/expiry';
 
 import type { LegacyCtx } from '../lib/types';
+import { currentLang, startI18n } from '../lib/i18n';
 
 export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   
@@ -36,6 +37,8 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     el.style.display = bits.length ? '' : 'none';
   }
   var APPLY_PAUSED = false;
+  var GLOBAL_PAUSED = false;      // 站点级暂停（不可靠切后缀解锁）
+  var PAUSED_ROOTS = [];          // 按后缀单独暂停
   var APPLY_MSG = '';
   var IS_ADMIN = false;
   // 与 /api/config、后端注册接口同一份判定；config 未回来前按「需要验证」处理
@@ -69,7 +72,40 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     var btn = document.getElementById('btnApply');
     if (btn) btn.textContent = '申请已暂停';
   }
-  
+
+  /* 切到未暂停的后缀（或后台恢复开放）时解除锁定。
+     站点级 GLOBAL_PAUSED 优先，绝不因为换后缀被解锁；管理员始终不锁。
+     解除后重新同步「待审核」状态，避免把 pending 锁误清掉。 */
+  function clearApplyPaused(){
+    if (GLOBAL_PAUSED) return;
+    var tip = document.getElementById('applyTip');
+    if (tip) { tip.style.display = 'none'; tip.innerHTML = ''; }
+    APPLY_PAUSED = false;
+    if (IS_ADMIN) return;
+    ['label','note','agreeUse','btnApply','rootPickerBtn'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) (el as HTMLButtonElement).disabled = false;
+    });
+    var btn = document.getElementById('btnApply');
+    if (btn) btn.textContent = '提交注册';
+    try { loadPending(); } catch (e) {}
+  }
+
+  /* 全局暂停 ∪ 当前后缀暂停。切换后缀、配置回来、检查接口回来都走这里。 */
+  function syncApplyPause(){
+    var r = String(currentRoot() || '').toLowerCase().replace(/\.+$/, '');
+    var rootPaused = PAUSED_ROOTS.indexOf(r) >= 0;
+    if (GLOBAL_PAUSED) { setApplyPaused(APPLY_MSG || ''); return; }
+    if (rootPaused) {
+      var en = currentLang() === 'en';
+      setApplyPaused(en
+        ? 'Applications for .' + r + ' are paused. Please try again later; existing domains are unaffected.'
+        : '后缀 .' + r + ' 已暂停新域名申请，请稍后再试。已注册的域名不受影响。');
+      return;
+    }
+    clearApplyPaused();
+  }
+
   /* ───── 根域名选择器（参考 DnsNeko） ─────
      原来是塞在窄胶囊里的原生 <select>：弹层由浏览器绘制、样式不可控、
      小屏还会被裁。改为自定义按钮 + 浮层列表，每项右侧标 Free。 */
@@ -101,6 +137,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     });
     closeRootMenu();
     updateRootTip(d);
+    syncApplyPause();
     try { window.dispatchEvent(new CustomEvent('terradata:root', { detail: d })); } catch {}
     var v = (document.getElementById('label') as HTMLInputElement)?.value.trim();
     if (v) runCheck(v);   // 换后缀立即重新查可用性
@@ -110,6 +147,10 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     try {
       var cfg = await api.get('/api/config');
       if (typeof cfg.captchaEnabled === 'boolean') CAPTCHA_ENABLED = cfg.captchaEnabled;
+      GLOBAL_PAUSED = !!cfg.applyPaused;
+      APPLY_MSG = String(cfg.applyPausedMessage || '').trim() || APPLY_MSG;
+      PAUSED_ROOTS = Array.isArray(cfg.pausedRoots)
+        ? cfg.pausedRoots.map(function(d){ return String(d).trim().toLowerCase(); }) : [];
       if (cfg.applyPaused) setApplyPaused(cfg.applyPausedMessage);
       var list = Array.isArray(cfg.rootDomains) && cfg.rootDomains.length
         ? cfg.rootDomains
@@ -179,6 +220,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       if (list.length <= 1) {
         btn.classList.add('single');
         menu.innerHTML = '';
+        syncApplyPause();
         return;   // 只有一个后缀：整块就是静态文字，不展开
       }
 
@@ -186,17 +228,22 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
         return '<button type="button" class="root-opt' + (i === 0 ? ' on' : '') + '" role="option"'
           + ' data-root="' + esc(d) + '" aria-selected="' + (i === 0 ? 'true' : 'false') + '">'
           + '<span class="root-opt-name">.' + esc(d.toUpperCase()) + '</span>'
-          + '<span class="root-opt-free">' + esc(costLabel(d)) + '</span></button>';
+          + (PAUSED_ROOTS.indexOf(String(d).toLowerCase()) >= 0
+              ? '<span class="root-opt-free" data-en="PAUSED" style="opacity:.75">暂停</span>'
+              : '<span class="root-opt-free">' + esc(costLabel(d)) + '</span>')
+          + '</button>';
       }).join('');
       menu.querySelectorAll('.root-opt').forEach(function(el){
         (el as HTMLButtonElement).onclick = function(){ selectRoot(el.getAttribute('data-root')); };
       });
+      try { startI18n(); } catch {}
       btn.onclick = function(e){ e.stopPropagation(); toggleRootMenu(); };
       // /register?label=foo&root=v-1.top：从 WHOIS / 落地页带后缀跳进来时保持选中
       try {
         var want = new URLSearchParams(location.search).get('root');
         if (want && list.indexOf(want) >= 0) selectRoot(want);
       } catch {}
+      syncApplyPause();
       try { window.dispatchEvent(new CustomEvent('terradata:root', { detail: first })); } catch {}
       // 点外部 / Esc 关闭；监听随切页自动注销
       onDoc('click', function(e){
@@ -213,6 +260,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     try {
       var r = await api.get('/api/subdomains/check?label=' + encodeURIComponent(v) + rootQuery());
       if (r.applyPaused) setApplyPaused(r.applyPausedMessage);   // 页面打开后才暂停也能即时提示
+      else if (!GLOBAL_PAUSED) syncApplyPause();                // 切回开放后缀要解锁
       var link =' <a href="/whois?name=' + encodeURIComponent(v) + '" target="_blank" style="font-size:11.5px">whois 详情</a>';
       tip.innerHTML = (r.available
         ? '<span style="color:var(--ok)">' + esc(r.fqdn) + ' 可以注册</span>'

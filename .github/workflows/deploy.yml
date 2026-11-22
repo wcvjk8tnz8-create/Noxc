@@ -132,6 +132,10 @@ jobs:
       - name: 服务文档重定向循环回归
         run: npx tsx scripts/docs-redirect-regression.ts
 
+      # 按后缀单独暂停新申请：只拦新建，已注册域名与其它后缀不受影响
+      - name: 按后缀暂停申请回归
+        run: npx tsx scripts/root-apply-pause-regression.ts
+
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
       - name: 统计展开回归
         run: npx tsx scripts/stats-breakdown-regression.ts

@@ -22,6 +22,7 @@ import { nodelocConfig, maskSecret, NODELOC_CALLBACK_PATH, httpsCallbackUrl } fr
 import { githubConfig, GITHUB_CALLBACK_PATH, httpsCallbackUrl as ghCallbackUrl,
          normalizeStarRepo, DEFAULT_STAR_REPO, DEFAULT_STAR_BONUS } from '../lib/github.js';
 import { parseRootRegLimits, serializeRootRegLimits } from '../lib/rootLimits.js';
+import { parsePausedRoots, serializePausedRoots } from '../lib/applyGate.js';
 
 const app = new Hono();
 
@@ -514,6 +515,9 @@ app.get('/settings', async (c) => {
     rootPointCosts: parseRootCosts(raw.root_point_costs),
     // 按根域名「每人注册次数」（-1 = 无限；留空 = 不限制）
     rootRegLimits: parseRootRegLimits(raw.root_reg_limits),
+    // 按后缀单独暂停新申请（只拦新建，已注册域名全部不受影响）
+    rootApplyPaused: parsePausedRoots([String(c.env.ROOT_APPLY_PAUSED || ''), raw.root_apply_paused].join(',')),
+    rootApplyPausedFromEnv: parsePausedRoots(c.env.ROOT_APPLY_PAUSED || '').length > 0,
     // 域名有效期 / 续期窗口（renewWindowAuto=true 时后台输入框留空）
     // 以前误放在 secrets 里，前端读 d.expiry 一直是 undefined，输入框永远显示 HTML 写死的 365/180，
     // 一点保存就把旧值写回数据库覆盖真实配置 —— 必须放在顶层。
@@ -1141,6 +1145,19 @@ app.post('/settings', async (c) => {
       Object.keys(nextLimits).length
         ? Object.entries(nextLimits).map(([d, n]) => `${d}:${n}`).join(',')
         : '全部恢复不限制');
+  }
+
+  /* 按后缀单独暂停新申请：只接受当前生效的根域名，逗号分隔存 settings。
+     环境变量 ROOT_APPLY_PAUSED 的项始终生效，后台清空也关不掉。 */
+  if (body.rootApplyPaused !== undefined) {
+    const active = new Set((await effectiveRootList(c.env)).map((r) => r.domain));
+    const input = Array.isArray(body.rootApplyPaused) ? body.rootApplyPaused : [];
+    const forced = parsePausedRoots(c.env.ROOT_APPLY_PAUSED || '');
+    const chosen = parsePausedRoots(input.join(','))
+      .filter((d) => active.has(d) && !forced.includes(d));
+    await set('root_apply_paused', chosen.join(','));
+    await audit(c, u.id, 'admin.root-apply-paused', 'site',
+      chosen.length ? `暂停申请：${chosen.join(',')}` : '全部恢复开放申请');
   }
 
   // 全局中文字体（正文 / 标题）：拉丁与数字始终用 Redaction 35，这里只决定中文用哪个字体

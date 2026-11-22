@@ -552,6 +552,18 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <div class="hint">填 <b>1</b> = 每人只能注册该后缀一次；填 <b>-1</b> = 每人无限次；<b>0</b> = 禁止申请该后缀；留空 = 不限制。按累计申请次数计，释放域名不退还次数；从设置生效后开始累计，<b>已注册用户与已有域名不受影响</b>。管理员开通不受限。</div>
             </div>
             <div class="field">
+              <label>按后缀单独暂停新申请</label>
+              <div class="grid2" id="rootApplyPausedBox">
+                ${(Array.isArray(d.rootDomains) ? d.rootDomains : []).map(function(r){
+                  var paused = (d.rootApplyPaused || []).indexOf(String(r).toLowerCase()) >= 0;
+                  var forced = d.rootApplyPausedFromEnv && (d.rootApplyPaused || []).indexOf(String(r).toLowerCase()) >= 0;
+                  return '<label class="check"><input type="checkbox" class="root-apply-paused-input" data-root="' + esc(r) + '"'
+                    + (paused ? ' checked' : '') + (forced ? ' disabled' : '') + '><span>.' + esc(String(r).toUpperCase()) + ' 暂停申请</span></label>';
+                }).join('') || '<div class="hint">当前没有生效的根域名</div>'}
+              </div>
+              <div class="hint">勾选后<b>只有该后缀不再接受新的域名申请</b>，其它后缀照常开放。首页后缀卡片标「暂停申请」、注册页切到该后缀会锁定并提示。<b>已注册域名的 DNS 记录、续期、转移、展示与签到全部不受影响</b>；WHOIS 仍可查询；管理员仍可自建。${d.rootApplyPausedFromEnv ? '<br><span class="badge warn">部分后缀由环境变量 ROOT_APPLY_PAUSED 强制暂停，后台不可取消。</span>' : ''}</div>
+            </div>
+            <div class="field">
               <label>全局字体（中文字体）</label>
               <div class="grid2">
                 <div>
@@ -767,6 +779,13 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
                 o[el.getAttribute('data-root')] = (el as HTMLInputElement).value.trim();
               });
               return o;
+            })(),
+            rootApplyPaused: (function(){
+              var a = [];
+              document.querySelectorAll('#rootApplyPausedBox .root-apply-paused-input').forEach(function(el){
+                if ((el as HTMLInputElement).checked) a.push(String(el.getAttribute('data-root') || '').toLowerCase());
+              });
+              return a;
             })(),
             maxAccountsPerIp: document.getElementById('sIpLimit').value,
             emailRule: document.getElementById('sEmailRule').value,

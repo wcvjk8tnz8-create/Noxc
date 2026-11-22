@@ -1582,6 +1582,46 @@ check(tkReadme.indexOf('## 三、部署步骤') < tkReadme.indexOf('创建 Noxc 
   && tkReadme.indexOf('创建 Noxc Deploy Token') < tkReadme.indexOf('| 需要什么 |'),
   '一键创建链接位于部署章节开头、凭据表格之前（第一眼就能看到）');
 
+/* 按后缀单独暂停新申请：只拦「新建子域名」，不影响已注册域名与其它后缀。
+   名单存 settings.root_apply_paused，applyGate 是全局 + 按后缀的唯一来源。 */
+const rpGate = read('src/lib/applyGate.ts');
+const rpIdx = read('src/index.ts');
+const rpSub = read('src/routes/subdomains.ts');
+const rpAdm = read('src/routes/admin.ts');
+const rpAdmUi = read('src/app/legacy/admin.ts');
+const rpHome = read('src/app/legacy/home.ts');
+const rpReg = read('src/app/legacy/register.ts');
+const rpCss = read('src/app/styles/design-system.css');
+const rpDocsZh = read('docs-src/settings.md');
+const rpDocsEn = read('docs-src/en/settings.md');
+const rpReadme = read('README.md');
+const rpRegS = read('scripts/root-apply-pause-regression.ts');
+const rpCI = read('.github/workflows/deploy.yml');
+check(/root_apply_paused/.test(rpGate) && /ROOT_APPLY_PAUSED/.test(rpGate)
+  && /parsePausedRoots/.test(rpGate) && /isRootApplyPaused/.test(rpGate),
+  '按后缀暂停名单：解析 / 序列化 / 环境变量强制 / 唯一来源都在 applyGate');
+check(/pausedRoots/.test(rpIdx) && /rootApplyPausedFromEnv/.test(rpIdx),
+  '/api/config 下发暂停名单与环境变量标志');
+check(/isRootApplyPaused\(gate, reqRoot\)/.test(rpSub)
+  && /u\.role !== 'admin'/.test(rpSub),
+  '注册接口拦截按后缀暂停，管理员自建豁免');
+check(/rootApplyPaused/.test(rpAdm) && /root-apply-paused/.test(rpAdm),
+  '后台设置可读写名单并写审计');
+check(/rootApplyPausedBox/.test(rpAdmUi) && /rootApplyPaused:/.test(rpAdmUi),
+  '站点设置页有勾选区并进保存 payload');
+check(/PAUSED_ROOTS/.test(rpHome) && /nk-badge-paused/.test(rpHome)
+  && /该后缀已暂停新申请/.test(rpHome),
+  '首页后缀卡片标注、暂停后缀不再给注册入口');
+check(/syncApplyPause/.test(rpReg) && /clearApplyPaused/.test(rpReg)
+  && /PAUSED_ROOTS/.test(rpReg) && /currentLang/.test(rpReg),
+  '注册页切后缀锁定 / 解锁，英文提示不残留中文');
+check(/\.nk-badge-paused/.test(rpCss), '暂停徽标有专属样式');
+check(/按后缀单独暂停新申请/.test(rpDocsZh) && /Pause applications per suffix/.test(rpDocsEn)
+  && /按后缀单独暂停新申请/.test(rpReadme),
+  '中英文档与 README 都写明「只拦新建、已注册域名不受影响」口径');
+check(/按后缀暂停申请回归/.test(rpCI) && /root-apply-pause-regression\.ts/.test(rpRegS),
+  '专项回归进 CI（真跑注册接口 + 反向对照）');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

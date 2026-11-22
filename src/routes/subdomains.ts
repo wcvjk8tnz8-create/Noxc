@@ -8,7 +8,7 @@ import { pointRules } from './points.js';
 import { expiryRules, computeExpiry, expiryState, renewExpiry, migrateLegacyPerpetual, ensureExpiryColumns } from '../lib/expiry.js';
 import { defaultRoot, isAllowedRoot, listRoots } from '../lib/roots.js';
 import { rootRegLimitOf, userRootRegCount, bumpRootRegCount } from '../lib/rootLimits.js';
-import { applyGate } from '../lib/applyGate.js';
+import { applyGate, isRootApplyPaused, rootApplyMessage } from '../lib/applyGate.js';
 import { aiReviewDetailed } from '../lib/aiReview.js';
 import { ensureAiColumns, queueAiBatch } from '../lib/aiBatch.js';
 import { captchaEnabled, consumePass } from '../lib/captcha.js';
@@ -107,10 +107,14 @@ app.get('/check', async (c) => {
   let points = UNLIMITED_POINTS;
   if (u && !isAdmin) points = await ensurePoints(c.env.DB, u.id, rules);
   const gate = await applyGate(c.env);
+  const qRoot = String(c.req.query('root') || '').trim().toLowerCase().replace(/\.+$/, '');
+  const rootPaused = isRootApplyPaused(gate, qRoot) && !isAdmin;
   return ok(c, {
     available: r.available,
-    applyPaused: gate.paused && !isAdmin,
-    applyPausedMessage: gate.message,
+    applyPaused: (gate.paused || rootPaused) && !isAdmin,
+    applyPausedMessage: rootPaused ? rootApplyMessage(qRoot, gate.message) : gate.message,
+    rootApplyPaused: rootPaused,
+    root: qRoot,
     message: r.message,
     fqdn: r.fqdn,
     status: r.status,
@@ -204,6 +208,16 @@ const createMine = async (c) => {
   const reqRoot = String(rootReq || defaultRoot(c.env)).toLowerCase().replace(/\.+$/, '');
   if (rootReq && !isAllowedRoot(c.env, reqRoot))
     return fail(c, `根域名 ${reqRoot} 未配置，可选：${listRoots(c.env).map((r) => r.domain).join('、')}`);
+
+  /* 按后缀单独暂停新申请：只拦「新建」这一个动作，已注册域名的
+     DNS / 续期 / 转移 / 展示全部不变；其它后缀照常开放。
+     管理员是「开通」而非「申请」，不拦（否则后台无法补发域名）。
+     放在配额/积分校验之前，避免拦下却已经扣了分。 */
+  if (isRootApplyPaused(gate, reqRoot) && u.role !== 'admin') {
+    return fail(c, rootApplyMessage(reqRoot, gate.message), 403, {
+      applyPaused: true, rootApplyPaused: true, root: reqRoot,
+    });
+  }
 
   const lk = await lookupLabel(c, v.label, reqRoot);
   if (!lk.ok) return fail(c, lk.message);

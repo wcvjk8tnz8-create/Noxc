@@ -586,6 +586,8 @@ export const SERVER_DICT: Record<string, string> = {
 /** 带变量的消息：正则 → 英文模板（按数组顺序匹配，先到先得） */
 export const SERVER_PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
   [/^图片不能超过 (\d+) KB$/, m => `Image must be smaller than ${m[1]} KB`],
+  [/^后缀 \.(.+?) 已暂停新域名申请，请稍后再试。已注册的域名不受影响。$/,
+    m => `Applications for .${m[1]} are paused. Please try again later; existing domains are unaffected.`],
   [/^已达上限，每个账号最多持有 (\d+) 个子域名$/, m => `Quota reached: each account can hold at most ${m[1]} subdomains`],
   [/^单个子域名最多 (\d+) 条记录$/, m => `At most ${m[1]} records per subdomain`],
   [/^此操作会删除全部 (\d+) 张券，且不可恢复。请带上确认参数重试。$/,

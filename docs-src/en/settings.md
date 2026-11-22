@@ -17,6 +17,19 @@ Everything below is changed in the console and takes effect on save — no redep
 - Per-suffix registration limits per person
 - Domain validity and renewal window (blank = half of the validity period)
 
+## Pause applications per suffix
+
+Under "Site settings → Pause applications per suffix", tick a root domain to **stop new applications for that suffix only**; every other suffix stays open.
+
+- The home page marks the suffix "Applications paused" and drops the "Register" link
+- The registration page locks when that suffix is selected and unlocks when switching back
+- WHOIS still works; admins can still create domains manually
+- **DNS records, renewal, transfer, showcase and check-in for existing domains are unaffected**
+- The notice reuses the "pause message" setting; otherwise a suffix-specific default is used
+- `ROOT_APPLY_PAUSED=meoy.top,v-1.top` forces a pause that cannot be cleared from the console
+
+This is separate from per-suffix registration limits: one controls *whether* you can apply, the other *how many times*.
+
 ## Points & rewards
 
 Points rules (check-in / initial / regular / short), showcase reward amount (default +6000, set 0 to disable), default quota and sync-to-all.

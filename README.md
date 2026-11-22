@@ -660,6 +660,12 @@ ASSETS，`/docs/*` 的页面与图片原样回落，`/docs.html` 老书签 302 �
 仓库不提交 `package-lock.json`，所以 CI 用 `npm install`（不能用 `npm ci`），
 `actions/setup-node` 也不启用 npm 缓存选项。
 
+**按后缀单独暂停新申请**：后台「站点设置 → 按后缀单独暂停新申请」可只停某一个根域名，
+其余后缀照常开放。只拦「新建子域名」这一个动作：首页卡片标「暂停申请」、注册页切到该后缀会锁定，
+WHOIS 仍可查询；**已注册域名的 DNS 记录 / 续期 / 转移 / 展示 / 签到全部不受影响**，管理员仍可自建。
+名单存 `settings.root_apply_paused`（逗号分隔），`applyGate()` 是全局与按后缀开关的唯一来源；
+环境变量 `ROOT_APPLY_PAUSED` 可强制暂停且后台不可取消。与「按根域名每人注册次数」是两个独立维度。
+
 **首页公开统计**：`/api/config` 与 `/api/stats` 同源，除注册人数、已开通域名两个总数外，
 还下发 `publicStats.roots`（按根域名拆分的「已开通域名数 / 去重注册人数」，
 含当前为 0 的生效后缀）与 `publicStats.hottest`（已开通最多的后缀）。
