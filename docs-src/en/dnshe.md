@@ -4,37 +4,37 @@ Written from the console screenshots; if the DNSHE UI changes later, follow the 
 
 ## Fig 1 · Sign in
 
-![Fig 1 · Sign in to DNSHE](/img/fig1.png)
+![Fig 1 · Sign in to DNSHE](../img/fig1.png)
 
 Open the DNSHE console and sign in.
 
 ## Fig 2 · Domain list
 
-![Fig 2 · Domain list](/img/fig2.png)
+![Fig 2 · Domain list](../img/fig2.png)
 
 Locate the domain you want to host and open its management page.
 
 ## Fig 3 · Domain overview
 
-![Fig 3 · Domain overview](/img/fig3.png)
+![Fig 3 · Domain overview](../img/fig3.png)
 
 Check the domain status and its current nameservers.
 
 ## Fig 4 · DNS management
 
-![Fig 4 · DNS management](/img/fig4.png)
+![Fig 4 · DNS management](../img/fig4.png)
 
 Switch to the DNS records / nameserver settings.
 
 ## Fig 5 · NS records are DNS records
 
-![Fig 5 · NS records are ordinary DNS records](/img/fig5.png)
+![Fig 5 · NS records are ordinary DNS records](../img/fig5.png)
 
 NS records appear in the normal record list and can be edited or deleted.
 
 ## Fig 6 · Write hosting NS
 
-![Fig 6 · Write hosting NS](/img/fig6.png)
+![Fig 6 · Write hosting NS](../img/fig6.png)
 
 External domains use `ns1.dnshe.org` and `ns2.dnshe.org`.
 
@@ -44,7 +44,7 @@ External domains use `ns1.dnshe.org` and `ns2.dnshe.org`.
 
 ## Fig 7 · New domain setup dialog
 
-![Fig 7 · New domain setup dialog](/img/fig7.png)
+![Fig 7 · New domain setup dialog](../img/fig7.png)
 
 There are three buttons at the bottom. **Only the blue `Add DNS records` in the middle opens Fig 8**:
 
@@ -58,6 +58,6 @@ This is the step most people get wrong — always click `Add DNS records`.
 
 ## Fig 8 · DNS records page
 
-![Fig 8 · DNS records page](/img/fig8.png)
+![Fig 8 · DNS records page](../img/fig8.png)
 
 "0 records / No DNS records found." is the **normal state of a fresh zone**, not an error. Start adding records here.

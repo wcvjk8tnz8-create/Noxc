@@ -1196,8 +1196,8 @@ check(
 );
 check(
   Array.from({ length: 8 }, (_, i) => i + 1).every((n) =>
-    /img\/fig\d+\.png/.test(vpDnshe) &&
-    fs.existsSync(path.join(root, 'docs-src/.vitepress/public/img/fig' + n + '.png')) &&
+    /\.\.?\/img\/fig\d+\.png/.test(vpDnshe) &&
+    fs.existsSync(path.join(root, 'docs-src/img/fig' + n + '.png')) &&
     fs.existsSync(path.join(root, 'public/img/docs/fig' + n + '.png'))),
   '图 1～图 8 在 VitePress public 与原资源目录都存在，且文档有图片引用'
 );

@@ -244,8 +244,10 @@ jobs:
           test -f dist/client/docs/index.html || { echo "::error::缺少 dist/client/docs/index.html"; exit 1; }
           test -f dist/client/docs/quick-start.html || { echo "::error::缺少中文文档页"; exit 1; }
           test -f dist/client/docs/en/index.html || { echo "::error::缺少英文文档页"; exit 1; }
-          test -f dist/client/docs/img/fig7.png || { echo "::error::缺少 DNSHE 截图"; exit 1; }
-          echo "✓ VitePress 产物齐全（中英首页 + 图 1～8）"
+          test -f docs-src/img/fig7.png || { echo "::error::缺少 DNSHE 截图源文件"; exit 1; }
+          pngs=$(find dist/client/docs -type f \( -name '*.png' -o -name '*.webp' \) | wc -l)
+          test "$pngs" -ge 8 || { echo "::error::VitePress 产物里只有 $pngs 张图，应有 8 张"; exit 1; }
+          echo "✓ VitePress 产物齐全（中英首页 + $pngs 张图）"
 
       - name: 初始化 D1 表结构
         run: npx wrangler d1 execute "${D1_DATABASE_NAME}" --remote --file=./schema.sql
