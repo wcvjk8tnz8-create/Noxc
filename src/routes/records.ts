@@ -108,6 +108,20 @@ app.post('/subdomains/:id/records', async (c) => {
     .first();
   if (locked) return fail(c, '该记录正在被「根域名验证」占用，请先完成认证并解除锁定');
 
+  /* 幂等：同名 / 同类型 / 同值的记录已经存在时直接返回它，不再往 Cloudflare
+     写第二条。以前「站点慢 → 用户连点保存」会在列表里留下两条一模一样的
+     AAAA @ 记录（用户反馈过：切了域名下拉以为换了域名，再添加又写回原域名）。
+     只拦「完全相同」，同类型不同值仍是合法的多条记录（如多个 AAAA）。 */
+  const dup = await c.env.DB.prepare(
+    `SELECT * FROM dns_records
+     WHERE subdomain_id = ? AND name = ? AND type = ? AND content = ?
+       AND IFNULL(data, '') = ?
+     LIMIT 1`
+  )
+    .bind(id, hostRes.name, type, built.content || '', built.data ? JSON.stringify(built.data) : '')
+    .first();
+  if (dup) return ok(c, { record: shape(dup), duplicate: true });
+
   const payload = { ...built.payload, name: hostRes.name };
   const cf = await cfCreate(c.env, payload, rootOf(c, sub));
   if (!cf.ok) return fail(c, `DNS 写入失败：${cfErrorMessage(cf)}`, 502, { cf: cf.errors });

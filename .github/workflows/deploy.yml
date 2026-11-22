@@ -136,6 +136,10 @@ jobs:
       - name: 按后缀暂停申请回归
         run: npx tsx scripts/root-apply-pause-regression.ts
 
+      # 域名详情页「假切换」与 DNS 记录重复：整页切换 + 幂等 + 反向对照
+      - name: 域名详情切换与记录重复回归
+        run: npx tsx scripts/domain-switch-records-regression.ts
+
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
       - name: 统计展开回归
         run: npx tsx scripts/stats-breakdown-regression.ts

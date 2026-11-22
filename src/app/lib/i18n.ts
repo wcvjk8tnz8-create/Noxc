@@ -423,8 +423,8 @@ const FULL_SENTENCES: Record<string, string> = {
   '确定取消托管？将删除父区域的 NS 记录，解析权回到本站。  注意：目标服务商上该域名的解析记录不会自动删除，请自行清理。':
     'Cancel delegation? The NS records in the parent zone will be removed and DNS control returns here. Records at the target provider are not deleted automatically — clean them up yourself.',
   '确定将 X 转移给 X？此操作不可撤销。': 'Transfer X to X? This cannot be undone.',
-  '选择域名 → 选择平台 → 主机名会自动填入 → 粘贴平台给出的验证值 → 写入锁定。':
-    'Pick a domain → choose a platform → the hostname is filled in → paste the verification value → the record is locked.',
+  '选择平台 → 写入位置 → 主机名会自动填入 → 粘贴平台给出的验证值 → 写入锁定。锁定期间任何人都不能修改或删除，只有发起者点击「确认认证完成」后才会移除该验证 TXT。':
+    'Choose a platform → pick where to write → the hostname is filled in → paste the verification value → the record is locked. While locked nobody can edit or delete it; only the requester can remove the TXT by clicking "Confirm verification".',
   '举报滥用 · 处理入口 →': 'Abuse reports →',
   '发现违规用途？在这里告诉我们': 'Spot a violation? Let us know',
   '其它举报渠道': 'Other reporting channels',

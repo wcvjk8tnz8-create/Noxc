@@ -10,6 +10,14 @@
  * 长句整译优先；短词用于 translateText 的全匹配与「全中文可消费」判定。
  */
 export const EXTRA_DICT: Record<string, string> = {
+  '切换域名': 'Switch domain',
+  '当前操作域名：': 'Current domain: ',
+  '。要操作其它域名请用页面顶部的「切换域名」，切换后概览、DNS 记录、NS 委派与展示设置会一起更新；验证记录默认写在这条域名所属的根域名下（如 ':
+    '. To work on another domain use "Switch domain" at the top of this page — the overview, DNS records, NS delegation and showcase settings all update together; verification records are written under the root domain of this domain (e.g. ',
+  '① 选择平台': '1. Choose a platform',
+  '② 写入位置': '2. Where to write',
+  '③ 验证主机名（已按平台自动填入，可微调）': '3. Verification hostname (auto-filled from the platform, editable)',
+  '④ 验证值（从平台复制粘贴）': '4. Verification value (paste from the platform)',
   '按后缀单独暂停新申请': 'Pause applications per suffix',
   '暂停申请': 'Applications paused',
   '该后缀已暂停新申请': 'Applications paused for this suffix',
@@ -189,7 +197,7 @@ export const EXTRA_DICT: Record<string, string> = {
   '邮件服务器': 'Mail server', '名称服务器': 'Nameserver', '主机名过长': 'Hostname too long',
   '主机名片段': 'Hostname label', '含非法字符': 'Invalid characters',
   '主机名越界': 'Hostname out of range', '← 返回列表': '← Back to list',
-  '② 选择平台': '2. Choose a platform', '本子域名 ·': 'This subdomain ·',
+  '本子域名 ·': 'This subdomain ·',
 '上传本地图片': 'Upload an image',
   '我的兑换记录': 'My redemptions', '仅显示你名下': 'Only your own',
   '我的转移记录': 'My transfers', '调整积分 ·': 'Adjust points ·',
@@ -495,8 +503,6 @@ export const EXTRA_DICT: Record<string, string> = {
   '站点已暂停新域名申请，请稍后再试。': 'New domain requests are paused. Please try again later.',
   '当前没有处于锁定状态的验证记录': 'No verification records are currently locked',
   '请填写验证主机名，如 _vercel': 'Enter the verification hostname, e.g. _vercel',
-  '③ 验证主机名（已按平台自动填入，可微调）': '3. Verification hostname (auto-filled from the platform, editable)',
-  '④ 验证值（从平台复制粘贴）': '4. Verification value (paste from the platform)',
   '验证码已发送，10 分钟内有效': 'Code sent; valid for 10 minutes',
   '密码已重置，请使用新密码登录': 'Password reset. Sign in with your new password',
   '密码已修改，其它设备已登出': 'Password changed. Other sessions have been signed out',

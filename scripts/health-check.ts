@@ -1622,6 +1622,37 @@ check(/按后缀单独暂停新申请/.test(rpDocsZh) && /Pause applications per
 check(/按后缀暂停申请回归/.test(rpCI) && /root-apply-pause-regression\.ts/.test(rpRegS),
   '专项回归进 CI（真跑注册接口 + 反向对照）');
 
+/* 域名详情页：顶部整页切换器 + 自助验证不再有会误导的局部下拉。
+   以前 #vDomain 只改 verifyTargetId，切到别的域名后 DNS 记录列表仍是旧的，
+   再点「添加记录」又写回原域名，用户会看到「两条相同的 @ 记录」。 */
+const dsPage = read('src/app/pages/Domain.tsx');
+const dsCtl = read('src/app/legacy/domain.ts');
+const dsRec = read('src/routes/records.ts');
+const dsDocsZh = read('docs-src/dns.md');
+const dsDocsEn = read('docs-src/en/dns.md');
+const dsReadme = read('README.md');
+const dsCI = read('.github/workflows/deploy.yml');
+const dsReg = read('scripts/domain-switch-records-regression.ts');
+check(/id="domainSwitcher"/.test(dsPage) && !/id="vDomain"/.test(dsPage),
+  '顶部整页切换器存在，自助验证局部下拉已移除');
+check(/location\.href = '\/domain\?id='/.test(dsCtl) && /&tab=/.test(dsCtl)
+  && !/verifyTargetId/.test(dsCtl),
+  '切换域名整页重载并保留标签页，自助验证固定写当前域名');
+check(/if \(saving\) return/.test(dsCtl) && /saveBtn\.disabled = true/.test(dsCtl),
+  '保存按钮防重复提交（响应慢时连点不会写两条）');
+check(/const dup = await c\.env\.DB\.prepare/.test(dsRec) && /duplicate: true/.test(dsRec),
+  '后端同名同类型同值幂等返回，不写第二条 Cloudflare 记录');
+check(/Promise\.all\(\[\s*api\.get\('\/api\/config'\)/.test(dsCtl)
+  && /const \[provRes, delRes\] = await Promise\.all/.test(dsCtl),
+  '域名详情页首屏请求并行化，不再串行等五段往返');
+check((dsPage.match(/id="presets"/g) || []).length === 1
+  && /#presets \.preset/.test(dsCtl),
+  '重复 id="presets" 已删，预设点击不再误绑委派页卡片');
+check(/切换域名/.test(dsDocsZh) && /Switch domain/.test(dsDocsEn)
+  && /切换域名/.test(dsReadme), '中英文档与 README 写明整页切换口径');
+check(/域名详情切换与记录重复回归/.test(dsCI)
+  && /domain-switch-records-regression\.ts/.test(dsReg), '专项回归进 CI');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

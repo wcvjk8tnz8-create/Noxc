@@ -112,10 +112,16 @@ export default function DomainPage() {
       <main className="main"><div className="main-in"><div className="wrap">
           <div style={{marginBottom: "14px"}}>
           <a href="/dashboard" style={{fontSize: "12.5px"}}>← 返回域名管理</a>
-          <div className="row between" style={{marginTop: "6px", alignItems: "center"}}>
+          <div className="row between" style={{marginTop: "6px", alignItems: "center", gap: "10px", flexWrap: "wrap"}}>
             <div>
               <span className="fqdn" id="fqdn"></span> <span className="copy" id="copyFqdn">复制</span>
               <span id="statusBadge" style={{marginLeft: "8px"}}></span>
+            </div>
+            {/* 整页域名切换：切换后概览 / DNS 记录 / NS 委派 / 展示设置全部重载，
+                不再出现「上面选了另一个域名、下面记录还是旧的」。 */}
+            <div className="row" style={{gap: "8px", alignItems: "center"}}>
+              <label htmlFor="domainSwitcher" className="dim" style={{fontSize: "12px", whiteSpace: "nowrap"}}>切换域名</label>
+              <select id="domainSwitcher" aria-label="切换域名" style={{maxWidth: "230px"}}></select>
             </div>
           </div>
         </div>
@@ -143,29 +149,24 @@ export default function DomainPage() {
             <div className="tabpane" data-pane="dns">
         <div className="card">
           <h2>自助验证</h2>
-          <div className="sub" style={{marginBottom: "12px"}}>
-            选择域名 → 选择平台 → 主机名会自动填入 → 粘贴平台给出的验证值 → 写入锁定。
-            锁定期间任何人都不能修改或删除，只有发起者点击「确认认证完成」后才会移除该验证 TXT。
+          <div className="sub" style={{marginBottom: "12px"}}
+            data-en="Choose a platform → pick where to write → the hostname is filled in → paste the verification value → the record is locked. While locked nobody can edit or delete it; only the requester can remove the TXT by clicking Confirm verification.">选择平台 → 写入位置 → 主机名会自动填入 → 粘贴平台给出的验证值 → 写入锁定。锁定期间任何人都不能修改或删除，只有发起者点击「确认认证完成」后才会移除该验证 TXT。</div>
+          <div className="alert info" style={{marginBottom: "12px"}}>
+            <span>当前操作域名：</span><b className="mono" id="vDomainLabel"></b><span>。要操作其它域名请用页面顶部的「切换域名」，切换后概览、DNS 记录、NS 委派与展示设置会一起更新；验证记录默认写在这条域名所属的根域名下（如 </span><span className="mono">_vercel.meoy.top</span><span>）。</span>
           </div>
           <div className="field">
-            <label>① 选择域名</label>
-            <select id="vDomain"></select>
-            <div className="hint">验证记录默认写在这条域名所属的<b>根域名</b>下（如 <span className="mono">_vercel.meoy.top</span>）。</div>
-          </div>
-          <div className="field">
-            <label>② 选择平台</label>
+            <label>① 选择平台</label>
             <div className="preset-grid" id="presets"></div>
             <div className="hint" id="presetHint"></div>
           </div>
           <div className="field">
-            <label>写入位置</label>
+            <label>② 写入位置</label>
             <div className="row" style={{gap: "6px"}}>
               <button className="btn sm primary" id="scopeRoot" data-scope="root">根域名 · <span className="mono" id="rootLbl"></span></button>
               <button className="btn sm" id="scopeSub" data-scope="sub">本子域名 · <span className="mono" id="subLbl"></span></button>
             </div>
             <div className="hint">Vercel / Netlify / DNSPod 等验证根域名所有权时，记录写在根域名下（如 <span className="mono">_vercel.meoy.top</span>）；若平台只校验你自己的子域名，再选「本子域名」。</div>
           </div>
-          <div className="preset-grid" id="presets"></div>
           <div className="grid2">
             <div className="field">
               <label>③ 验证主机名（已按平台自动填入，可微调）</label>

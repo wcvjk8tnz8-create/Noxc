@@ -1,5 +1,15 @@
 # DNS records
 
+## Switch domain
+
+The domain detail page has a **Switch domain** dropdown at the top. Choosing another domain reloads the whole page — the title, overview, DNS record list, NS delegation state and showcase settings all update together, and the current tab is kept.
+
+The "Current domain" line inside the Verification card is a **read-only label**, not a switcher: verification records are always written under the root domain of the domain you are viewing. This card used to have a local "Select a domain" dropdown that only changed the verification target without switching the page; the record list below stayed on the old domain, and the next "Add record" wrote back to that old domain, which looked like a duplicate record appearing out of nowhere. Always use the top dropdown to change domains.
+
+## Duplicate protection
+
+The Save button is disabled immediately on click and shows "Saving…", so a slow response plus repeated clicks cannot submit twice. The backend is idempotent for records with the **same name, type and value** and will not create a second record at Cloudflare. Multiple records of the same type with different values (e.g. several AAAA records) or different hostnames are still allowed.
+
 ## Record types
 
 A, AAAA, CNAME, MX, TXT, NS, CAA, SRV, PTR, SPF, DS, HTTPS and more — 12 types, all with custom TTL.

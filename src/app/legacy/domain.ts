@@ -12,8 +12,11 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
   const subId = params.get('id');
   let cfg = null, sub = null, records = [], presets = [];
   let verifyScope = 'root'; // root = 根域名（_vercel.meoy.top），sub = 当前子域名
-  let verifyTargetId = null;  // 自助验证的目标域名（默认当前，可切换）
-  let myDomains = [];         // 我名下的域名，供下拉切换
+  let myDomains = [];         // 我名下的域名，供顶部「切换域名」下拉
+  /* 以前自助验证卡片里还有一个「① 选择域名」下拉，但它只改验证写入目标，
+     不会切换整页 —— 用户切到 co.noxc.uk 后，下方 DNS 记录仍是 m.noxc.uk，
+     接着点「添加记录」又写回 m.noxc.uk，看起来就像凭空多出一条重复记录。
+     现在自助验证固定操作当前域名，换域名一律走页面顶部的整页切换器。 */
   
   const TEMPLATES = [
     { n: 'Vercel CNAME', type: 'CNAME', host: '', content: 'cname.vercel-dns.com', proxied: false },
@@ -26,7 +29,14 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
   ];
   
   async function loadAll() {
-    cfg = await api.get('/api/config');
+    /* 原来 5 个接口串行：config → 我的域名 → 域名详情 → providers → delegation，
+       响应慢时首屏要等五段往返。前三个互相独立，先并行；委派的两个也并行。 */
+    const [cfgRes, myRes, d] = await Promise.all([
+      api.get('/api/config'),
+      api.get('/api/subdomains').catch(() => ({ items: [] })),
+      api.get('/api/subdomains/' + subId),
+    ]);
+    cfg = cfgRes;
     // 兜底：即使 /api/config 未下发预设，DNSHE 的两台 NS 也始终可用（口径 dnshe.org）
     const nsList = Array.isArray(cfg.hostingNsPresets) ? cfg.hostingNsPresets : [];
     if (!nsList.some((p) => p && p.key === 'dnshe')) {
@@ -38,14 +48,14 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
     }
     cfg.hostingNsPresets = nsList;
     presets = cfg.verifyPresets;
-    await loadMyDomains();
-    const d = await api.get('/api/subdomains/' + subId);
+    myDomains = (myRes.items || []).filter((x) => x.status === 'approved' || x.status === 'pending');
     sub = d.subdomain;
     records = d.records;
     document.getElementById('fqdn').textContent = sub.fqdn;
     document.getElementById('rootLbl').textContent = cfg.rootDomain;
     document.getElementById('subLbl').textContent = sub.fqdn;
     document.getElementById('statusBadge').innerHTML = statusBadge(sub.status);
+    renderDomainSwitcher();
     renderPresets();
     renderTpl();
     renderRecords();
@@ -53,6 +63,9 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
     renderOverview();
     updatePreview();
     await loadDelegation();
+    // 从顶部切换器进来时保留当前标签页（默认停在 DNS 解析）
+    const wantTab = params.get('tab');
+    if (wantTab) switchTab(wantTab);
   }
   
   /* ---------------- NS 委派（域名托管） ---------------- */
@@ -61,13 +74,13 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
   
   async function loadDelegation() {
     const box = document.getElementById('delegationBox');
-    if (!providers.length) {
-      try { providers = (await api.get('/api/delegation/providers')).items; } catch { providers = []; }
-    }
-    try {
-      const d = await api.get('/api/subdomains/' + subId + '/delegation');
-      deleg = d.delegation;
-    } catch { deleg = null; }
+    const [provRes, delRes] = await Promise.all([
+      providers.length ? Promise.resolve({ items: providers })
+        : api.get('/api/delegation/providers').catch(() => ({ items: [] })),
+      api.get('/api/subdomains/' + subId + '/delegation').catch(() => ({ delegation: null })),
+    ]);
+    providers = provRes.items || [];
+    deleg = delRes.delegation || null;
   
     if (deleg) {
       box.innerHTML = `
@@ -208,9 +221,11 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
       <div class="preset ${i === 0 ? 'active' : ''}" data-key="${p.key}" data-host="${esc(p.host)}" title="${esc(p.hint)}">
         <div class="n">${esc(p.label)}</div><div class="h">${esc(p.host || '自定义')}</div>
       </div>`).join('');
-    document.querySelectorAll('.preset').forEach((el) => {
+    // 必须限定在 #presets 内：NS 委派页的服务商卡片也用 .preset，
+    // 全文档查询会把它们绑上自助验证的点击逻辑。
+    document.querySelectorAll('#presets .preset').forEach((el) => {
       el.onclick = () => {
-        document.querySelectorAll('.preset').forEach((x) => x.classList.remove('active'));
+        document.querySelectorAll('#presets .preset').forEach((x) => x.classList.remove('active'));
         el.classList.add('active');
         if (el.dataset.host) document.getElementById('vHost').value = el.dataset.host;
         // 提示该平台的值长什么样，并给输入框占位
@@ -225,28 +240,35 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
   }
   
   
-  /* ---------- 自助验证：域名下拉 ---------- */
-  async function loadMyDomains() {
-    try {
-      const d = await api.get('/api/subdomains');
-      myDomains = (d.items || []).filter((x) => x.status === 'approved' || x.status === 'pending');
-    } catch { myDomains = []; }
-  
-    const sel = document.getElementById('vDomain');
+  /* ---------- 页面顶部：整页域名切换器 ----------
+     切换后整页重载到 /domain?id=新id&tab=当前标签，保证 fqdn、概览、
+     DNS 记录、NS 委派、以及 React 写的「用户案例展示」全部一起更新。
+     不用 SPA pushState：ShowcaseSettings 的 id 在挂载时从 location 读取，
+     只改 history 会让侧栏卡片还停留在旧域名，又是一次「看着变了其实没变」。 */
+  function currentTab() {
+    const on = document.querySelector('#tabs .tab.on');
+    return on ? on.dataset.tab : 'dns';
+  }
+  function renderDomainSwitcher() {
+    const lbl = document.getElementById('vDomainLabel');
+    if (lbl) lbl.textContent = sub ? sub.fqdn : '';
+    const sel = document.getElementById('domainSwitcher');
     if (!sel) return;
     if (!myDomains.length) {
       sel.innerHTML = '<option value="">（暂无可用域名）</option>';
+      sel.disabled = true;
       return;
     }
-    // 默认选当前正在查看的域名
-    if (!verifyTargetId || !myDomains.some((x) => String(x.id) === String(verifyTargetId))) {
-      verifyTargetId = myDomains.some((x) => String(x.id) === String(subId)) ? subId : myDomains[0].id;
-    }
+    sel.disabled = false;
     sel.innerHTML = myDomains
-      .map((x) => `<option value="${x.id}"${String(x.id) === String(verifyTargetId) ? ' selected' : ''}>${esc(x.fqdn)}</option>`)
+      .map((x) => `<option value="${x.id}"${String(x.id) === String(subId) ? ' selected' : ''}>${esc(x.fqdn)}</option>`)
       .join('');
-    sel.onchange = () => { verifyTargetId = Number(sel.value); updatePreview(); };
-    updatePreview();
+    sel.onchange = () => {
+      const next = String(sel.value || '').trim();
+      if (!next || next === String(subId)) return;
+      // 整页刷新，所有状态一起归位；tab 保留，避免切完跳回概览
+      location.href = '/domain?id=' + encodeURIComponent(next) + '&tab=' + encodeURIComponent(currentTab());
+    };
   }
   
   function updatePreview() {
@@ -457,7 +479,12 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
     document.getElementById('fComment').value = init.comment ?? '';
     updatePreview2();
   
+    let saving = false;
     document.getElementById('fSave').onclick = async () => {
+      if (saving) return;   // 响应慢时连点「保存」不该写出两条一模一样的记录
+      saving = true;
+      const saveBtn = document.getElementById('fSave');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中…'; }
       const type = document.getElementById('fType').value;
       const body = {
         type,
@@ -473,8 +500,13 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
       try {
         if (rec) await api.patch('/api/records/' + rec.id, body);
         else await api.post('/api/subdomains/' + subId + '/records', body);
-        toast(rec ? '已更新' : '已添加'); closeModal(); loadAll();
-      } catch (e) { toast(e.message, 'err'); }
+        toast(rec ? '已更新' : '已添加'); closeModal(); await loadAll();
+      } catch (e) {
+        toast(e.message, 'err');
+        const b = document.getElementById('fSave');
+        if (b) { b.disabled = false; b.textContent = '保存'; }
+        saving = false;
+      }
     };
   }
   
@@ -487,8 +519,8 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
     if (!host) return toast('请填写验证主机名，如 _vercel', 'err');
     if (!value) return toast('请粘贴平台给出的验证值', 'err');
     try {
-      const tid = verifyTargetId || subId;
-      await api.post('/api/subdomains/' + tid + '/verify', {
+      // 自助验证固定写当前域名：不再有「下拉选了别的域名但页面没切」的错位
+      await api.post('/api/subdomains/' + subId + '/verify', {
         preset: active ? active.dataset.key : 'custom',
         host,
         value,
