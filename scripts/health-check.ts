@@ -1196,14 +1196,14 @@ check(
 );
 check(
   Array.from({ length: 8 }, (_, i) => i + 1).every((n) =>
-    /docs\/img\/fig\d+\.png/.test(vpDnshe) &&
+    /img\/fig\d+\.png/.test(vpDnshe) &&
     fs.existsSync(path.join(root, 'docs-src/.vitepress/public/img/fig' + n + '.png')) &&
     fs.existsSync(path.join(root, 'public/img/docs/fig' + n + '.png'))),
   '图 1～图 8 在 VitePress public 与原资源目录都存在，且文档有图片引用'
 );
 check(
   Array.from({ length: 8 }, (_, i) => i + 1).every((n) =>
-    vpDnshe.includes('/docs/img/fig' + n + '.png') && vpDnsheEn.includes('/docs/img/fig' + n + '.png')),
+    vpDnshe.includes('/img/fig' + n + '.png') && vpDnsheEn.includes('/img/fig' + n + '.png')),
   '中英 DNSHE 章节都按顺序引用了 fig1～fig8'
 );
 check(

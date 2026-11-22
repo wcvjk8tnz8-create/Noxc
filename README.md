@@ -644,6 +644,7 @@ npm run deploy      # build + wrangler deploy
 文档源在 `docs-src/`，`vitepress build docs-src` 的产物由 `scripts/copy-docs.ts`
 并入 `dist/client/docs/`；Worker 把 `/docs` 显式改写为 `/docs/index.html` 交给
 ASSETS，`/docs/*` 的页面与图片原样回落，`/docs.html` 老书签 302 到 `/docs/`。
+文档图片放在 `.vitepress/public/img/`，正文用 `/img/figN.png` 引用（VitePress 自动补 `base=/docs/`，写成 `/docs/img/...` 会被 Vite 当成模块解析而构建失败）。
 文档为**中英双语各 8 页**，含 DNSHE 托管的 8 张截图；站点公告通过 VitePress 的
 `layout-top` 插槽显示（纯文本、不解析 HTML），与站内其余页面同源。
 仓库不提交 `package-lock.json`，所以 CI 用 `npm install`（不能用 `npm ci`），
