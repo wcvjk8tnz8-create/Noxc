@@ -1162,13 +1162,13 @@ check(
   '两个根域名页也挂服务文档入口'
 );
 check(
-  /dist\/client\/docs\//.test(read('scripts/copy-docs.mjs')) &&
+  /dist\/client\/docs\//.test(read('scripts/copy-docs.ts')) &&
   /vitepress build docs-src/.test(read('package.json')),
   'VitePress 产物由构建脚本并入 dist/client/docs/，随 Worker 一起部署'
 );
 
 /* 服务文档：VitePress 静态站（原来是一整份 TypeScript 模板字符串）。
-   产物由 scripts/copy-docs.mjs 并入 dist/client/docs/，Worker 把 /docs/*
+   产物由 scripts/copy-docs.ts 并入 dist/client/docs/，Worker 把 /docs/*
    交给 ASSETS。中英双语、8 张截图、图 7→图 8 的关键一步都保留。 */
 const vpConfig = read('docs-src/.vitepress/config.mts');
 const vpTheme = read('docs-src/.vitepress/theme/index.ts');
@@ -1545,7 +1545,7 @@ check(/\.rv-breakdown/.test(sbCss) && /\.nk-badge-hot/.test(sbCss),
 check(/统计展开回归/.test(sbReg) && /stats-breakdown-regression\.ts/.test(sbCI),
   '统计展开回归进 CI：真跑 SQLite 分组 + /api/config 下发 + 浏览器实拍');
 
-/* VitePress 文档：构建链接进 CI，产物由 copy-docs.mjs 并入静态目录 */
+/* VitePress 文档：构建链接进 CI，产物由 copy-docs.ts 并入静态目录 */
 check(/vitepress/.test(sbPkg) && /docs:build/.test(sbPkg)
   && /npm run docs:build/.test(sbPkg),
   'npm run build 串起 Vite + VitePress 两条构建链');

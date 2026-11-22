@@ -22,7 +22,7 @@
     "test:oauth": "tsx scripts/oauth-regression.ts",
     "test:root-limit": "npx tsx scripts/root-limit-regression.ts",
     "docs:dev": "vitepress dev docs-src",
-    "docs:build": "vitepress build docs-src && node scripts/copy-docs.mjs"
+    "docs:build": "vitepress build docs-src && tsx scripts/copy-docs.ts"
   },
   "dependencies": {
     "hono": "^4.6.14",

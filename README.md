@@ -641,7 +641,7 @@ npm run deploy      # build + wrangler deploy
 ```
 
 **部署顺序**：CI 先 `npm install` → `npm run build`（Vite SPA **＋ VitePress 文档**）→ `wrangler deploy`。
-文档源在 `docs-src/`，`vitepress build docs-src` 的产物由 `scripts/copy-docs.mjs`
+文档源在 `docs-src/`，`vitepress build docs-src` 的产物由 `scripts/copy-docs.ts`
 并入 `dist/client/docs/`；Worker 把 `/docs` 显式改写为 `/docs/index.html` 交给
 ASSETS，`/docs/*` 的页面与图片原样回落，`/docs.html` 老书签 302 到 `/docs/`。
 文档为**中英双语各 8 页**，含 DNSHE 托管的 8 张截图；站点公告通过 VitePress 的
