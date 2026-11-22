@@ -21,6 +21,16 @@ const PRESET_ID = String(process.env.KV_NAMESPACE_ID || '').trim();
 const TOML = new URL('../wrangler.toml', import.meta.url).pathname;
 
 async function disableKV(reason: string) {
+  // 静默降级是刻意的，但「步骤绿 = 已绑定」会误导人：把原因显式写进
+  // Job Summary 并打一条 warning annotation，保证在 CI 页面一眼可见。
+  console.log(`::warning::KV 未自动绑定：${reason}`);
+  try {
+    const { appendFileSync } = await import('node:fs');
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+      `### ⚠ KV 未自动绑定\n\n原因：${reason}\n\n` +
+      `修复：给 API Token 加 **Account → Workers KV Storage → Edit** 后重新部署；` +
+      `或手动创建 namespace，把 id 填进仓库 Variables 的 \`KV_NAMESPACE_ID\` 再部署。\n`);
+  } catch { /* summary 写不进不影响主流程 */ }
   console.log('');
   console.log('⚠ 未能准备好 KV namespace：' + reason);
   console.log('  → 本次部署将移除 KV 绑定：站点其它功能全部正常。');
@@ -65,6 +75,12 @@ async function enableKV(id: string) {
     console.log(`✔ 已自动绑定 KV 到 wrangler.toml：KV → ${id}`);
   }
   writeFileSync(TOML, t);
+  try {
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      const { appendFileSync } = await import('node:fs');
+      appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ✅ KV 已自动绑定：\`KV\` → \`${id}\`\n`);
+    }
+  } catch { /* 忽略 */ }
   if (process.env.GITHUB_ENV) {
     const { appendFileSync } = await import('node:fs');
     appendFileSync(process.env.GITHUB_ENV, `KV_ENABLED=true\nKV_NAMESPACE_ID=${id}\n`);

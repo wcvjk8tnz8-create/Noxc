@@ -33,6 +33,16 @@ const ZONE = String(process.env.CF_ZONE_ID || '').trim();
 const TOML = new URL('../wrangler.toml', import.meta.url).pathname;
 
 async function disableR2(reason) {
+  // 与 ensure-kv.ts 一致：降级不阻断部署，但原因必须在 CI 页面可见，
+  // 否则「步骤绿」会被误读成「已自动连接」。
+  console.log(`::warning::R2 未自动绑定：${reason}`);
+  try {
+    const { appendFileSync } = await import('node:fs');
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+      `### ⚠ R2 未自动绑定\n\n原因：${reason}\n\n` +
+      `修复：给 API Token 加 **Account → R2 → Edit** 后重新部署；` +
+      `或先手动创建桶 \`${NAME}\`，确认存在后再部署。\n`);
+  } catch { /* summary 写不进不影响主流程 */ }
   console.log('');
   console.log('⚠ 未能准备好 R2 存储桶：' + reason);
   console.log('  → 本次部署将移除 R2 绑定：站点其它功能全部正常，仅「上传自定义头像」暂不可用，');
@@ -88,6 +98,12 @@ async function enableR2(bucketName) {
     console.log(`✔ 已自动绑定 R2 到 wrangler.toml：AVATARS → ${bucketName}`);
   }
 
+  try {
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      const { appendFileSync } = await import('node:fs');
+      appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ✅ R2 已自动绑定：\`AVATARS\` → \`${bucketName}\`\n`);
+    }
+  } catch { /* 忽略 */ }
   if (process.env.GITHUB_ENV) {
     const { appendFileSync } = await import('node:fs');
     appendFileSync(process.env.GITHUB_ENV, 'R2_ENABLED=true\n');

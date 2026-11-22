@@ -64,9 +64,15 @@ jobs:
       - name: 类型检查（TypeScript）
         run: |
           set +e
+          # Runner 内置的 tsc problem matcher 会把日志里前 10 条 "error TSxxxx"
+          # 自动转成红色 failure annotation，哪怕本步骤刻意非阻断，也会把
+          # Job Summary 染成一片红。先注销 matcher，并把展示用的日志改写成
+          # 非 "error" 格式；原始日志 /tmp/tsc.log 不变，阻断判定仍基于它。
+          echo "::remove-matcher owner=tsc::"
+          echo "::remove-matcher owner=typescript::"
           npm run typecheck > /tmp/tsc.log 2>&1
           code=$?
-          cat /tmp/tsc.log
+          sed -E 's/: error TS([0-9]+):/: typecheck TS\1:/g' /tmp/tsc.log
           if grep -qE 'error TS2304' /tmp/tsc.log; then
             grep -E 'error TS2304' /tmp/tsc.log | while IFS= read -r line; do echo "::error::$line"; done
             echo "✘ 存在未声明标识符：打包不会报错，但运行到该处必然抛 ReferenceError"
@@ -157,6 +163,14 @@ jobs:
         run: |
           echo "── wrangler.toml 绑定 ──"
           grep -E '^\[\[(d1_databases|r2_buckets|kv_namespaces)\]\]|^binding =|^bucket_name =|^id =' wrangler.toml || true
+          {
+            echo "### 本次部署的 wrangler.toml 绑定"
+            echo '```'
+            grep -E '^\[\[(d1_databases|r2_buckets|kv_namespaces)\]\]|^binding =|^bucket_name =|^id =' wrangler.toml || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep -q '^\[\[kv_namespaces\]\]' wrangler.toml || echo "::warning::本次部署没有 KV 绑定（原因见上方「准备 KV namespace」步骤）"
+          grep -q '^\[\[r2_buckets\]\]' wrangler.toml || echo "::warning::本次部署没有 R2 绑定（原因见上方「准备 R2 存储桶」步骤）"
 
       # 把 Variables 写进 wrangler.toml
       # database_id 由上一步自动写入环境，此处不再覆盖
