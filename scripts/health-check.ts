@@ -1653,6 +1653,44 @@ check(/切换域名/.test(dsDocsZh) && /Switch domain/.test(dsDocsEn)
 check(/域名详情切换与记录重复回归/.test(dsCI)
   && /domain-switch-records-regression\.ts/.test(dsReg), '专项回归进 CI');
 
+/* 按后缀暂停后「一定无法点击提交注册」：
+   旧 React onCapPass 无条件 btn.disabled=false 会冲掉暂停锁。
+   现在统一走 src/app/lib/applyPause.ts，allowed=false 绝不解锁。 */
+const apLib = read('src/app/lib/applyPause.ts');
+const apReg = read('src/app/legacy/register.ts');
+const apPage = read('src/app/pages/Register.tsx');
+const apCss = read('src/app/styles/design-system.css');
+const apWhois = read('src/app/legacy/whois.ts');
+const apDocsZh = read('docs-src/settings.md');
+const apDocsEn = read('docs-src/en/settings.md');
+const apReadme = read('README.md');
+const apCI = read('.github/workflows/deploy.yml');
+const apRegS = read('scripts/apply-pause-lock-regression.ts');
+check(/export function unlockApplyButton\(el: any, allowed: boolean\)/.test(apLib)
+  && /if \(!el \|\| !allowed\) return/.test(apLib),
+  '按钮解锁唯一入口：allowed=false 绝不解锁');
+check(/lockApplyButton\(btn\)/.test(apReg) && /unlockApplyButton\(/.test(apReg)
+  && !/btn\.disabled = false/.test(apReg),
+  'legacy 用统一锁函数，无散装重新启用');
+check(!/btn\.disabled = false/.test(apPage)
+  && /unlockApplyButton\(btn, !locked\)/.test(apPage),
+  'React 滑块回调不再无条件启用按钮（暂停锁不被冲掉）');
+check(/__TD_APPLY_LOCKED__/.test(apReg) && /__TD_APPLY_LOCKED__/.test(apPage)
+  && /__TD_CAPTCHA_CLOSE__/.test(apReg) && /__TD_CAPTCHA_CLOSE__/.test(apPage),
+  'legacy 与 React 共用判定，暂停时关闭已打开的验证弹窗');
+const apDo = apReg.slice(apReg.indexOf('async function doSubmit()'), apReg.indexOf('async function doSubmit()') + 400);
+check(/applyLockNow\(\)/.test(apDo) && /if \(applyLockNow\(\)\.paused\)/.test(apReg),
+  'doSubmit 与 loadPending 都再核一次当前后缀');
+check(/pointer-events: none !important/.test(apCss) && /is-apply-paused/.test(apCss),
+  'CSS 兜底：旧缓存 JS 也点不动');
+check(/isApplyPausedFor/.test(apWhois) && /该后缀已暂停新申请/.test(apWhois),
+  'WHOIS 对暂停后缀不给申请入口');
+check(/无法点击提交注册/.test(apDocsZh) && /cannot be clicked/i.test(apDocsEn)
+  && /无法点击提交注册/.test(apReadme),
+  '中英文档与 README 写明硬锁口径');
+check(/提交注册硬锁回归/.test(apCI) && /apply-pause-lock-regression\.ts/.test(apRegS),
+  '专项回归进 CI');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

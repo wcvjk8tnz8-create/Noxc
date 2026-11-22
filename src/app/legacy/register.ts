@@ -8,6 +8,10 @@ import { expiryTipText } from '../../lib/expiry';
 
 import type { LegacyCtx } from '../lib/types';
 import { currentLang, startI18n } from '../lib/i18n';
+import {
+  configureApplyPause, applyPauseLock, isApplyPausedFor,
+  lockApplyButton, unlockApplyButton,
+} from '../lib/applyPause';
 
 export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   
@@ -36,11 +40,23 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     el.textContent = bits.length ? (inAi ? '' : '') + bits.join(' · ') : '';
     el.style.display = bits.length ? '' : 'none';
   }
-  var APPLY_PAUSED = false;
-  var GLOBAL_PAUSED = false;      // 站点级暂停（不可靠切后缀解锁）
-  var PAUSED_ROOTS = [];          // 按后缀单独暂停
+  var APPLY_PAUSED = false;       // 缓存给旧逻辑读，真正判定一律走 applyLockNow()
+  var GLOBAL_PAUSED = false;
+  var PAUSED_ROOTS = [];
   var APPLY_MSG = '';
   var IS_ADMIN = false;
+
+  /* 「提交注册」硬锁的唯一判定：全局暂停 ∪ 当前后缀单独暂停。
+     React 的滑块验证回调、loadPending、切后缀、onclick、doSubmit 全部问它，
+     不再依赖某个会被异步回调冲掉的缓存变量。 */
+  function applyLockNow(){
+    var lk = applyPauseLock(currentRoot(), currentLang() === 'en' ? 'en' : 'zh');
+    APPLY_PAUSED = lk.paused;
+    APPLY_MSG = lk.message || APPLY_MSG;
+    return lk;
+  }
+  // 供 React 注册页（滑块弹窗回调）复用同一份判定
+  (window as any).__TD_APPLY_LOCKED__ = function(){ return applyLockNow(); };
   // 与 /api/config、后端注册接口同一份判定；config 未回来前按「需要验证」处理
   var CAPTCHA_ENABLED = true;
   
@@ -62,47 +78,41 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       tip.innerHTML = '<b>新域名申请已暂停</b><br>' + esc(APPLY_MSG)
         + '<br><span style="opacity:.8;font-size:12px">已注册的域名、DNS 记录与续期不受影响。</span>';
     }
-    if (IS_ADMIN) return;                 // 管理员是「开通」，不锁
+    /* 按用户要求：暂停后「一定无法点击提交注册」，前端不区分管理员。
+       管理员自建仍由后端豁免，只是这里不给任何人留可点的提交入口。 */
     APPLY_PAUSED = true;
-    ['label','note','agreeUse','btnApply','rootPickerBtn'].forEach(function(id){
+    ['label','note','agreeUse','rootPickerBtn'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) (el as HTMLButtonElement).disabled = true;
     });
-    closeRootMenu();
     var btn = document.getElementById('btnApply');
+    lockApplyButton(btn);
     if (btn) btn.textContent = '申请已暂停';
+    closeRootMenu();
+    // 弹窗已经打开时（例如管理员在验证过程中暂停），立刻关掉，别让回调提交
+    try { (window as any).__TD_CAPTCHA_CLOSE__?.(); } catch {}
   }
 
   /* 切到未暂停的后缀（或后台恢复开放）时解除锁定。
      站点级 GLOBAL_PAUSED 优先，绝不因为换后缀被解锁；管理员始终不锁。
      解除后重新同步「待审核」状态，避免把 pending 锁误清掉。 */
   function clearApplyPaused(){
-    if (GLOBAL_PAUSED) return;
+    var lk = applyLockNow();
+    if (lk.paused) { setApplyPaused(lk.message); return; }   // 兜底：绝不在暂停态解锁
     var tip = document.getElementById('applyTip');
     if (tip) { tip.style.display = 'none'; tip.innerHTML = ''; }
-    APPLY_PAUSED = false;
-    if (IS_ADMIN) return;
-    ['label','note','agreeUse','btnApply','rootPickerBtn'].forEach(function(id){
+    ['label','note','agreeUse','rootPickerBtn'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) (el as HTMLButtonElement).disabled = false;
     });
-    var btn = document.getElementById('btnApply');
-    if (btn) btn.textContent = '提交注册';
+    unlockApplyButton(document.getElementById('btnApply'), true);
     try { loadPending(); } catch (e) {}
   }
 
   /* 全局暂停 ∪ 当前后缀暂停。切换后缀、配置回来、检查接口回来都走这里。 */
   function syncApplyPause(){
-    var r = String(currentRoot() || '').toLowerCase().replace(/\.+$/, '');
-    var rootPaused = PAUSED_ROOTS.indexOf(r) >= 0;
-    if (GLOBAL_PAUSED) { setApplyPaused(APPLY_MSG || ''); return; }
-    if (rootPaused) {
-      var en = currentLang() === 'en';
-      setApplyPaused(en
-        ? 'Applications for .' + r + ' are paused. Please try again later; existing domains are unaffected.'
-        : '后缀 .' + r + ' 已暂停新域名申请，请稍后再试。已注册的域名不受影响。');
-      return;
-    }
+    var lk = applyLockNow();
+    if (lk.paused) { setApplyPaused(lk.message); return; }
     clearApplyPaused();
   }
 
@@ -151,6 +161,11 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       APPLY_MSG = String(cfg.applyPausedMessage || '').trim() || APPLY_MSG;
       PAUSED_ROOTS = Array.isArray(cfg.pausedRoots)
         ? cfg.pausedRoots.map(function(d){ return String(d).trim().toLowerCase(); }) : [];
+      configureApplyPause({
+        applyPaused: !!cfg.applyPaused,
+        applyPausedMessage: cfg.applyPausedMessage,
+        pausedRoots: cfg.pausedRoots,
+      });
       if (cfg.applyPaused) setApplyPaused(cfg.applyPausedMessage);
       var list = Array.isArray(cfg.rootDomains) && cfg.rootDomains.length
         ? cfg.rootDomains
@@ -228,7 +243,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
         return '<button type="button" class="root-opt' + (i === 0 ? ' on' : '') + '" role="option"'
           + ' data-root="' + esc(d) + '" aria-selected="' + (i === 0 ? 'true' : 'false') + '">'
           + '<span class="root-opt-name">.' + esc(d.toUpperCase()) + '</span>'
-          + (PAUSED_ROOTS.indexOf(String(d).toLowerCase()) >= 0
+          + (isApplyPausedFor(d)
               ? '<span class="root-opt-free" data-en="PAUSED" style="opacity:.75">暂停</span>'
               : '<span class="root-opt-free">' + esc(costLabel(d)) + '</span>')
           + '</button>';
@@ -260,7 +275,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     try {
       var r = await api.get('/api/subdomains/check?label=' + encodeURIComponent(v) + rootQuery());
       if (r.applyPaused) setApplyPaused(r.applyPausedMessage);   // 页面打开后才暂停也能即时提示
-      else if (!GLOBAL_PAUSED) syncApplyPause();                // 切回开放后缀要解锁
+      else syncApplyPause();                                    // 任何检查结果都再核一次当前后缀
       var link =' <a href="/whois?name=' + encodeURIComponent(v) + '" target="_blank" style="font-size:11.5px">whois 详情</a>';
       tip.innerHTML = (r.available
         ? '<span style="color:var(--ok)">' + esc(r.fqdn) + ' 可以注册</span>'
@@ -294,10 +309,10 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       var pending = (d.items || []).filter(function(s){ return s.status === 'pending'; });
       if (!pending.length) {
         box.innerHTML = '';
-        if (APPLY_PAUSED) return;        // 暂停态优先，别把按钮重新启用
-        // 弹窗模式：按钮是「打开验证」的入口，不再被票据预先锁死
-        btn.disabled = false;
-        labelEl.disabled = false; btn.textContent = '提交注册';
+        // 暂停态优先：任何异步回调都不得把「提交注册」重新启用
+        if (applyLockNow().paused) { setApplyPaused(APPLY_MSG); return; }
+        labelEl.disabled = false;
+        unlockApplyButton(btn, true);
         return;
       }
       var f = pending[0].fqdn || pending[0].label;
@@ -330,6 +345,10 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   
   /* 真正的注册提交：弹窗验证通过后由回调调用，票据从持久对象读取 */
   async function doSubmit(){
+    /* 弹窗已打开时管理员中途暂停 / 用户切到暂停后缀，这里再拦一次：
+       验证通过回调也绝不能把请求发出去。 */
+    var lk = applyLockNow();
+    if (lk.paused) { toast(lk.message, 'err'); return; }
     var label = document.getElementById('label').value.trim();
     var note = document.getElementById('note').value.trim();
     var cap = window.__TD_CAPTCHA_TICKET__ || window.__TD_CAPTCHA__;
@@ -400,7 +419,9 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   /* 点击「提交注册」：表单校验 → 需要验证就弹窗 → 验证通过回调才真正提交。
      刷新 / 直接进页面 / 只是走到第三步，都不会挂载验证，也不会弹窗。 */
   document.getElementById('btnApply').onclick = async function(){
-    if (APPLY_PAUSED) return toast(APPLY_MSG, 'err');
+    /* 硬锁第一道：连弹窗都不打开。CSS 还有 pointer-events:none 兜底。 */
+    var lk = applyLockNow();
+    if (lk.paused) { toast(lk.message, 'err'); setApplyPaused(lk.message); return; }
     var label = document.getElementById('label').value.trim();
     if (!label) return toast('请输入子域名', 'err');
     var agree = document.getElementById('agreeUse');
@@ -420,6 +441,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       IS_ADMIN = !!(me && (me.role === 'admin' || (me.user && me.user.role === 'admin')));
     } catch (e) {}
     await setupRoots();
+    syncApplyPause();          // /api/auth/me 回来后再核一次，消除管理员异步竞态
     await loadPending();
     var q = new URLSearchParams(location.search).get('label');
     if (q) {

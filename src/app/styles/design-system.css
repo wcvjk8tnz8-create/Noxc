@@ -605,6 +605,13 @@ html body.page-home .rv-hottest b { color: var(--zx-ink); font-size: 13px; }
 .nk-badge-hot { background: var(--zx-ink); color: var(--zx-paper); border-color: var(--zx-ink); }
 /* 暂停申请：灰色描边，与实心的 HOT 区分 */
 .nk-badge-paused { border-style: dashed; color: var(--zx-muted); background: var(--zx-paper); }
+/* 按后缀暂停申请：即使旧缓存 JS 没把 disabled 写上，也点不动「提交注册」。
+   与 src/app/lib/applyPause.ts 的 lockApplyButton() 写的标记一一对应。 */
+.btn.is-apply-paused,
+.btn[data-apply-paused="1"],
+.is-apply-paused,
+[data-apply-paused="1"] { pointer-events: none !important; opacity: .5; cursor: not-allowed; }
+
 @media (max-width: 640px) {
   .rv-bd-head, .rv-bd-row { grid-template-columns: minmax(0, 1fr) 62px 62px; gap: 6px; padding: 9px 12px; font-size: 12px; }
   .nk-badges { top: 10px; right: 10px; }

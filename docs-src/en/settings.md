@@ -30,6 +30,18 @@ Under "Site settings → Pause applications per suffix", tick a root domain to *
 
 This is separate from per-suffix registration limits: one controls *whether* you can apply, the other *how many times*.
 
+## Submit button cannot be clicked while paused
+
+When a suffix is paused, the "Submit registration" button is **hard-locked**, not merely rejected by the API:
+
+- `disabled` + `aria-disabled` + CSS `pointer-events:none` — even stale cached JS cannot receive a click
+- The click handler, slider-captcha callback, `doSubmit()` and the pending-application loader all re-check the current suffix
+- The captcha modal never opens while paused, and is closed immediately if already open
+- The frontend locks everyone (admins included); the API still returns 403 as the last line, while admin self-provisioning stays exempt
+- WHOIS results no longer offer an "Apply for this domain" button
+
+Arriving from the home page, WHOIS or a root-domain landing page with `?root=` uses the same check. Switching back to an open suffix unlocks the button.
+
 ## Points & rewards
 
 Points rules (check-in / initial / regular / short), showcase reward amount (default +6000, set 0 to disable), default quota and sync-to-all.

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { mountRegister } from '../legacy/register';
 import { refreshRuntime, cleanupPage, readUserCache } from '../lib/runtime';
 import SliderCaptcha from '../components/SliderCaptcha';
+import { unlockApplyButton, applyPauseLock } from '../lib/applyPause';
 
 /**
  * Register —— 参考 DnsNeko 的四步注册向导。
@@ -37,7 +38,17 @@ export default function RegisterPage() {
   const onCapPass = (t: string | null) => {
     setCapToken(t || '');
     const btn = document.getElementById('btnApply') as HTMLButtonElement | null;
-    if (btn) btn.disabled = false;      // 弹窗模式：按钮不再被票据锁死
+    /* 以前这里无条件 btn.disabled=false，会把按后缀暂停的硬锁直接冲掉：
+       用户仍能点提交、过滑块、发请求（只是最后收到后端 403）。
+       现在任何解锁都必须经过唯一入口，暂停态 allowed=false 绝不解锁。 */
+    const lk = (window as any).__TD_APPLY_LOCKED__?.() as ReturnType<typeof applyPauseLock> | undefined;
+    const locked = !!lk?.paused;
+    unlockApplyButton(btn, !locked);
+    if (locked) {
+      submitRef.current = null;
+      setCapOpen(false);
+      return;                            // 暂停后验证通过也不提交
+    }
     if (!t) return;                      // 领图 / 失败时的 null 不触发提交
     const cont = submitRef.current;
     submitRef.current = null;
@@ -49,6 +60,8 @@ export default function RegisterPage() {
     const cont = submitRef.current;
     submitRef.current = null;
     setCapOpen(false);
+    const lk = (window as any).__TD_APPLY_LOCKED__?.();
+    if (lk?.paused) return;                  // 暂停态不允许「跳过验证直接提交」
     if (cont) window.setTimeout(cont, 0);   // 后台关掉验证：无需票据，直接提交
   };
 
@@ -67,9 +80,19 @@ export default function RegisterPage() {
     // 同步注册，保证异步 mountRegister / setupRoots 还没跑完时按钮也不会走空。
     (window as any).__TD_CAPTCHA_OPEN__ = (cont: () => void) => {
       if (!alive || isAdmin) return;
+      // 暂停后连验证弹窗都不该开；legacy 的 btnApply.onclick 已先拦过一道
+      const lk = (window as any).__TD_APPLY_LOCKED__?.();
+      if (lk?.paused) { submitRef.current = null; return; }
       submitRef.current = cont;
       setCapKey((k) => k + 1);
       setCapOpen(true);
+    };
+
+    // legacy 切到暂停后缀 / 管理员中途暂停时，立刻关掉已打开的验证弹窗
+    (window as any).__TD_CAPTCHA_CLOSE__ = () => {
+      if (!alive) return;
+      submitRef.current = null;
+      setCapOpen(false);
     };
 
     // legacy 提交成功后由这里接管，停在第四步展示结果（不再直接跳 dashboard）

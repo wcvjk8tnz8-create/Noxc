@@ -3,6 +3,7 @@
  * 外部符号由 runtime 提供；DOM 查询作用于当前挂载的页面。
  */
 import { api, esc, fmtTime, toast, loadBranding, applyBranding, mountShell } from '../lib/runtime';
+import { configureApplyPause, isApplyPausedFor, applyPausedMessageFor } from '../lib/applyPause';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -49,14 +50,23 @@ export async function mountWhois(_root: HTMLElement | null): Promise<void> {
                 (r.points === null ? '（登录后可见余额）' : ` · 你的余额 ${r.points} 分${r.enough ? '' : '（不足）'}`)}
           </div>
           <div class="row end" style="margin-top:14px">
-            ${isLoggedIn ? `<button class="btn primary" id="goApply"${r.enough || r.unlimited ? '' : ' disabled'}>${r.enough || r.unlimited ? '申请这个域名' : '积分不足'}</button>`
-                         : `<a class="btn primary" href="/login?q=${encodeURIComponent(r.label)}">登录后申请</a>`}
+            ${(() => {
+              const rk = String(r.rootDomain || picked || rootDomain || '');
+              if (isApplyPausedFor(rk)) {
+                return `<span class="dim" data-en="Applications paused for this suffix">该后缀已暂停新申请：${esc(applyPausedMessageFor(rk))}</span>`;
+              }
+              return isLoggedIn
+                ? `<button class="btn primary" id="goApply"${r.enough || r.unlimited ? '' : ' disabled'}>${r.enough || r.unlimited ? '申请这个域名' : '积分不足'}</button>`
+                : `<a class="btn primary" href="/login?q=${encodeURIComponent(r.label)}">登录后申请</a>`;
+            })()}
           </div>` : ''}
         ${r.reclaimable ? '<div class="hint" style="margin-top:8px">这是你此前被驳回的申请，可直接重新提交。</div>' : ''}
       `;
       const btn = document.getElementById('goApply');
       if (btn) btn.onclick = () => {
-        const rt = encodeURIComponent(String(r.rootDomain || picked || rootDomain || ''));
+        const rk = String(r.rootDomain || picked || rootDomain || '');
+        if (isApplyPausedFor(rk)) return toast(applyPausedMessageFor(rk), 'err');
+        const rt = encodeURIComponent(rk);
         location.href = '/register?label=' + encodeURIComponent(r.label) + (rt ? '&root=' + rt : '');
       };
     } catch (e) {
@@ -207,6 +217,11 @@ export async function mountWhois(_root: HTMLElement | null): Promise<void> {
   (async () => {
     try {
       const cfg = await api.get('/api/config');
+      configureApplyPause({
+        applyPaused: !!cfg.applyPaused,
+        applyPausedMessage: cfg.applyPausedMessage,
+        pausedRoots: cfg.pausedRoots,
+      });
       rootDomain = cfg.rootDomain || '';
       const list = Array.isArray(cfg.rootDomains) && cfg.rootDomains.length
         ? cfg.rootDomains : (rootDomain ? [rootDomain] : []);

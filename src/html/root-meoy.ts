@@ -363,6 +363,7 @@ document.getElementById("checker").addEventListener("submit", function(e){
   var label = document.getElementById("prefix").value.trim().replace(/^https?:\/\//i,"").replace(/\..*$/,"");
   var root = document.getElementById("root").value;
   if (!label) { document.getElementById("prefix").focus(); return; }
+  if (window.__NOXC_ROOT_PAUSED__) return;   // 该后缀暂停申请：不给跳注册
 });
 
 /* 根域名下拉：优先从控制台 /api/config 拉取全部生效后缀，
@@ -396,6 +397,20 @@ function loadRoots(){
             : (d.rootDomain ? [d.rootDomain] : []));
         /* 服务端确实给了清单才覆盖；空清单不覆盖，避免「有些域名没加载出来」 */
         if (list.length) fill(list);
+        /* 按后缀暂停申请：当前落地页根域名被暂停时，注册入口直接禁用。
+           所有入口最终都落到 /register，那里还有按钮硬锁；这里提前一步，
+           不让用户白点一次。 */
+        var pausedList = Array.isArray(d.pausedRoots)
+          ? d.pausedRoots.map(function(x){ return String(x).trim().toLowerCase().replace(/\.+$/,''); })
+          : [];
+        var rootPaused = !!d.applyPaused || pausedList.indexOf(String(ROOT).trim().toLowerCase()) >= 0;
+        window.__NOXC_ROOT_PAUSED__ = rootPaused;
+        document.querySelectorAll('[data-go="/register"]').forEach(function(a){
+          a.style.pointerEvents = rootPaused ? 'none' : '';
+          a.style.opacity = rootPaused ? '.5' : '';
+          if (rootPaused) a.setAttribute('aria-disabled','true');
+          else a.removeAttribute('aria-disabled');
+        });
         /* 站点公告：与后缀清单共用同一次请求，不新增往返 */
         renderAnnouncement(d);
         /* 页脚备案号：后台「站点设置」可覆盖；管理员清空则隐藏。

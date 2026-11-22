@@ -10,6 +10,8 @@
  * 长句整译优先；短词用于 translateText 的全匹配与「全中文可消费」判定。
  */
 export const EXTRA_DICT: Record<string, string> = {
+  '申请已暂停': 'Applications paused',
+  '该后缀已暂停新申请：': 'Applications paused for this suffix: ',
   '切换域名': 'Switch domain',
   '当前操作域名：': 'Current domain: ',
   '。要操作其它域名请用页面顶部的「切换域名」，切换后概览、DNS 记录、NS 委派与展示设置会一起更新；验证记录默认写在这条域名所属的根域名下（如 ':

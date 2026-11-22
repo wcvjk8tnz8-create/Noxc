@@ -140,6 +140,10 @@ jobs:
       - name: 域名详情切换与记录重复回归
         run: npx tsx scripts/domain-switch-records-regression.ts
 
+      # 按后缀暂停后「提交注册」必须真的点不动（按钮锁 + 四处拦截 + CSS 兜底）
+      - name: 提交注册硬锁回归
+        run: npx tsx scripts/apply-pause-lock-regression.ts
+
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
       - name: 统计展开回归
         run: npx tsx scripts/stats-breakdown-regression.ts
