@@ -640,9 +640,20 @@ npm run build       # Vite → dist/client
 npm run deploy      # build + wrangler deploy
 ```
 
-**部署顺序**：CI 先 `npm install` → `npm run build` → `wrangler deploy`。
+**部署顺序**：CI 先 `npm install` → `npm run build`（Vite SPA **＋ VitePress 文档**）→ `wrangler deploy`。
+文档源在 `docs-src/`，`vitepress build docs-src` 的产物由 `scripts/copy-docs.mjs`
+并入 `dist/client/docs/`；Worker 把 `/docs` 显式改写为 `/docs/index.html` 交给
+ASSETS，`/docs/*` 的页面与图片原样回落，`/docs.html` 老书签 302 到 `/docs/`。
+文档为**中英双语各 8 页**，含 DNSHE 托管的 8 张截图；站点公告通过 VitePress 的
+`layout-top` 插槽显示（纯文本、不解析 HTML），与站内其余页面同源。
 仓库不提交 `package-lock.json`，所以 CI 用 `npm install`（不能用 `npm ci`），
 `actions/setup-node` 也不启用 npm 缓存选项。
+
+**首页公开统计**：`/api/config` 与 `/api/stats` 同源，除注册人数、已开通域名两个总数外，
+还下发 `publicStats.roots`（按根域名拆分的「已开通域名数 / 去重注册人数」，
+含当前为 0 的生效后缀）与 `publicStats.hottest`（已开通最多的后缀）。
+首页点「已开通域名」可展开清单，最热后缀在后缀卡片与统计条旁标 **HOT**；
+全部为 0 时不标。展开表头与空态由 `startI18n()` 补挂，英文模式不会冒中文。
 
 **SPA 路由**：站内链接为 `/dashboard`、`/register` 这类干净路径；`App.tsx` 仍保留
 `/xxx.html` 别名，老书签与 `whois.` 子域的服务端重定向继续可用。

@@ -16,7 +16,6 @@ import { showcaseRewardOf } from './lib/showcaseReward.js';
 import { expiryRules } from './lib/expiry.js';
 import { ensureOauthTables } from './lib/oauthStore.js';
 import { rootPageFor } from './html/rootPages.js';
-import { docsHtml } from './html/docs.js';
 import { spaFallbackPaths } from './lib/spaRoutes.js';
 import { Hono } from 'hono';
 import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
@@ -353,11 +352,17 @@ app.all('*', async (c) => {
     const rootPage = rootPageFor(reqUrl.hostname);
     if (rootPage) return c.html(rootPage);
   }
-  /* 服务文档：TypeScript 模板直出。纯阅读页不需要登录态、不需要
-     refreshRuntime 那一串首屏接口，也不挂载 React —— 一个 HTML 请求就完，
-     比走 SPA 快一截（用户反复反馈过切页 / 加载慢）。
-     /docs 仍留在 SPA_PATHS 里作兜底：直出不可用时 ASSETS 回落不会 404。 */
-  if (path === '/docs' || path === '/docs.html') return c.html(docsHtml);
+  /* 服务文档：VitePress 静态站（产物由 scripts/copy-docs.mjs 并入
+     dist/client/docs/，base = /docs/）。ASSETS 不会自动把目录补成 index.html，
+     所以 /docs 与 /docs/ 显式改写；/docs/* 的页面与资源原样交给 ASSETS。
+     /docs.html 是老书签，302 到新的目录路径。
+     SPA_PATHS 里仍留 docs 作兜底，但这个分支更靠前，不会走 React 外壳。 */
+  if (path === '/docs' || path === '/docs/') {
+    const u = new URL('/docs/index.html', c.req.url);
+    return c.env.ASSETS.fetch(new Request(u, c.req.raw));
+  }
+  if (path === '/docs.html') return c.redirect('/docs/', 302);
+  if (path.startsWith('/docs/')) return c.env.ASSETS.fetch(c.req.raw);
   if (SPA_PATHS.has(path) || SPA_PATHS.has(path + '.html')) {
     const url = new URL('/', c.req.url);
     return c.env.ASSETS.fetch(new Request(url, c.req.raw));

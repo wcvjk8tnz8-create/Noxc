@@ -1,0 +1,70 @@
+/* VitePress 皮肤对齐 Noxc 站点：纸白 / 墨黑 / 发丝线 / 零彩色。
+   只覆盖颜色与排版，不动 VitePress 的布局结构。 */
+:root {
+  --vp-c-brand-1: #111318;
+  --vp-c-brand-2: #111318;
+  --vp-c-brand-3: #111318;
+  --vp-c-brand-soft: rgba(17, 19, 24, .06);
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-alt: #f7f8fa;
+  --vp-c-bg-soft: #f7f8fa;
+  --vp-c-text-1: #111318;
+  --vp-c-text-2: #4b5563;
+  --vp-c-text-3: #8b94a3;
+  --vp-c-border: rgba(17, 19, 24, .11);
+  --vp-c-divider: rgba(17, 19, 24, .08);
+  --vp-c-tip-1: #111318;
+  --vp-button-brand-bg: #111318;
+  --vp-button-brand-hover-bg: #33373f;
+  --vp-button-brand-text: #ffffff;
+  --vp-font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "WenQuanYi Micro Hei", system-ui, sans-serif;
+  --vp-font-family-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --vp-c-default-1: #111318;
+  --vp-c-default-2: #4b5563;
+  --vp-c-default-3: #8b94a3;
+}
+.dark {
+  --vp-c-brand-1: #f5f7fb;
+  --vp-c-brand-2: #f5f7fb;
+  --vp-c-brand-3: #f5f7fb;
+  --vp-c-brand-soft: rgba(245, 247, 251, .1);
+  --vp-c-bg: #0b0d11;
+  --vp-c-bg-alt: #141922;
+  --vp-c-bg-soft: #141922;
+  --vp-c-text-1: #f5f7fb;
+  --vp-c-text-2: #b6c0cf;
+  --vp-c-text-3: #7c8798;
+  --vp-c-border: rgba(226, 235, 250, .16);
+  --vp-c-divider: rgba(226, 235, 250, .12);
+  --vp-button-brand-bg: #f5f7fb;
+  --vp-button-brand-hover-bg: #d9e0ec;
+  --vp-button-brand-text: #0b0d11;
+}
+.VPNav, .VPSidebar, .VPFooter { background: var(--vp-c-bg) !important; }
+.VPNavBarTitle, .VPNavBarMenuLink { letter-spacing: -.02em; }
+.vp-doc h1, .vp-doc h2, .vp-doc h3 { font-weight: 700; letter-spacing: -.03em; }
+.vp-doc a { text-decoration: none; }
+.vp-doc a:hover { text-decoration: underline; }
+.vp-doc img { border: 1px solid var(--vp-c-border); border-radius: 12px; }
+.vp-doc .custom-block { border-radius: 12px; }
+.vp-doc table { display: block; overflow-x: auto; white-space: nowrap; }
+
+/* 站点公告条（layout-top 插槽） */
+#siteAnnouncement {
+  display: flex; align-items: flex-start; gap: 10px;
+  box-sizing: border-box; width: 100%;
+  padding: 10px clamp(20px, 5vw, 48px);
+  background: var(--vp-c-bg-alt);
+  border-bottom: 1px solid var(--vp-c-border);
+  color: var(--vp-c-text-2);
+  font: 500 13px/1.7 var(--vp-font-family-base);
+  white-space: normal; overflow-wrap: anywhere;
+}
+#siteAnnouncement .sa-dot {
+  display: block; width: 7px; height: 7px; flex: 0 0 7px;
+  margin-top: .55em; border-radius: 50%; background: var(--vp-c-text-1);
+}
+#siteAnnouncement .sa-text { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 640px) {
+  #siteAnnouncement { padding: 9px 20px; font-size: 12.5px; }
+}

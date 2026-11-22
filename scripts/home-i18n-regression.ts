@@ -77,8 +77,9 @@ check(/el\.querySelectorAll<Element>\('\[data-en\]'\)\.forEach\(applyDataEn\)/.t
   '<pre><code> 内的 data-en 注释也能被翻译');
 check(/t\.parentElement\?\.closest\?\.\('\[data-en\]'\)/.test(i18n),
   'MutationObserver 跳过 data-en 节点，切回中文可精确还原');
-check((home.match(/data-en=/g) || []).length === 4,
-  'Home.tsx 有 4 处 data-en（主标题 / 后缀段 / 两条代码注释）');
+check((home.match(/data-en=/g) || []).length >= 4 &&
+  /data-en="SUFFIX"/.test(home) && /data-en="DOMAINS"/.test(home) && /data-en="USERS"/.test(home),
+  'Home.tsx 的 data-en 覆盖主标题 / 后缀段 / 代码注释 / 展开表头');
 check(/data-en="Your own subdomain\."/.test(home), '主标题英文整句不含残留「专属」');
 check(/data-en="# Check subdomain status \(public API\)"/.test(home) &&
       /data-en="# Example response"/.test(home), '代码块注释有英文整句');

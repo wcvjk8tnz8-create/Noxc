@@ -88,7 +88,9 @@ check(/--zx-blue:\s*#111318/.test(nodeLayer) && /零彩色/.test(nodeLayer),
   'Zerexa 实拍口径：强调令牌为中性墨，UI 零彩色（logo 图片资产仍保留原色）');
 check(!/#f6f2e8|#2f5d45|#1c221d/.test(nodeLayer), '设计系统不残留羊皮纸 / 蕨绿旧色板');
 check(!/#f6f2e8|#2f5d45/.test(read('src/html/reverieRootCss.ts')), '根域名页同步为节点色板');
-check(!/#f6f2e8|#2f5d45/.test(read('src/html/docs.ts')), '服务文档页同步为节点色板');
+check(/#f6f2e8|#2f5d45/.test(read('docs-src/.vitepress/theme/custom.css')) === false
+  && /--vp-c-brand-1/.test(read('docs-src/.vitepress/theme/custom.css')),
+  'VitePress 文档皮肤同步为 Zerexa 零彩色（无羊皮纸 / 蕨绿）');
 const glass = shellCss;
 check(/\.modal\s*\{/.test(glass), '结构层保留弹窗骨架');
 check(/#toast\s*\{[^}]*background:\s*transparent/s.test(glass), '结构层保留透明 Toast 容器');
@@ -727,8 +729,10 @@ check(/function applyDataEn/.test(hiI18n) &&
       /querySelectorAll<Element>\('\[data-en\]'\)/.test(hiI18n) &&
       /closest\?\.\('\[data-en\]'\)/.test(hiI18n),
   '首页 i18n：运行时支持 data-en 整段替换、代码块注释、切回中文还原');
-check((hiHome.match(/data-en=/g) || []).length === 4,
-  '首页 i18n：主标题 / 后缀段 / 两条代码注释均挂 data-en');
+check((hiHome.match(/data-en=/g) || []).length >= 4 &&
+  /data-en="SUFFIX"/.test(hiHome) && /data-en="DOMAINS"/.test(hiHome) &&
+  /data-en="USERS"/.test(hiHome),
+  '首页 i18n：主标题 / 后缀段 / 代码注释 / 展开表头均挂 data-en');
 check(/免费注册子域名，通过 NS 委托掌控解析/.test(hiDict) &&
       /免费额度、自动配置、NS 委托和独立控制台/.test(hiDict) &&
       /'服务概览': 'At a glance'/.test(hiDict),
@@ -801,7 +805,8 @@ check(!/'SSL 证书'/.test(read('src/app/lib/dict.en.ts')), 'SSL 证书词条已
 const noEmojiFiles = [
   'src/app/pages/Domain.tsx', 'src/app/pages/Register.tsx',
   'src/app/pages/Showcase.tsx', 'src/lib/showcase.ts',
-  'src/html/docs.ts', 'src/app/legacy/register.ts',
+  'src/app/legacy/register.ts',
+  'docs-src/.vitepress/config.mts', 'docs-src/index.md', 'docs-src/en/index.md',
 ];
 const PICTO = /[\u{1F300}-\u{1FAFF}\u2764\u26A0\u2705\u274C\u2728\u2139]/u;
 for (const f of noEmojiFiles) {
@@ -1157,51 +1162,86 @@ check(
   '两个根域名页也挂服务文档入口'
 );
 check(
-  /docs\.html/.test(read('scripts/emit-static-pages.ts')),
-  '静态托管也能一键导出 docs.html'
+  /dist\/client\/docs\//.test(read('scripts/copy-docs.mjs')) &&
+  /vitepress build docs-src/.test(read('package.json')),
+  'VitePress 产物由构建脚本并入 dist/client/docs/，随 Worker 一起部署'
 );
 
-/* 服务文档静态直出页：TypeScript 模板 + 8 张截图 + 图 7→图 8 的关键一步 */
-const docStatic = read('src/html/docs.ts');
+/* 服务文档：VitePress 静态站（原来是一整份 TypeScript 模板字符串）。
+   产物由 scripts/copy-docs.mjs 并入 dist/client/docs/，Worker 把 /docs/*
+   交给 ASSETS。中英双语、8 张截图、图 7→图 8 的关键一步都保留。 */
+const vpConfig = read('docs-src/.vitepress/config.mts');
+const vpTheme = read('docs-src/.vitepress/theme/index.ts');
+const vpAnn = read('docs-src/.vitepress/theme/announcement.ts');
+const vpCss = read('docs-src/.vitepress/theme/custom.css');
+const vpDnshe = read('docs-src/dnshe.md');
+const vpDnsheEn = read('docs-src/en/dnshe.md');
+const vpAllPages = [
+  'index.md', 'quick-start.md', 'accounts.md', 'dns.md', 'dnshe.md',
+  'settings.md', 'showcase.md', 'faq.md',
+].flatMap((f) => ['docs-src/' + f, 'docs-src/en/' + f]);
 const docApp = read('src/app/App.tsx');
 check(
   !/'\/docs'\s*:\s*[A-Za-z]+Page/.test(docApp) && !/import DocsPage/.test(docApp),
-  '/docs 不注册成 SPA 路由：站内链接整页跳到直出页，不会被拦截成首页'
+  '/docs 不注册成 SPA 路由，不会被 React 拦截成首页'
 );
 check(
-  /import \{ docsHtml \} from '\.\/html\/docs\.js'/.test(docIndex) &&
-  /path === '\/docs' \|\| path === '\/docs\.html'/.test(docIndex) &&
-  /c\.html\(docsHtml\)/.test(docIndex),
-  '/docs 由 TypeScript 模板在 Worker 直出，不经 SPA / 不发首屏接口'
+  /base: '\/docs\/'/.test(vpConfig) && /locales:/.test(vpConfig) &&
+  /zh-CN/.test(vpConfig) && /English/.test(vpConfig),
+  'VitePress 配置：base /docs/ + 中英双语 locales'
 );
 check(
-  /<style>/.test(docStatic) && /<\/style>/.test(docStatic) &&
-  /data-en=/.test(docStatic) && /viewport/.test(docStatic) &&
-  !/<script[^>]+src="https?:/.test(docStatic),
-  '文档页自带样式 / 中英词条 / 手机 viewport，不依赖外部字体与脚本'
+  vpAllPages.every((f) => fs.existsSync(path.join(root, f))),
+  '中英各 8 个文档页面齐全（共 16 页）'
 );
 check(
   Array.from({ length: 8 }, (_, i) => i + 1).every((n) =>
-    new RegExp('fig' + n + '\\.png').test(docStatic) &&
+    /docs\/img\/fig\d+\.png/.test(vpDnshe) &&
+    fs.existsSync(path.join(root, 'docs-src/.vitepress/public/img/fig' + n + '.png')) &&
     fs.existsSync(path.join(root, 'public/img/docs/fig' + n + '.png'))),
-  '图 1～图 8 全部引用且八张截图都在 public/img/docs 下'
-);
-const staticBridge = docStatic.slice(docStatic.indexOf('fig7.png'), docStatic.indexOf('fig8.png'));
-check(
-  /Add DNS records/.test(docStatic) && /Check again/.test(docStatic) &&
-  /Cancel/.test(docStatic) && staticBridge.length > 0 &&
-  /Add DNS records/.test(staticBridge) && /Check again/.test(staticBridge),
-  '文档明确写出：图 7 必须点 Add DNS records 才会出现图 8'
+  '图 1～图 8 在 VitePress public 与原资源目录都存在，且文档有图片引用'
 );
 check(
-  /ns1\.dnshe\.org/.test(docStatic) && /ns1\.dnshe\.com/.test(docStatic) &&
-  /专属于在 DNSHE 注册的域名/.test(docStatic) && /api005\.dnshe\.com/.test(docStatic),
-  '静态文档同样写清 .org / .com 两套 NS 与 API 网关区别'
+  Array.from({ length: 8 }, (_, i) => i + 1).every((n) =>
+    vpDnshe.includes('/docs/img/fig' + n + '.png') && vpDnsheEn.includes('/docs/img/fig' + n + '.png')),
+  '中英 DNSHE 章节都按顺序引用了 fig1～fig8'
 );
-const staticNoBridge = docStatic.replace(/Add DNS records/g, 'Check again');
 check(
-  !/Add DNS records/.test(staticNoBridge) && staticNoBridge !== docStatic,
-  '反向对照：拿掉 Add DNS records，静态文档断言必须失败'
+  /Add DNS records/.test(vpDnshe) && /Check again/.test(vpDnshe) &&
+  /Cancel/.test(vpDnshe) && /Fig 8|图 8/.test(vpDnshe) &&
+  /Add DNS records/.test(vpDnsheEn) && /Check again/.test(vpDnsheEn),
+  '文档明确写出：图 7 必须点 Add DNS records 才会出现图 8（中英双语）'
+);
+const vpBridge = vpDnshe.slice(vpDnshe.indexOf('fig7.png'), vpDnshe.indexOf('fig8.png'));
+check(vpBridge.length > 0 && /Add DNS records/.test(vpBridge) && /Check again/.test(vpBridge),
+  '图 7 → 图 8 之间的正文确实写明了三个按钮的作用');
+check(
+  /ns1\.dnshe\.org/.test(vpDnshe) && /ns1\.dnshe\.com/.test(vpDnshe) &&
+  /在 DNSHE 注册的域名/.test(vpDnshe) && /api005\.dnshe\.com/.test(vpDnshe) &&
+  /ns1\.dnshe\.org/.test(vpDnsheEn) &&
+  /专属于在 DNSHE 注册的域名/.test(read('docs-src/dns.md')),
+  '文档写清 .org / .com 两套 NS 与 API 网关区别'
+);
+const vpNoBridge = vpDnshe.replace(/Add DNS records/g, 'Check again');
+check(!/Add DNS records/.test(vpNoBridge) && vpNoBridge !== vpDnshe,
+  '反向对照：拿掉 Add DNS records，文档断言必须失败');
+check(
+  /'layout-top'/.test(vpTheme) && /loadAnnouncement\(\)/.test(vpTheme) &&
+  /siteAnnouncement/.test(vpTheme) && !/v-html\s*[:=]/.test(vpTheme),
+  'VitePress 用 layout-top 插槽挂站点公告，h() 纯文本子节点'
+);
+check(/fetch\('\/api\/config'/.test(vpAnn) && /announcement\.value\s*=/.test(vpAnn),
+  '文档页公告异步补挂，接口失败保持隐藏，不阻塞首屏');
+check(
+  !/docsHtml/.test(docIndex) && /\/docs\/index\.html/.test(docIndex) &&
+  /path\.startsWith\('\/docs\/'\)/.test(docIndex) && !/c\.html\(docsHtml\)/.test(docIndex),
+  '/docs 由 VitePress 静态产物提供，Worker 不再用 TS 模板直出'
+);
+check(
+  /docs:build/.test(read('package.json')) &&
+  /vitepress build docs-src/.test(read('package.json')) &&
+  /npm run docs:build/.test(read('package.json')),
+  'npm run build 串起 Vite + VitePress 两条构建链'
 );
 
 /* 首推后缀不得改写主域名 / 默认 Zone：曾误把 ROOT_DOMAIN 改成 noxc.uk，
@@ -1218,7 +1258,7 @@ for (const f of ['public/img/logo.jpg', 'public/img/logo.png', 'public/favicon.i
 /* 主 logo 去掉下方 NOXC 字样后：静态页内联图标必须与 /img/favicon.png 同源，
    否则会出现「站内换了图、两个根域名页和文档页仍是旧图标」。 */
 const inlineFavicon = fs.readFileSync(path.join(root, 'public/img/favicon.png')).toString('base64');
-for (const f of ['src/html/root-meoy.ts', 'src/html/root-v1.ts', 'src/html/docs.ts']) {
+for (const f of ['src/html/root-meoy.ts', 'src/html/root-v1.ts']) {
   check(read(f).includes(`data:image/png;base64,${inlineFavicon}`), `内联 favicon 已同步为新图形 ${f}`);
 }
 for (const f of ['public/img/logo-transparent.png', 'public/img/logo-light.png']) {
@@ -1300,7 +1340,7 @@ check(read('src/app/lib/i18n.ts').includes('已开启展示，积分 \\+(\\d+)')
    && read('src/app/lib/dict.en.ts').includes('Showcase bonus points (once per account)'),
   '展示奖励提示有英文句式与新词条');
 check(/开启展示还能获得积分奖励/.test(read('src/app/pages/Showcase.tsx'))
-   && /one-time points bonus/.test(read('src/html/docs.ts')),
+   && /\+6000/.test(read('docs-src/showcase.md')) && /\+6000/.test(read('docs-src/en/showcase.md')),
   '展示页与服务文档都写明奖励规则');
 
 /* 域名有效期 / 续期：窗口默认取「有效期的一半」（少于一半即可续期），
@@ -1414,7 +1454,8 @@ const anCfg = read('src/index.ts');
 const anRuntime = read('src/app/lib/runtime.ts');
 const anDesign = read('src/app/styles/design-system.css');
 const anShared = read('src/html/announcement.ts');
-const anDocs = read('src/html/docs.ts');
+const anVpTheme = read('docs-src/.vitepress/theme/index.ts');
+const anVpAnn = read('docs-src/.vitepress/theme/announcement.ts');
 const anRoot1 = read('src/html/root-meoy.ts');
 const anRoot2 = read('src/html/root-v1.ts');
 const anSchema = read('schema.sql');
@@ -1437,12 +1478,15 @@ check(/bar\.className = 'site-announcement'/.test(anRuntime)
   && /html body \.site-announcement/.test(anDesign)
   && /white-space: normal/.test(anDesign),
   '专用 class 与样式（可换行、纯文档流），不复用 .notice 卡片');
-for (const [label, t] of [['/docs', anDocs], ['meoy.top', anRoot1], ['v-1.top', anRoot2]] as [string, string][]) {
+for (const [label, t] of [['meoy.top', anRoot1], ['v-1.top', anRoot2]] as [string, string][]) {
   check(/ANNOUNCEMENT_CSS/.test(t) && /ANNOUNCEMENT_BODY/.test(t)
     && /ANNOUNCEMENT_JS/.test(t) && /renderAnnouncement\(/.test(t),
     `${label} 独立模板也显示公告（共享片段，不依赖 SPA 运行时）`);
 }
 check(/s\.textContent\s*=\s*t/.test(anShared), '共享片段同样纯文本渲染，防 XSS');
+check(/'layout-top'/.test(anVpTheme) && /h\('span', \{ class: 'sa-text' \}/.test(anVpTheme)
+  && !/v-html\s*[:=]/.test(anVpTheme) && /fetch\('\/api\/config'/.test(anVpAnn),
+  'VitePress 文档页也显示站点公告（layout-top 插槽 + 纯文本）');
 check(/VALUES \('announcement', ''\)/.test(anSchema), '全新库公告默认留空，不再写死旧品牌欢迎语');
 check(/\| 站点公告 \| 空 \| 纯文本/.test(read('README.md')), 'README 不再写「预留」');
 check(/站点公告回归/.test(anReg) && /announcement-regression\.ts/.test(anCI),
@@ -1474,7 +1518,39 @@ const srMissing = srRoutes.filter((r) => {
 });
 check(srMissing.length === 0, `前端每个直达路径都在唯一来源里有页面名${srMissing.length ? '，缺：' + srMissing.join(', ') : ''}`);
 check(/SPA 直达回落回归/.test(srReg) && /spa-routes-regression\.ts/.test(srCI),
-  '专项回归进 CI：真跑 Hono 验证 /report 回落、未知路径不误伤、/docs 仍直出');
+  '专项回归进 CI：真跑 Hono 验证 /report 回落、未知路径不误伤、/docs 走 VitePress 静态页');
+
+/* 首页「已开通域名」展开：按根域名分组 + 最热后缀 HOT。
+   以前 publicStats 只回两个总数，首页没法看到各后缀分别注册了多少。 */
+const sbLib = read('src/lib/publicStats.ts');
+const sbHome = read('src/app/pages/Home.tsx');
+const sbCtrl = read('src/app/legacy/home.ts');
+const sbCss = read('src/app/styles/design-system.css');
+const sbReg = read('scripts/stats-breakdown-regression.ts');
+const sbCI = read('.github/workflows/deploy.yml');
+const sbPkg = read('package.json');
+check(/GROUP BY d/.test(sbLib) && /COUNT\(DISTINCT user_id\)/.test(sbLib)
+  && /effectiveRootList/.test(sbLib) && /hottest/.test(sbLib),
+  '公开统计按根域名分组：域名数 / 去重用户数 / 0 值补齐 / 最热后缀');
+check(/id="statDomainsToggle"/.test(sbHome) && /id="statBreakdown"/.test(sbHome)
+  && /id="statHottest"/.test(sbHome) && /aria-expanded/.test(sbHome),
+  '首页统计条可展开，且有不展开也能看到的最热提示');
+check(/renderBreakdown/.test(sbCtrl) && /renderHottest/.test(sbCtrl)
+  && /nk-badge-hot/.test(sbCtrl) && /rv-bd-hot/.test(sbCtrl)
+  && /HOTTEST = String\(st\.hottest/.test(sbCtrl),
+  '控制器渲染清单与 HOT 徽标，最热后缀来自接口而非写死');
+check(/startI18n/.test(sbCtrl), '动态渲染的展开表头也走 i18n');
+check(/\.rv-breakdown/.test(sbCss) && /\.nk-badge-hot/.test(sbCss),
+  '展开面板与 HOT 样式在唯一视觉源里');
+check(/统计展开回归/.test(sbReg) && /stats-breakdown-regression\.ts/.test(sbCI),
+  '统计展开回归进 CI：真跑 SQLite 分组 + /api/config 下发 + 浏览器实拍');
+
+/* VitePress 文档：构建链接进 CI，产物由 copy-docs.mjs 并入静态目录 */
+check(/vitepress/.test(sbPkg) && /docs:build/.test(sbPkg)
+  && /npm run docs:build/.test(sbPkg),
+  'npm run build 串起 Vite + VitePress 两条构建链');
+check(/校验 VitePress 文档产物/.test(sbCI) && /dist\/client\/docs\/en\/index\.html/.test(sbCI),
+  'CI 校验 VitePress 中英产物与截图确实落地');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);

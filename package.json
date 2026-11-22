@@ -6,7 +6,7 @@
   "description": "二级域名分发系统 · React + TypeScript + Cloudflare Workers / D1",
   "scripts": {
     "dev": "tsx scripts/emit-html-shell.ts && vite",
-    "build": "tsx scripts/emit-html-shell.ts && vite build",
+    "build": "tsx scripts/emit-html-shell.ts && vite build && npm run docs:build",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
     "worker:dev": "wrangler dev",
@@ -20,7 +20,9 @@
     "test": "npx tsx scripts/oauth-regression.ts && npx tsx scripts/github-regression.ts && npx tsx scripts/root-limit-regression.ts",
     "test:github": "tsx scripts/github-regression.ts",
     "test:oauth": "tsx scripts/oauth-regression.ts",
-    "test:root-limit": "npx tsx scripts/root-limit-regression.ts"
+    "test:root-limit": "npx tsx scripts/root-limit-regression.ts",
+    "docs:dev": "vitepress dev docs-src",
+    "docs:build": "vitepress build docs-src && node scripts/copy-docs.mjs"
   },
   "dependencies": {
     "hono": "^4.6.14",
@@ -36,6 +38,7 @@
     "wrangler": "^3.90.0",
     "tailwindcss": "^3.4.17",
     "postcss": "^8.4.49",
-    "autoprefixer": "^10.4.20"
+    "autoprefixer": "^10.4.20",
+    "vitepress": "^1.6.3"
   }
 }

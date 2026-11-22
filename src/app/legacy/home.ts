@@ -4,6 +4,7 @@
  */
 import { api, esc, loadBranding, applyBranding } from '../lib/runtime';
 import { svgIcon } from '../lib/icons';
+import { startI18n } from '../lib/i18n';
 import { expiryTipText } from '../../lib/expiry';
 
 import type { LegacyCtx } from '../lib/types';
@@ -23,18 +24,28 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
   /* ---------- 可选后缀卡片 ----------
      有效期与续期窗口来自 /api/config，不再写死 365 / 180：
      后台把有效期改成 90 天，这里自动变成「单次注册 90 天，到期前 45 天可续期」。 */
+  /* HOT = 实际已开通子域名最多的后缀（与「首推」是两个不同维度）。
+     用户没展开统计也能在首页后缀卡片上直接看到。 */
+  let HOTTEST = '';
   function renderSuffix(list, rules) {
     const box = document.getElementById('suffixGrid');
     if (!list.length) { box.innerHTML = '<div class="nk-sk">暂未配置根域名</div>'; return; }
     const tip = esc(expiryTipText(rules));
-    box.innerHTML = list.map((d, i) => `
+    box.innerHTML = list.map((d, i) => {
+      const isHot = HOTTEST && String(d).toLowerCase() === HOTTEST;
+      const badges = [
+        i === 0 ? '<span class="nk-badge">首推</span>' : '',
+        isHot ? '<span class="nk-badge nk-badge-hot">HOT</span>' : '',
+      ].filter(Boolean).join('');
+      return `
       <div class="card nk-suf">
-        ${i === 0 ? '<span class="nk-hot">首推</span>' : ''}
+        ${badges ? `<div class="nk-badges">${badges}</div>` : ''}
         <div class="rv-suf-ico">${svgIcon('leaf', 18)}</div>
         <div class="nk-suf-name">.${esc(d.toUpperCase())}</div>
         <div class="nk-suf-desc">${esc(d)}</div>
         <div class="nk-suf-tip" data-expiry-tip>${tip}</div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
   
   /* ---------- 记录类型标签 ---------- */
@@ -53,6 +64,49 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
     };
   }
   
+  /* ---------- 按根域名展开的统计清单 ---------- */
+  function renderBreakdown(list, fmt) {
+    const rows = document.getElementById('statBreakdownRows');
+    if (!rows) return;
+    const items = Array.isArray(list) ? list : [];
+    if (!items.length) {
+      rows.innerHTML = '<div class="rv-bd-empty" data-en="No suffix data yet">暂无后缀数据</div>';
+      return;
+    }
+    rows.innerHTML = items.map((r) => {
+      const d = String(r.domain || '').trim().toLowerCase();
+      const hot = HOTTEST && d === HOTTEST;
+      return `<div class="rv-bd-row">
+        <span class="rv-bd-name mono">.${esc(d)}${hot ? '<em class="rv-bd-hot">HOT</em>' : ''}</span>
+        <span class="rv-bd-num">${fmt(r.domains)}</span>
+        <span class="rv-bd-num">${fmt(r.users)}</span>
+      </div>`;
+    }).join('');
+    /* 动态节点也走一遍 i18n，英文模式表头 / 空态不会冒中文 */
+    try { startI18n(); } catch {}
+  }
+
+  function renderHottest(hot) {
+    const box = document.getElementById('statHottest');
+    if (!box) return;
+    if (!hot) { box.hidden = true; box.innerHTML = ''; return; }
+    box.innerHTML = `<span class="rv-hottest-label" data-en="Most active suffix">最热后缀</span>
+      <b class="mono">.${esc(hot)}</b><em class="rv-bd-hot">HOT</em>`;
+    box.hidden = false;
+    try { startI18n(); } catch {}
+  }
+
+  /* 点击「已开通域名」展开 / 收起 */
+  const toggle = document.getElementById('statDomainsToggle');
+  const panel = document.getElementById('statBreakdown');
+  if (toggle && panel) {
+    toggle.onclick = () => {
+      const open = panel.hidden;
+      panel.hidden = !open;
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+  }
+
   /* ---------- 初始化配置 ---------- */
   (async () => {
     try {
@@ -73,13 +127,16 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
       /* 站点公开数据：与 /api/config 同一次请求返回，不新增首屏往返，
          也不会出现「先 0 后补数」的分阶段加载。 */
       const st = cfg.publicStats;
+      const fmt = (n) => {
+        const v = Number(n);
+        return Number.isFinite(v) ? v.toLocaleString('zh-CN') : '—';
+      };
       if (st && typeof st === 'object') {
-        const fmt = (n) => {
-          const v = Number(n);
-          return Number.isFinite(v) ? v.toLocaleString('zh-CN') : '—';
-        };
         document.querySelectorAll('[data-stat-users]').forEach((el) => { el.textContent = fmt(st.users); });
         document.querySelectorAll('[data-stat-domains]').forEach((el) => { el.textContent = fmt(st.domains); });
+        HOTTEST = String(st.hottest || '').trim().toLowerCase();
+        renderBreakdown(st.roots, fmt);
+        renderHottest(HOTTEST);
       }
       const expiry = cfg.expiry || {};
       renderSuffix(ROOTS, expiry);

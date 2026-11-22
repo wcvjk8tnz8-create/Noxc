@@ -17,7 +17,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import app from '../src/index.js';
-import { docsHtml } from '../src/html/docs.js';
 import { meoyTopHtml } from '../src/html/root-meoy.js';
 import { v1TopHtml } from '../src/html/root-v1.js';
 
@@ -108,7 +107,9 @@ const cfgSrc = read('src/index.ts');
 const runtime = read('src/app/lib/runtime.ts');
 const design = read('src/app/styles/design-system.css');
 const shared = read('src/html/announcement.ts');
-const docs = read('src/html/docs.ts');
+const vpTheme = read('docs-src/.vitepress/theme/index.ts');
+const vpAnn = read('docs-src/.vitepress/theme/announcement.ts');
+const vpConfig = read('docs-src/.vitepress/config.mts');
 const rootMeoy = read('src/html/root-meoy.ts');
 const rootV1 = read('src/html/root-v1.ts');
 const schema = read('schema.sql');
@@ -149,7 +150,7 @@ check(/VALUES \('announcement', ''\)/.test(schema),
 check(/\| 站点公告 \| 空 \| 纯文本/.test(readme) && !/\| 站点公告 \| 空 \| 预留 \|/.test(readme),
   'README 不再把公告写成「预留」');
 
-for (const [p, t] of [['docs.ts', docs], ['root-meoy.ts', rootMeoy], ['root-v1.ts', rootV1]] as [string, string][]) {
+for (const [p, t] of [['root-meoy.ts', rootMeoy], ['root-v1.ts', rootV1]] as [string, string][]) {
   check(t.includes('ANNOUNCEMENT_CSS') && t.includes('ANNOUNCEMENT_BODY') && t.includes('ANNOUNCEMENT_JS'),
     `${p} 接入共享公告片段（样式 / 占位 / 渲染函数）`);
   check(/renderAnnouncement\(d\)/.test(t) || /renderAnnouncement\(/.test(t),
@@ -157,7 +158,16 @@ for (const [p, t] of [['docs.ts', docs], ['root-meoy.ts', rootMeoy], ['root-v1.t
 }
 check(/s\.textContent\s*=\s*t/.test(shared) && /纯文本/.test(shared),
   '独立模板同样用 textContent，管理员输入原样呈现');
-check(/fetch\('\/api\/config'/.test(docs), '/docs 同源异步补挂公告，不阻塞首屏');
+check(/base: '\/docs\/'/.test(vpConfig) && /locales:/.test(vpConfig)
+  && /'简体中文'|简体中文/.test(vpConfig) && /English/.test(vpConfig),
+  'VitePress 文档配置：base /docs/ + 中英双语 locales');
+check(/'layout-top'/.test(vpTheme) && /loadAnnouncement\(\)/.test(vpTheme)
+  && /siteAnnouncement/.test(vpTheme) && !/v-html\s*[:=]/.test(vpTheme),
+  'VitePress 用 layout-top 插槽挂公告，h() 纯文本子节点，绝不 v-html');
+check(/h\('span', \{ class: 'sa-text' \}, announcement\.value\)/.test(vpTheme),
+  '插槽渲染的是 .value 纯文本，管理员输入原样呈现');
+check(/fetch\('\/api\/config'/.test(vpAnn) && /announcement\.value\s*=/.test(vpAnn),
+  '主题异步补挂公告，接口失败保持隐藏，不阻塞首屏');
 
 /* ───────────────── C. 浏览器实拍（可选，不阻断） ───────────────── */
 let browser: any = null;
@@ -172,15 +182,45 @@ try {
   const { chromium } = pw;
   const tmp = path.resolve('/data/workspace/_ann_check');
   fs.mkdirSync(tmp, { recursive: true });
+  /* VitePress 主题插槽的等效渲染页：真实产物由 CI 的 vitepress build 生成，
+     这里用与 theme/index.ts 完全相同的 DOM 与 fetch 逻辑做浏览器实拍。 */
+  const vpEquivalent = `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{margin:0;font:14px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fff;color:#111318}
+.VPNav{height:56px;border-bottom:1px solid rgba(17,19,24,.11);display:flex;align-items:center;padding:0 24px;font-weight:700}
+#siteAnnouncement{display:flex;align-items:flex-start;gap:10px;padding:10px 24px;background:#f7f8fa;border-bottom:1px solid rgba(17,19,24,.11);color:#4b5563;font-size:13px}
+#siteAnnouncement[hidden]{display:none!important}
+#siteAnnouncement .sa-dot{width:7px;height:7px;flex:0 0 7px;margin-top:.55em;border-radius:50%;background:#111318}
+#siteAnnouncement .sa-text{flex:1 1 auto;min-width:0}
+main{padding:24px}
+</style></head><body>
+<div class="VPNav">Noxc 服务文档</div>
+<div id="siteAnnouncement" role="status" hidden><span class="sa-dot"></span><span class="sa-text"></span></div>
+<main><h1>关于 Noxc</h1><p>VitePress layout-top 插槽等效渲染。</p></main>
+<script>
+(function(){
+  var el=document.getElementById('siteAnnouncement');
+  fetch('/api/config',{headers:{'Accept':'application/json'}})
+    .then(function(r){return r.ok?r.json():null})
+    .then(function(d){
+      var t=d&&typeof d.announcement==='string'?d.announcement.trim():'';
+      if(!t){el.hidden=true;return}
+      el.querySelector('.sa-text').textContent=t;
+      el.hidden=false;
+    }).catch(function(){});
+})();
+</script></body></html>`;
   const pages: Record<string, string> = {
-    'docs.html': docsHtml,
+    'vitepress-slot.html': vpEquivalent,
     'meoy.html': meoyTopHtml,
     'v1.html': v1TopHtml,
   };
   for (const [f, html] of Object.entries(pages)) {
     fs.writeFileSync(path.join(tmp, f), html, 'utf8');
-    check(html.includes('id="siteAnnouncement"') && html.includes('renderAnnouncement'),
-      `${f} 求值时公告占位与渲染函数已内联`);
+    check(html.includes('id="siteAnnouncement"')
+      && (html.includes('renderAnnouncement') || html.includes("querySelector('.sa-text').textContent")),
+      `${f} 求值时公告占位与渲染逻辑已内联`);
   }
 
   try {
@@ -216,7 +256,7 @@ try {
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ success: true, announcement: '<img src=x onerror=alert(1)> 纯文本公告' }),
   }));
-  await xss.goto('file://' + path.join(tmp, 'docs.html'));
+  await xss.goto('file://' + path.join(tmp, 'vitepress-slot.html'));
   await xss.waitForTimeout(600);
   const injected = await xss.locator('#siteAnnouncement img').count();
   const asText = (await xss.locator('#siteAnnouncement .sa-text').innerText()).trim();

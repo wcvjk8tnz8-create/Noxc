@@ -89,6 +89,11 @@ function makeEnv() {
             status: 200, headers: { 'content-type': 'text/html' },
           });
         }
+        if (u.pathname === '/docs/index.html') {
+          return new Response('<!doctype html><html><body><div id="app">VITEPRESS_DOCS</div><h1>Noxc 服务文档</h1></body></html>', {
+            status: 200, headers: { 'content-type': 'text/html' },
+          });
+        }
         return new Response('', { status: 404 });
       },
     },
@@ -123,11 +128,18 @@ for (const p of ['/definitely-not-a-page', '/img/logo.jpg', '/assets/x.js']) {
     `${p} 原样交给 ASSETS（回落清单没有放宽成通配）`);
 }
 
-/* /docs 由 TypeScript 模板直出，不被回落吞掉 */
+/* /docs 由 VitePress 静态产物提供（产物在 dist/client/docs/），
+   Worker 显式改写为 /docs/index.html 交给 ASSETS，不被 SPA 回落吞掉。 */
 {
   const r = await hit('/docs');
-  check(r.status === 200 && /服务文档/.test(r.text) && !r.text.includes('INDEX_SHELL'),
-    '/docs 仍由模板直出，不经过 SPA 回落');
+  check(r.status === 200 && r.text.includes('VITEPRESS_DOCS') &&
+    r.calls.length === 1 && r.calls[0] === '/docs/index.html',
+    '/docs 直达 → ASSETS 的 /docs/index.html（VitePress 静态页）');
+  const r2 = await hit('/docs/quick-start.html');
+  check(r2.status === 404 && r2.calls[0] === '/docs/quick-start.html',
+    '/docs/* 子页原样交给 ASSETS，不误走 SPA 外壳');
+  const r3 = await hit('/docs.html');
+  check(r3.status === 302, '/docs.html 老书签 302 到 /docs/');
 }
 
 /* 根路径在普通主机上走 SPA 首页；根域名落地页只在特定 Host 直出 */

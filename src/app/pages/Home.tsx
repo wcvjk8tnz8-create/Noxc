@@ -85,11 +85,31 @@ export default function HomePage() {
             <a className="rv-pill ink lg" href="/register">开始注册 <Ico name="arrow" size={17} /></a>
             <a className="rv-pill line lg" href="/dashboard">管理控制台 <Ico name="arrowUp" size={15} /></a>
           </div>
-          {/* 站点公开数据：随 /api/config 一次返回，首屏同一帧填好 */}
+          {/* 站点公开数据：随 /api/config 一次返回，首屏同一帧填好。
+              「已开通域名」可展开看每个根域名分别有多少，最热的那个标 HOT。 */}
           <div className="rv-stats" id="siteStats" aria-label="站点数据">
             <div className="rv-stat"><b data-stat-users>—</b><span>注册人数</span></div>
             <i className="rv-stat-rule" aria-hidden="true"></i>
-            <div className="rv-stat"><b data-stat-domains>—</b><span>已开通域名</span></div>
+            <button
+              type="button"
+              className="rv-stat rv-stat-toggle"
+              id="statDomainsToggle"
+              aria-expanded="false"
+              aria-controls="statBreakdown"
+            >
+              <b data-stat-domains>—</b>
+              <span>已开通域名<i className="rv-stat-caret" aria-hidden="true"></i></span>
+            </button>
+          </div>
+          {/* 最热后缀：不用展开也能在首页看到 HOT */}
+          <div className="rv-hottest" id="statHottest" hidden></div>
+          <div className="rv-breakdown" id="statBreakdown" hidden>
+            <div className="rv-bd-head">
+              <span data-en="SUFFIX">后缀</span>
+              <span data-en="DOMAINS">域名数</span>
+              <span data-en="USERS">注册人数</span>
+            </div>
+            <div id="statBreakdownRows"></div>
           </div>
           <p className="rv-hero-foot">Kept open all day by small studios and long-form writers</p>
         </section>
