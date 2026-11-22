@@ -17,6 +17,7 @@ import { expiryRules } from './lib/expiry.js';
 import { ensureOauthTables } from './lib/oauthStore.js';
 import { rootPageFor } from './html/rootPages.js';
 import { docsHtml } from './html/docs.js';
+import { spaFallbackPaths } from './lib/spaRoutes.js';
 import { Hono } from 'hono';
 import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
 import { ok, fail, defaultQuotaOf } from './lib/util.js';
@@ -338,16 +339,11 @@ app.all('/api/*', (c) => fail(c, '接口不存在', 404));
 // 注意：不要自己改写路径（补 index.html、去 .html 等）。
 // ASSETS 自带规范化（/xxx.html ⇄ /xxx），Worker 再改一次就会形成自指 307 循环。
 /* SPA 回落：Vite 只产出一个 index.html，所有页面路径都由 React 接管。
-   注意：静态资源（/assets、/css、/img…）仍原样交给 ASSETS。 */
-const SPA_PATHS = new Set([
-  '/', '/index.html', '/home.html', '/dashboard.html', '/domain.html',
-  '/register.html', '/whois.html', '/admin.html', '/checkin.html',
-  '/rewards.html', '/chat.html', '/tickets.html', '/transfer.html',
-  '/profile.html', '/terms.html', '/docs.html', '/showcase.html',
-  '/login', '/login.html', '/home', '/dashboard', '/domain', '/register', '/whois',
-  '/admin', '/checkin', '/rewards', '/chat', '/tickets', '/transfer',
-  '/profile', '/terms', '/docs', '/showcase',
-]);
+   注意：静态资源（/assets、/css、/img…）仍原样交给 ASSETS。
+   清单来自 lib/spaRoutes.ts（唯一来源），不再手写第二份 —— 以前 /report
+   与 /abuse 只加在前端 ROUTES、没加进这里，直接打开就被 ASSETS 判 404
+   空 body，整页白屏。新增页面只需改 SPA_PAGE_NAMES。 */
+const SPA_PATHS = new Set(spaFallbackPaths());
 app.all('*', async (c) => {
   const reqUrl = new URL(c.req.url);
   const path = reqUrl.pathname.replace(/\/+$/, '') || '/';

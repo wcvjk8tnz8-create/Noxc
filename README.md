@@ -646,7 +646,15 @@ npm run deploy      # build + wrangler deploy
 
 **SPA 路由**：站内链接为 `/dashboard`、`/register` 这类干净路径；`App.tsx` 仍保留
 `/xxx.html` 别名，老书签与 `whois.` 子域的服务端重定向继续可用。
-Worker 的 `SPA_PATHS` 白名单把这些路径统一回落到 SPA 外壳，由 React 接管。
+Worker 的 `SPA_PATHS` 把这些路径统一回落到 SPA 外壳，由 React 接管；清单由
+`src/lib/spaRoutes.ts` 的 `SPA_PAGE_NAMES` **唯一生成**，新增页面只改这一处。
+
+以前这里和 `App.tsx` 的 `ROUTES` 是两份手写清单，`/report`、`/abuse` 只加在前端、
+漏了 Worker 侧：站内点击由 React 接管所以正常，但**直接打开 / 刷新 / 从根域名
+落地页外链跳过去**会被 ASSETS 当成不存在的静态文件返回 404 空 body，整页白屏。
+`spa-routes-regression.ts` 会逐个核对前端路由都被清单覆盖，并真跑 Hono 验证
+`/report`、`/report.html`、`/abuse`、`/report?domain=…` 都回落到 `index.html`，
+同时确认未知路径与静态资源仍原样交给 ASSETS、`/docs` 仍由模板直出。
 
 
 ---

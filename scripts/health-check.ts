@@ -157,7 +157,10 @@ const appRoutes = read('src/app/App.tsx');
 check(/'\/\s*':\s*HomePage/.test(appRoutes) && /'\/login':\s*LoginPage/.test(appRoutes), '根路径渲染主页、/login 独立为登录页');
 check(/ROUTES\[key\]\s*\|\|\s*HomePage/.test(appRoutes), '未知路径回落主页而非登录页');
 check(!/mountCloudShader/.test(appRoutes) && !/cloudShader/.test(appRoutes), 'Reverie 首页不再挂 WebGL 云 shader（首屏更快、更安静）');
-check(/\/login\.html/.test(read('src/index.ts')), 'SPA 回落包含 /login.html');
+const spaSharedEarly = read('src/lib/spaRoutes.ts');
+check(/'login'/.test(spaSharedEarly)
+  && /out\.push\('\/' \+ name, '\/' \+ name \+ '\.html'\)/.test(spaSharedEarly),
+  'SPA 回落清单由唯一来源生成，自动包含 /login.html');
 check(/zx-nav-cta"\s+href="\/register"/.test(read('src/app/pages/Home.tsx')), '主页 CTA 指向注册页');
 check(!/href="\/">登录/.test(runtime) && !/location\.href\s*=\s*'\/\?login=1'/.test(runtime), '不再有把根路径当登录页的入口');
 check(/\/login\?q=/.test(read('src/app/legacy/whois.ts')) && /href="\/login"/.test(read('src/app/legacy/report.ts')), 'WHOIS / 举报的登录链接指向 /login');
@@ -1444,6 +1447,34 @@ check(/VALUES \('announcement', ''\)/.test(anSchema), '全新库公告默认留�
 check(/\| 站点公告 \| 空 \| 纯文本/.test(read('README.md')), 'README 不再写「预留」');
 check(/站点公告回归/.test(anReg) && /announcement-regression\.ts/.test(anCI),
   '公告专项回归进 CI，覆盖真跑 /api/config + 挂载链路 + 浏览器实拍');
+
+/* SPA 直达回落：/report /abuse 曾只在前端 ROUTES 里、没进 Worker 的
+   SPA_PATHS，直接打开 / 刷新 / 根域名外链跳过去就被 ASSETS 判 404 空 body，
+   整页白屏。现在改成唯一来源 spaRoutes.ts + 真跑 Hono 的专项回归。 */
+const srIndex = read('src/index.ts');
+const srApp = read('src/app/App.tsx');
+const srShared = read('src/lib/spaRoutes.ts');
+const srReg = read('scripts/spa-routes-regression.ts');
+const srCI = read('.github/workflows/deploy.yml');
+const srRoutes = Array.from(
+  (srApp.split('const ROUTES')[1].split('};')[0]).matchAll(/'(\/[^']+)'\s*:/g)
+).map((m) => m[1]);
+check(srRoutes.length >= 30, `巡检解析到前端 ROUTES ${srRoutes.length} 条`);
+check(/export const SPA_PAGE_NAMES/.test(srShared)
+  && /'report'/.test(srShared) && /'abuse'/.test(srShared),
+  'SPA 回落唯一来源含 report / abuse（本次白屏根因）');
+check(/const SPA_PATHS = new Set\(spaFallbackPaths\(\)\)/.test(srIndex)
+  && /import \{ spaFallbackPaths \} from '\.\/lib\/spaRoutes\.js'/.test(srIndex),
+  'Worker 用唯一来源生成回落清单，不再手写第二份');
+const srMissing = srRoutes.filter((r) => {
+  // '/' 与 '/index.html' 由 spaFallbackPaths() 直接输出，不对应页面名
+  if (r === '/' || r === '/index.html') return false;
+  const name = r.replace(/^\//, '').replace(/\.html$/, '');
+  return !new RegExp(`'${name}'`).test(srShared);
+});
+check(srMissing.length === 0, `前端每个直达路径都在唯一来源里有页面名${srMissing.length ? '，缺：' + srMissing.join(', ') : ''}`);
+check(/SPA 直达回落回归/.test(srReg) && /spa-routes-regression\.ts/.test(srCI),
+  '专项回归进 CI：真跑 Hono 验证 /report 回落、未知路径不误伤、/docs 仍直出');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
