@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { POINT_DEFAULTS } from '../lib/pointDefaults.js';
 import { ok, fail, now, audit } from '../lib/util.js';
 import {
   UNLIMITED_POINTS,
@@ -27,11 +28,11 @@ export async function pointRules(env) {
     return Number.isFinite(n) && m[k] !== undefined && m[k] !== '' ? n : d;
   };
   return {
-    checkin: Math.max(0, num('checkin_points', 5)),
-    domainCost: Math.max(0, num('domain_cost', 5)),
-    shortCost: Math.max(0, num('short_domain_cost', 35)),
-    shortLen: Math.max(1, num('short_domain_len', 1)),
-    initial: Math.max(0, num('initial_points', 10)),
+    checkin: Math.max(0, num('checkin_points', POINT_DEFAULTS.checkin)),
+    domainCost: Math.max(0, num('domain_cost', POINT_DEFAULTS.domainCost)),
+    shortCost: Math.max(0, num('short_domain_cost', POINT_DEFAULTS.shortCost)),
+    shortLen: Math.max(1, num('short_domain_len', POINT_DEFAULTS.shortLen)),
+    initial: Math.max(0, num('initial_points', POINT_DEFAULTS.initial)),
     rootCosts: parseRootCosts(m.root_point_costs),
   };
 }

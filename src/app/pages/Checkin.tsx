@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { mountCheckin } from '../legacy/checkin';
+import { POINT_DEFAULTS } from '../../lib/pointDefaults';
 import { refreshRuntime, cleanupPage, navigate } from '../lib/runtime';
 
 /** Checkin —— 由 checkin.html 迁移，页面结构与交互逻辑 100% 保留 */
@@ -46,9 +47,9 @@ export default function CheckinPage() {
         <div className="card flat">
           <h3>积分怎么用</h3>
           <div style={{color: "var(--text-2)", fontSize: "12.5px", lineHeight: "1.9"}}>
-            · 每天签到领 <b id="ruleCheckin">5</b> 分，一天只能领一次。<br />
-            · 申请一个普通子域名消耗 <b id="ruleCost">5</b> 分。<br />
-            · 单字域名（如 <span className="mono">a</span>、<span className="mono">1</span>）需要 <b id="ruleShort">35</b> 分。<br />
+            · 每天签到领 <b id="ruleCheckin">{POINT_DEFAULTS.checkin}</b> 分，一天只能领一次。<br />
+            · 申请一个普通子域名消耗 <b id="ruleCost">{POINT_DEFAULTS.domainCost}</b> 分。<br />
+            · 单字域名（如 <span className="mono">a</span>、<span className="mono">1</span>）需要 <b id="ruleShort">{POINT_DEFAULTS.shortCost}</b> 分。<br />
             · 管理员不限积分。<br />
             · 想要域名永久化或更多配额？去「<a href="/rewards" style={{color: "var(--c1-dim)"}}>奖励中心</a>」用兑换码。
           </div>

@@ -467,6 +467,8 @@ const PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
     m => `Not checked in yet — ${m[1]} points available. Single-character labels (e.g. a, 1) cost ${m[2]} points.`],
   [/^签到 \+(\d+) · 域名 -(\d+) · 单字域名 -(\d+)$/,
     m => `Check-in +${m[1]} · Domain -${m[2]} · Single-char -${m[3]}`],
+  [/^当前规则：普通域名 (\d+) 分 · 单字域名 (\d+) 分 · 每日签到 \+(\d+) 分 · 新用户初始 (\d+) 分$/,
+    m => `Current rules: standard ${m[1]} pts · single-char ${m[2]} pts · daily check-in +${m[3]} · new users start at ${m[4]}`],
   [/^(\d+) 个域名 · (\d+) 条解析$/, m => `${m[1]} domains · ${m[2]} records`],
   [/^· 另有 (\d+) 个被驳回（不占配额）$/, m => `· ${m[1]} more rejected (do not count against quota)`],
   [/^共 (\d+) 条 · 第 (\d+)\/(\d+) 页$/, m => `${m[1]} total · Page ${m[2]}/${m[3]}`],

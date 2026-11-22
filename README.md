@@ -4,14 +4,30 @@
 
 > 正式更名为 **Noxc**，首推 `noxc.uk` 子域名：它排在后缀选择器第一位并标注「首推」。**主域名仍是 `meoy.top`**，`ROOT_DOMAIN` 与默认 Cloudflare Zone（`CF_ZONE_ID`）都不变 —— 首推只是展示排序，不需要更换 Zone ID，也不需要在站点设置里重配主域名。若要把 `noxc.uk` 真正开放申请，再到后台添加该根域名及其 Zone 配置即可。
 
-前端 **React 18 + TypeScript + Vite**（单页应用，全站无手写 HTML 页面），后端 **TypeScript + Hono on Cloudflare Workers + D1 + R2**。用户自助申请 `xxx.你的根域名`，审核通过后自行添加 DNS 记录；每个根域名可单独选择通过 **Cloudflare API** 或 **Spaceship DNS API** 下发。
+前端 **React 18 + TypeScript + Vite**（单页应用，全站无手写 HTML 页面），后端 **TypeScript + Hono on Cloudflare Workers + D1 + KV + R2**。用户自助申请 `xxx.你的根域名`，审核通过后自行添加 DNS 记录；每个根域名可单独选择通过 **Cloudflare API** 或 **Spaceship DNS API** 下发。
 
 > 内置落地首页（`/home`）、12 种 DNS 记录、根域名验证、域名托管委派、工单与转移、积分与兑换券。
 
 ---
 
+## 文档导航
 
-## GitHub 登录 / Star 配额奖励
+| 想找什么 | 去哪 |
+|---|---|
+| 最近新增的能力 | 速览 · 近期新增 |
+| 功能全貌 | 一、核心特性 |
+| 从零部署 / Token 权限 | 三、部署步骤 |
+| KV / R2 没自动绑上 | 速览 → 3，附录 → 自定义头像上传 |
+| 接口 / 安全 / 限制 | 五 ~ 七 |
+| 单项功能实现细节与沿革 | 附录 · 功能与实现细节 |
+
+---
+
+## 速览 · 近期新增
+
+> 以下为最近上线的新能力，配置与边界详见正文；「附录」按主题归档全部实现细节。
+
+### 1. GitHub 登录 / Star 配额奖励
 
 在「站点设置 → 第三方登录 · GitHub」填 OAuth App 的 Client ID / Secret 并启用后：
 
@@ -23,7 +39,7 @@
   授权 scope 为 `read:user user:email public_repo`（最后一项用于校验 Star）；
 - Client Secret 与用户 access_token 只在 Worker 侧使用，绝不下发浏览器。
 
-## 按后缀限制注册次数
+### 2. 按后缀限制注册次数
 
 「站点设置 → 按根域名设置每人注册次数」可为每个生效后缀单独填：
 
@@ -39,14 +55,14 @@
 只影响设置之后的新申请，**已注册用户手里的域名一个都不动**。管理员自建不受限。
 也可用环境变量 `ROOT_REG_LIMITS` 配置（后台设置优先）。
 
-
-## KV / R2 自动绑定排查
+### 3. KV / R2 自动绑定排查
 
 CI 会尝试自动创建并绑定 Workers KV（`KV`）与 R2（`AVATARS`）。绑定成功会写进 **Job Summary**，站点 `/api/config` 的 `kvBound` / `avatarUpload` 也能查。
 
 若 Summary 显示「未自动绑定」、或这两个布尔值都是 `false`，原因基本都是 **API Token 对这两个资源没有权限**：Cloudflare 对「token 有效但越权」也返回 `Authentication error (code 10000)`，所以部署与 D1 仍然成功，只有 KV / R2 的接口被拒。脚本为保证部署不中断会移除绑定并降级 —— **步骤是绿的，但绑定确实没挂上**，这也是最容易误判的地方。
 
-推荐修法（一次配置，之后全自动）：
+推荐修法（一次配置，之后全自动；新部署直接用「三、部署步骤 → 1」的
+**一键创建**链接，7 项权限已预填，不必逐条勾）：
 
 1. Cloudflare Dashboard → My Profile → API Tokens → 编辑部署用的 Token；
 2. Permissions 增加两项：`Account → Workers KV Storage → Edit`、`Account → R2 → Edit`（保留原有的 Workers Scripts / D1 / DNS 权限）；
@@ -61,6 +77,19 @@ CI 会尝试自动创建并绑定 Workers KV（`KV`）与 R2（`AVATARS`）。�
 
 > CI 对 `wrangler.toml` 的绑定修改只在本次部署生效，**不会提交回仓库**。请以 Job Summary 和 `/api/config` 为准，不要只看仓库里的 `wrangler.toml`。
 
+### 4. 其它已上线能力（速查）
+
+| 能力 | 入口 / 说明 |
+|---|---|
+| NodeLoc OAuth | 登录页「使用 NodeLoc 登录」、个人资料可绑定；只读取真实 email，绑定一次性 +5 配额 |
+| GitHub OAuth | 见上；给项目点 Star 后领取，一次性 +5 配额 |
+| 自助更换邮箱 | 个人资料 → 安全设置 → 更换邮箱，向**新邮箱**发 6 位验证码，不需原邮箱 |
+| 滑块验证 | 点「提交注册」后才弹出拼图，通过后自动接着提交；管理员自建豁免 |
+| 用户案例展示 | `/showcase`；开关在域名详情，**默认不展示** |
+| 服务文档 | `/docs`；介绍本系统，并含 DNSHE 托管图文流程 |
+| 页脚联系方式 | 站点设置可填 Telegram 等链接，留空即隐藏 |
+
+---
 
 ## 一、核心特性
 
@@ -107,11 +136,11 @@ CI 会尝试自动创建并绑定 Workers KV（`KV`）与 R2（`AVATARS`）。�
 
 ### 4. 账号与审核
 
-- 邮箱 + 密码注册登录（**无需邮箱验证码**），PBKDF2-SHA256 哈希存储，HttpOnly Cookie 会话
+- 邮箱 + 密码注册登录（**注册验证码可选**，后台「邮件服务与验证码」开启），PBKDF2-SHA256 哈希存储，HttpOnly Cookie 会话；支持自助「更换邮箱」
 - 第一个注册的用户自动成为管理员
-- **管理员子域名配额不限**（默认用户 5 个，可在后台单独调整，填 `-1` 即不限量）
+- **管理员子域名配额不限**；新用户默认 5 个，后台可自定义（`0` 禁止 / `-1` 不限量）并可一键同步给存量用户；绑定 NodeLoc、领取 GitHub Star 奖励各可一次性 +5
 - **管理员申请子域名免审核**，即时开通
-- **管理员可申请保留域名**（www / mail / admin / api 等，见 `RESERVED_LABELS` 配置）
+- **管理员可申请保留域名**（www / mail / admin / api，以及 `ai` / `dash` / `nic` 等；见 `RESERVED_LABELS`，环境变量与后台设置只做追加）
 - 保留列表已包含站点自身功能前缀：**`whois`**（WHOIS 查询页）、**`bbs`** / **`forum`**、以及 `dnshe` / `anyns` / `dns` / `ns` 等，普通用户无法占用
 - 子域名默认需管理员审核（可配置为即时开通）
 - **被驳回的子域名不占配额**：列表按状态分开统计，驳回项显示驳回原因并标注「不占配额」，可移除后重新申请同名（也可直接重新申请，系统会自动清除旧的驳回记录）
@@ -122,16 +151,24 @@ CI 会尝试自动创建并绑定 Workers KV（`KV`）与 R2（`AVATARS`）。�
 
 - 独立的 `/terms.html` 页，含：服务条款、**禁止滥用清单（8 类）**、账号规则、免责声明、信息与处置、条款变更
 - 注册必须勾选同意条款，未勾选接口直接拒绝
-- **注册邮箱规则**：默认「白名单 ∪ 任何包含 `edu` 的邮箱」——邮箱地址任意位置出现这三个字符（不区分大小写，本地部分或域名都算）即可注册，例如 `student@school.edu.cn`、`edu@gmail.com`、`me@myedu.org`；原有 `gmail.com` / `googlemail.com` / `qq.com` / `foxmail.com` 继续放行，白名单可用 `ALLOWED_EMAIL_DOMAINS` 覆盖或扩展。后台「站点设置 → 注册邮箱规则」可切换四种模式（`whitelist_edu` / `whitelist` / `edu_only` / `any`），也可用环境变量 `EMAIL_RULE` 设默认值（后台设置优先）；重置密码等已有账号操作不受规则限制
+- **注册邮箱规则**：默认「白名单域名 ∪ 教育网邮箱」，`gmail.com` / `googlemail.com` / `qq.com` / `foxmail.com` 默认放行。`edu` **只按域名标签判定**（`school.edu.cn`、`harvard.edu` 算；`edu@gmail.com`、`me@myedu.org` 不算）——旧实现把「地址任意位置出现 edu 三个字」当凭证，会被一次性邮箱绕过，现已修正。硬性封禁的一次性邮箱域名优先于一切规则与白名单；`@oauth.local` 是 NodeLoc 第三方账号占位域名，已解封并精确豁免（其它 `.local` / `.test` 仍拒绝）。另有「精确邮箱白名单」与注册页「申请使用此邮箱」，管理员通过后自动放行。后台「站点设置 → 注册邮箱规则」可切换四种模式（`whitelist_edu` / `whitelist` / `edu_only` / `any`），也可用 `EMAIL_RULE` 设默认值（后台优先）；重置密码、更换邮箱等已有账号操作不受规则限制
 - **同 IP 最多注册 2 个账号**（后台可调 1-50），超出时注册接口直接拒绝
 - 后台「同 IP 账号」页按 IP 聚合，超标的 IP 标红显示，**一键封禁该 IP 下全部账号**：踢下线 + 停用子域名 + 可选清空 DNS + 可选封禁 IP（禁止再注册/登录）
 
-### 6. 界面风格：CYBER / TERMINAL × 二次元
+### 6. 界面风格：Zerexa（简约高雅）
 
-- 深色终端底 + **网格纹理** + **CRT 扫描线**，等宽字体、直角、1px 霓虹描边、卡片四角角标
-- 霓虹配色：青 `#00e5ff` / 品红 `#ff3ea5` / 紫 `#8b5cff`，与初音未来、GUMI 的配色同源
-- 角色壁纸仍在（Miku / GUMI 切换），作为底层叠霓虹光，不做大圆角毛玻璃
-- 标题带 `>` 前缀与闪烁光标，导航显示根域名，hover 有霓虹发光
+参照 Zerexa Domains 实拍：纯黑白灰零彩色、超大**无衬线**超粗黑体标题（800/900）、等宽 uppercase 小标、1px 发丝线、单屏留白、圆角白卡无阴影、墨黑胶囊按钮。侧栏浮岛与胶囊顶栏的**形状保留**，只替换材质；英文用 Redaction 35，衬线只留给少量高雅小标题。
+
+样式已收敛为 4 层，改视觉只动最后一层：
+
+| 文件 | 职责 |
+|---|---|
+| `shell.css` | 唯一结构层（几何、布局，颜色全令牌化） |
+| `captcha.css` | 滑块验证组件 |
+| `oauth.css` | 第三方登录组件 |
+| `design-system.css` | **唯一视觉源**：令牌 + Zerexa 排版 |
+
+历史皮肤（CYBER/TERMINAL 霓虹、v2「Nyan」蓝粉毛玻璃、蓝色后台面板骨架）均已废弃，绿色毛玻璃元素已全量移除；附录里的相关章节仅作沿革记录。
 
 ### 7. 域名托管（NS 委派）
 
@@ -152,26 +189,36 @@ CI 会尝试自动创建并绑定 Workers KV（`KV`）与 R2（`AVATARS`）。�
 - DNSHE 支持「检查委派」按钮（调其 `/v1/zones/{id}/delegation`）
 - 未托管时本站正常解析；托管后本站 DNS 记录页对该域名不再生效
 
+**两组 NS 别混用**：`ns1/2.dnshe.com` 专属于**在 DNSHE 注册的域名**，由委派页使用；
+从本站等外部把域名接入 DNSHE 托管，用 `ns1/2.dnshe.org` —— 控制台 DNS 记录卡片的「一键添加 NS」写的就是这一组。
+NS 本身是普通 DNS 记录，可在记录列表里编辑或删除，重复点击不会写出第二组。
+
 新增服务商：编辑 `src/lib/delegation.ts` 的 `DELEGATION_PROVIDERS` 即可。
 
 ### 8. 积分与每日签到
 
 | 规则 | 默认 | 说明 |
 |---|---|---|
-| 每日签到 | **+5 分** | 每个自然日一次（按 UTC+8），重复签到会被拒 |
-| 申请子域名 | **−5 分** | 长度 ≥ 2 的名称 |
-| 单字域名 | **−35 分** | 长度 ≤ `short_domain_len`（默认 1），如 `a` `1` |
+| 每日签到 | **+30 分** | 每个自然日一次（按 UTC+8），重复签到会被拒 |
+| 申请子域名 | **−60 分** | 长度 ≥ 2 的名称 |
+| 单字域名 | **−300 分** | 长度 ≤ `short_domain_len`（默认 1），如 `a` `1` |
 | 管理员 | **不限** | 不消耗、不显示余额，显示 `∞` |
-| 新用户初始 | 10 分 | `initial_points` |
+| 新用户初始 | 100 分 | `initial_points` |
 
-**老用户无感迁移**：升级后首次进入积分系统时，按其「已有的、计入额度」的子域名数 × 单个域名价格补偿（`max(初始分, 域名数×5)`）。
-**已有域名不会被扣分、不会被回收** —— 实测某 5 域名老用户获得 25 分。
+默认值的**唯一来源**是 `src/lib/pointDefaults.ts`；`schema.sql` 的 INSERT 与它逐项一致
+（健康巡检有防回流断言）。老库首次部署会把**仍等于旧默认**（5 / 10 / 5 / 35）的项一次性刷成
+新默认，其余自定义值一律保留；`points_defaults_v2` 标记保证只跑一次、之后不再改写。
+`/api/config` 下发完整规则，注册须知与签到地说明随后台设置实时更新，
+不会再出现「页面写 5 分、实际扣 60 分」。
+
+**老用户无感迁移**：升级后首次进入积分系统时，按其「已有的、计入额度」的子域名数 × 单个域名价格补偿（`max(初始分, 域名数×60)`）。
+**已有域名不会被扣分、不会被回收** —— 5 个域名的老用户按 `max(100, 5×60)` 补偿到 300 分。
 
 全部规则（签到奖励 / 域名价 / 单字价 / 单字长度 / 初始分）均可在**管理后台 → 站点设置**改。
 管理员可在**用户列表**点「积分」直接设置余额或增减，并有完整流水。
 
-- 积分不足时返回 `402`，提示「积分不足：单字域名需要 35 分，当前 X 分」
-- 单字符域名（如 `a`）此前被 `validateLabel` 拒绝，现已放开 —— 但需 35 分兑换
+- 积分不足时返回 `402`，提示「积分不足：单字域名需要 300 分，当前 X 分」（数字随后台设置变）
+- 单字符域名（如 `a`）此前被 `validateLabel` 拒绝，现已放开 —— 默认需 300 分兑换
 - 控制台顶部显示余额与签到按钮（已签到则按钮置灰并提示明日再来），可查看积分明细
 - 申请输入框实时显示「消耗 X 分 · 余额 Y 分」，不足时标红
 - WHOIS 页也显示价格与余额，积分不足时申请按钮禁用
@@ -263,36 +310,34 @@ CNAME 探测走 DoH（cloudflare-dns.com → dns.google 双端点降级），5 �
 **whois 子域名自动跳转**：访问 `whois.<根域名>`（如 `whois.meoy.top`）自动进入查询页；`whois.meoy.top/<名称>` 直接查询该名称。
 **服务端重定向**（`src/index.ts` 中间件，不依赖前端 JS，最可靠）：Worker 检测 Host 首段为 `whois`，把 `/` 与 `/<名称>` 302 到 WHOIS 页。**只接管入口页** —— `/dashboard`、`/admin`、`/whois`、`/domain` 等一律放行。
 
-> ⚠️ 曾经踩过的坑：跳转逻辑写了两份（前端请求层一份、服务端一份），前端那份会在**每个页面**执行，于是访问 `/dashboard` 被踢去 `/whois.html?name=dashboard`，而登录页又把已登录的人送回 `/dashboard`，两边互相抢夺形成死循环。
-> 现在**前端不再做任何 whois 跳转**，只由服务端处理。新增跳转逻辑时务必只写一处。
+> 历史坑：跳转逻辑曾同时写在前端请求层与服务端，前端那份在**每个页面**都执行，
+> 与「已登录跳控制台」互相抢夺形成死循环。现在 **WHOIS 跳转只由服务端处理**，新增跳转逻辑务必只写一处。
 
-**WHOIS 页豁免规则**（它必须完全不受影响）：
+**WHOIS 页豁免规则**（免登录公开页，必须完全不受影响）：
 
-1. **服务端**：中间件第一条判断就是 `/^\/whois(\.html)?$/i` → 无条件放行，任何 host 都不重定向
-2. **免登录**：`mountNav('whois', { optional: true })`，未登录也正常渲染
-3. **401 不踢人**：公开页设 `window.MEOY_PUBLIC_PAGE = true`，`api.req` 遇到 401 时不跳转登录页。
-   这一条很关键 —— 未登录时 `/api/auth/me` 必然返回 401，若照旧跳 `/`，在 whois 子域下就形成 `/whois → / → /whois.html` 循环
-4. **清理历史标记**：页面 head 清除 `meoy_whois_rd` / `meoy_whois_n`，不受旧版本残留状态影响
+1. 服务端中间件第一条判断 `/^\/whois(\.html)?$/i` → 无条件放行，任何 host 都不重定向
+2. `mountNav('whois', { optional: true })`，未登录正常渲染；条款页同样按公开页处理
+3. 公开页设 `window.MEOY_PUBLIC_PAGE = true`，`api.req` 遇 401 不跳登录页 —— 否则未登录时
+   `/api/auth/me` 必然 401，在 whois 子域下会形成 `/whois → / → /whois.html` 循环
+4. 页面 head 清除 `meoy_whois_rd` / `meoy_whois_n`，不受旧版本残留状态影响
+5. 防循环：只在入口页触发，识别 `whois` / `whois.html` 两种形态，同会话同一目标只跳一次
 
-条款页同样按公开页处理。
-为此 `wrangler.toml` 设了 `run_worker_first = true`，Worker 处理完后通过 `ASSETS.fetch()` 回落静态资源。**不要再手动改写路径**（补 `index.html`、去 `.html`）—— ASSETS 自带 `/xxx.html ⇄ /xxx` 规范化，两边都改会形成自指 307 死循环。
+`wrangler.toml` 设 `run_worker_first = true`，Worker 处理完通过 `ASSETS.fetch()` 回落静态资源。
+**不要再手动改写路径**（补 `index.html`、去 `.html`）—— ASSETS 自带 `/xxx.html ⇄ /xxx` 规范化，
+两边都改会形成自指 307 死循环。
 
-**入口分流**（`src/html/spa.ts` 里的同步预置脚本，早于页面渲染，作为前端兜底）：
+**入口分流**（`src/html/spa.ts` 同步预置脚本，早于渲染）：
 
 | 访问 | 结果 |
 |---|---|
 | `meoy.top/` 已登录 | 直接进 `/dashboard`，不闪登录页 |
-| `meoy.top/` 未登录 | 登录页 |
+| `meoy.top/` 未登录 | 登录页（表单先 `visibility:hidden`，确认是访客才显示） |
 | `meoy.top/?login=1` | 强制留在登录页（切换账号用） |
-| `whois.meoy.top/` | → `/whois.html` |
-| `whois.meoy.top/google` | → `/whois.html?name=google` |
+| `whois.meoy.top/` · `/google` | → `/whois.html` · `?name=google` |
 
-已登录时登录表单用 `visibility:hidden` 压住，直到确认是访客才显示，所以不会闪一下。
-
-**WHOIS 是免登录页面**（`mountNav(..., { optional: true })`）。这一点很关键：早期版本它要求登录，未登录就跳 `/`，而 whois 子域又把 `/` 跳回 `/whois.html`，形成死循环。现在它不要求登录，并有计数熔断兜底。
-
-防循环三重保护：只在入口页（`/`、`/index.html`）触发；识别 `whois` 与 `whois.html` 两种形态（部分托管会规范化掉 `.html`）；同一次会话内对同一目标只跳一次，落地后即清除标记。即使 `whois.html` 缺失被回退到首页也不会无限刷新。
-需要先把 `whois` 这个主机名指向本 Worker —— 在 Cloudflare 的 Worker 设置里添加**自定义域/路由** `whois.meoy.top/*`（或在 DNS 里加一条指向 Worker 的记录并开启代理）。前缀由 `src/index.ts` 的 WHOIS 中间件按 Host 首段判断，无需前端配置。
+需先把 `whois` 主机名指向本 Worker：在 Cloudflare Worker 设置里添加**自定义域/路由**
+`whois.meoy.top/*`（或在 DNS 加一条指向 Worker 的记录并开启代理）。前缀由 `src/index.ts`
+中间件按 Host 首段判断，无需前端配置。
 
 持有人显示策略（后台「站点设置」可改）：`masked` 脱敏（默认）/ `none` 不显示 / `full` 完整公开；**本人与管理员始终可见完整地址**。
 
@@ -300,11 +345,14 @@ CNAME 探测走 DoH（cloudflare-dns.com → dns.google 双端点降级），5 �
 
 被驳回的名称：仅原申请人（或管理员）可重新申请，其他人查询时显示「暂不可用（原申请人正在处理）」，与提交时判定完全一致。
 
-### 10. 登录页（参考 DNSHE 布局）
+### 10. 登录页与落地页
 
-- 顶部导航：Logo + 站点名、注册账号 / 返回首页 / 服务条款、壁纸切换
-- 左侧登录卡片：欢迎回来 + 邮箱 + 密码 + **记住我** + 登录账户；注册页在同一卡片内切换
-- 右侧信息栏四个模块：账户控制台、注册域名（流程）、产品服务、账户安全提醒
+- 登录页为「左侧品牌陈述 + 右侧表单卡片」：邮箱 + 密码 + **记住我**，
+  注册 / 找回密码在同一卡片内切换；早期右侧四块说明模块与顶栏壁纸切换器已移除
+- 顶栏：Logo + 站点名、注册账号 / 返回首页 / 服务条款
+- 落地页为 Zerexa 风格：超大标题、整行搜索框（前缀 + 根域名下拉 + 查询）、
+  胶囊入口、四张指标卡，并显示注册人数与已开通域名数
+- 已登录访问 `/login` 直接进控制台；首页顶栏把「登录」换成「→ 去往控制台」
 
 **记住我**：勾选 → 会话 90 天；不勾选 → 1 天。注册默认 90 天。
 
@@ -344,7 +392,8 @@ subdomain-hub/
 │   ├── main.tsx / App.tsx       入口 + SPA 路由（14 个页面）
 │   ├── pages/*.tsx              14 个页面组件
 │   ├── legacy/*.ts              由旧内联脚本平移的页面控制器
-│   └── lib/runtime.ts           公共运行时（导航 / 品牌 / 动效 / 头像）
+│   ├── lib/runtime.ts           公共运行时（导航 / 品牌 / 动效 / 头像）
+│   └── styles/                  4 层样式：shell / captcha / oauth / design-system
 ├── public/                      静态资源（css / img / favicon，Vite 原样复制）
 ├── dist/client/                 Vite 构建产物，由 wrangler [assets] 托管
 ├── schema.sql                   D1 表结构
@@ -359,25 +408,38 @@ subdomain-hub/
 
 | 需要什么 | 去哪里拿 |
 |---|---|
-| **API Token** | <https://dash.cloudflare.com/profile/api-tokens> → Create Custom Token |
+| **API Token** | 用下方「一键创建」链接，权限与名称已预填 |
 | **Account ID** | <https://dash.cloudflare.com/?to=/:account/workers-and-pages> 右侧栏 |
 | **Zone ID** | 选中根域名 → Overview → 右下角 API 区块 |
 
-API Token 需要的权限：
+**一键创建（推荐）**：
+
+👉 [创建 Noxc Deploy Token（用户 Token）](https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_kv_storage%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_r2%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22d1%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_routes%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&accountId=%2A&zoneId=all&name=Noxc%20Deploy%20Token)
+
+打开即是 Create Custom Token 表单，7 项权限与名称已勾好；确认 Account / Zone 范围后
+`Continue to summary` → `Create Token`，**token 只显示一次，立刻复制**。
+CI 场景若不想依赖个人账号，可用 [Account-owned Token](https://dash.cloudflare.com/?to=/:account/api-tokens&permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_kv_storage%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_r2%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22d1%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_routes%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&name=Noxc%20Deploy%20Token)（需 Super/Administrator）。
+
+API Token 需要的权限（**缺 KV / R2 时部署照样成功，但绑定会静默降级**）：
 
 | 权限 | 资源 | 作用 |
 |---|---|---|
-| `Account` → `D1` → `Edit` | 你的账户 | CI 自动创建 D1 数据库 |
-| `Account` → `Workers Scripts` → `Edit` | 你的账户 | 部署 Worker |
-| `Zone` → `DNS` → `Edit` | 你的根域名 | 读写 DNS 记录 |
+| `Account` → `Workers Scripts` → `Edit` | 账户 | 部署 Worker、写 Secret |
+| `Account` → `D1` → `Edit` | 账户 | 自动建库 / 执行 schema |
+| `Account` → `Workers KV Storage` → `Edit` | 账户 | 自动创建 KV namespace |
+| `Account` → `R2` → `Edit` | 账户 | 自动创建头像桶 |
+| `Account` → `Workers Routes` → `Edit` | 账户 | 路由 / 自定义域 |
+| `Account` → `Account Settings` → `Read` | 账户 | 读取账号信息 |
+| `Zone` → `DNS` → `Edit` | 根域名 | 读写 DNS 记录 |
 
-> 省事做法：用官方模板 **Edit Cloudflare Workers**（覆盖前两项），再补一条 Zone DNS 编辑权限。
+> 也可直接用官方模板 **Edit Cloudflare Workers**（含 Workers / KV / R2 / Routes），
+> 再补 `D1 : Edit` 与 `Zone DNS : Edit` 两项。链接只预填表单，不会自动创建 token。
 
 ### 2. 填 Secrets，推一次就完事
 
 仓库 **Settings → Secrets and variables → Actions → Secrets**：
 
-**必需**（4 个，缺任一个部署会直接报错并提示缺谁）
+**必需**（3 项；两个 Token 二选一，缺任一项部署会直接报错并提示缺谁）
 
 | 名称 | 必需 | 说明 |
 |---|---|---|
@@ -399,16 +461,20 @@ API Token 需要的权限：
 |---|---|
 | `D1_DATABASE_ID` | 一般不填：CI 会自动建库。只有你想用已有的另一个库时才填 |
 
-然后 `git push origin main`，Actions 自动完成全流程：
+然后 `git push origin main`，Actions 自动完成全流程（20 步，分组如下）：
 
-1. **检查配置** —— 缺哪个必需项就直接报出名字，不用猜
-2. **D1 数据库自动创建** —— 按名字查找，已存在就复用，不存在才创建（重复部署不会重复建库、不会丢数据）
-3. 把 database_id 写进 `wrangler.toml`
-4. 把 `CF_API_TOKEN` / `CF_ZONE_ID` 加密写入 Worker（等同 `wrangler secret put`）
-5. 建表（幂等，只建不存在的表）
-6. `wrangler deploy`
+1. **检查配置** —— 缺哪个必需项直接报出名字，不用猜
+2. **校验** —— 类型检查、静态健康巡检，GitHub OAuth / 注册次数 / 首页 i18n /
+   邮箱规则 / 用户案例持久化等回归，再跑 `npm run build`
+3. **准备资源** —— D1 按名查找、已存在就复用；KV namespace 与 R2 桶同理，
+   创建成功后写入 `wrangler.toml` 绑定（失败则移除绑定降级，见「速览 → 3」）
+4. **注入** —— 把 Variables 写进 `wrangler.toml`，把 Token / Zone ID 加密写入 Worker
+   （等同 `wrangler secret put`）
+5. **建表**（幂等，只建不存在的表）→ **6. `wrangler deploy`**
 
 全程不需要 `wrangler login`、不需要手动改配置文件、不需要手动建库。
+绑定状态以 **Job Summary** 与 `/api/config` 的 `kvBound` / `avatarUpload` 为准；
+CI 对 `wrangler.toml` 的改动只在本次部署生效，**不会提交回仓库**。
 
 **可选调整**（Settings → Variables，明文即可）：
 
@@ -438,7 +504,7 @@ npm run deploy
 部署后访问分配的 `*.workers.dev` 域名，第一个注册的用户即管理员。
 如需绑定自己的域名：Workers → Settings → Domains & Routes 添加自定义域，然后在 Cloudflare DNS 里给它加一条 CNAME（会自动创建）。
 
-### 5. 常用运维命令
+### 4. 常用运维命令
 
 ```bash
 npm run dev          # 本地开发（会用 .dev.vars）
@@ -514,7 +580,12 @@ npm run dev
 
 ---
 
-## 开发语言：全量 TypeScript + React
+## 附录 · 功能与实现细节
+
+> 以下按主题归档单项功能的实现细节与沿革，均为**当前有效配置**的补充说明。
+> 部署与 Token 权限看「三、部署步骤」，功能总览看「一、核心特性」。
+
+### 开发语言：全量 TypeScript + React
 
 前后端与运维脚本**全部 TypeScript**，无存量 `.js` / `.mjs` / `.html`：
 
@@ -543,7 +614,7 @@ Worker 的 `SPA_PATHS` 白名单把这些路径统一回落到 SPA 外壳，由 
 
 ---
 
-## 多个根域名
+### 多个根域名
 
 一个站点可以同时分发多个根域名下的子域名（如 `meoy.top` 与 `foo.com`）。
 
@@ -570,14 +641,19 @@ Worker 的 `SPA_PATHS` 白名单把这些路径统一回落到 SPA 外壳，由 
 
 ---
 
-## 主题：浅色 / 深色双皮肤
+> **界面章节说明**：现行视觉以「一、核心特性 → 6. 界面风格」为准（Zerexa、
+> 4 层 CSS、纯黑白灰、Redaction 35）。随后数节记录的是沿革：CYBER/TERMINAL 霓虹、
+> v2「Nyan」蓝粉毛玻璃、蓝色后台面板骨架三套配色均已废弃，绿色毛玻璃元素已移除；
+> **仍生效**的只有双皮肤令牌切换、云层背景、壁纸和内置头像库。
 
-顶栏右侧有切换按钮（月亮 ⇄ 太阳），**全站 13 个页面通用**。
+### 主题：浅色 / 深色双皮肤
+
+顶栏右侧有切换按钮（月亮 ⇄ 太阳），**全站通用**。
 
 | 皮肤 | 参考 |
 |---|---|
-| 浅色（默认） | DnsNeko：蓝白网格底、白色卡片、蓝色主色 |
-| 深色 | domin.xueling.top：深蓝云雾底、深色卡片、亮蓝主色 |
+| 浅色（默认） | 纯白底 + 墨黑文字，冷灰发丝线 |
+| 深色 | 墨黑底 + 浅墨文字，同一套令牌反相 |
 
 **实现**：只切 `documentElement[data-theme]`，颜色全部由 CSS 令牌接管，
 组件样式不写死颜色 —— 因此两套皮肤共用同一套结构，新增页面自动支持。
@@ -591,16 +667,20 @@ Worker 的 `SPA_PATHS` 白名单把这些路径统一回落到 SPA 外壳，由 
 
 ---
 
-## 天空蓝云层背景（Cloud Shader）
+### 天空蓝云层背景（Cloud Shader）
 
 落地页 Hero 用了 WebGL 云层着色器（`src/app/lib/cloudShader.ts`，纯原生无依赖，由 `App.tsx` 按需动态挂载）。
 
-> 以下为**历史记录**：当时项目还是原生 HTML/CSS/JS，现已迁移到 React + TypeScript；
-> 结论（手写着色器）保留，但「无 React」的前提已不成立。
+> **历史记录**：早期是原生 HTML/CSS/JS，现已迁移到 React + TypeScript；
+> 「手写着色器」的结论保留，但「无 React」的前提已不成立。
 
-**样式**：Tailwind CSS 3（PostCSS）+ 一份合并后的组件表。早期版本叠加过两套手写 CSS（同名 `.sidebar` 被定义 16 次），已收敛为 `src/app/styles/shell.css`（唯一结构层，原 8 个样式文件按既有顺序合并、颜色全量令牌化）+ `src/app/styles/design-system.css`（唯一视觉源：Zerexa 排版与 logo 色令牌）威层）。主题令牌通过 `vite.config.ts` 内联的 Tailwind 配置映射，深色自动跟随 `data-theme`。
+早期同名 `.sidebar` 被定义 16 次、两套手写 CSS 叠加，现已收敛为 4 层
+（`shell.css` 结构层 + `captcha.css` / `oauth.css` 组件层 + `design-system.css` 唯一视觉源），
+颜色全量令牌化，主题令牌由 `vite.config.ts` 内联配置映射，深色跟随 `data-theme`。
+详见「一、核心特性 → 6. 界面风格」。
 
-早期曾试过第三方云层组件，但 registry 被网络策略挡住、且需要 React + Tailwind 运行时，与当时的原生结构不兼容，因此改为自绘 WebGL 体积云（FBM 噪声 + 时间动画，深浅主题各一套配色）。
+第三方云层组件当年因 registry 被网络策略挡住、且需要 React + Tailwind 运行时而未采用，
+改为自绘 WebGL 体积云（FBM 噪声 + 时间动画，深浅主题各一套配色）。
 
 **在任意页面启用**：加一个容器即可
 
@@ -612,7 +692,7 @@ Worker 的 `SPA_PATHS` 白名单把这些路径统一回落到 SPA 外壳，由 
 标签切到后台暂停渲染；`prefers-reduced-motion` 下只画静态一帧；
 DPR 上限 1.75 以照顾移动端性能；主题切换后自动重取配色。
 
-## 壁纸
+### 壁纸
 
 切换器里有 4 张：樱花喵 1/2、Miku、GUMI。想换回 Miku 主题直接选即可，
 壁纸与深/浅主题互相独立。
@@ -620,7 +700,7 @@ DPR 上限 1.75 以照顾移动端性能；主题切换后自动重取配色。
 
 ---
 
-## 界面骨架（参照后台面板模板）
+### 界面骨架（参照后台面板模板）· 已废弃
 
 控制台骨架按后台面板模板重做：
 
@@ -640,7 +720,7 @@ DPR 上限 1.75 以照顾移动端性能；主题切换后自动重取配色。
 
 ---
 
-## v2「Nyan」皮肤
+### v2「Nyan」皮肤 · 已废弃
 
 控制台采用蓝粉渐变 + 毛玻璃 + 二次元猫娘风格的 v2 皮肤。
 
@@ -659,11 +739,11 @@ DPR 上限 1.75 以照顾移动端性能；主题切换后自动重取配色。
 
 ---
 
-## 注册域名独立页
+### 注册域名独立页
 
 申请入口已独立为 `/register.html`（侧栏「控制台 → 注册域名」）：
 
-- 输入前缀后**自动检查可用性**，实时显示积分消耗（普通 5 分 / 单字 35 分）
+- 输入前缀后**自动检查可用性**，实时显示积分消耗（默认普通 60 分 / 单字 300 分，随后台设置变）
 - 多根域名时后缀为下拉选择
 - 已有待审核申请时提交按钮锁定（同一时间只能有一个）
 - 支持 `/register.html?label=xxx` 从落地页 / WHOIS 页带名称跳入
@@ -671,7 +751,7 @@ DPR 上限 1.75 以照顾移动端性能；主题切换后自动重取配色。
 
 `/dashboard.html` 的申请表单已移除，改为引导卡；带 `?apply=`/`?label=` 访问时自动跳转注册页。
 
-## 内置角色头像库
+### 内置角色头像库
 
 20 张，按角色分组，在「个人资料 → 选择头像」里可切换筛选：
 
@@ -690,21 +770,18 @@ DPR 上限 1.75 以照顾移动端性能；主题切换后自动重取配色。
 
 > 这些是网络检索到的角色图片，仅供站内头像用途；**公开商用请替换为已授权素材**。
 
-## 自定义头像上传（当前默认关闭）
+### 自定义头像上传（绑定即启用）
 
-头像上传**默认按未启用处理**：`wrangler.toml` 不绑定 `[[r2_buckets]]`，
-`scripts/ensure-r2.ts` 仍会预先寻找/创建桶，但**不会写入绑定** —— 即使账号里存在桶也不启用，
-避免因 R2 未就绪导致部署失败。
-
-用户可使用内置头像库或填写外链头像。要启用上传需同时：
-1. `wrangler.toml` 加回 `[[r2_buckets]]`
-2. 设置变量 `AVATAR_ENABLED=1`
-3. `/api/config` 返回 `avatarUpload: true`（前端才显示上传按钮）
+`scripts/ensure-r2.ts` 会寻找/创建桶并**自动写入 `[[r2_buckets]]` 绑定**；
+只要绑定存在，`/api/config` 就返回 `avatarUpload: true`，前端显示上传按钮，
+**不再需要 `AVATAR_ENABLED=1` 这类手工开关**。
+桶创建失败（Token 缺 R2 权限）时脚本移除绑定并降级，不阻断部署 —— 排查见「速览 → 3」。
+未启用时用户仍可用内置头像库或填写外链头像。
 
 
 ---
 
-## 站内通知（铃铛）
+### 站内通知（铃铛）
 
 顶栏铃铛展示两类通知，点击展开下拉面板：
 
@@ -713,7 +790,7 @@ DPR 上限 1.75 以照顾移动端性能；主题切换后自动重取配色。
 
 表：`notifications`。接口：`GET /api/notifications`、`/unread`、`POST /read`、`/read-all`、`DELETE /:id`。
 
-## 邮箱验证码（Resend / Brevo）
+### 邮箱验证码（Resend / Brevo）
 
 后台 → 站点设置 → **邮件服务与验证码**：
 
@@ -727,21 +804,21 @@ DPR 上限 1.75 以照顾移动端性能；主题切换后自动重取配色。
 用途：
 - **忘记密码** —— 登录页「忘记密码？」用验证码重置，重置后踢掉所有会话
 - **注册** —— 开启后注册需先验证邮箱
+- **更换邮箱** —— 个人资料里向**新邮箱**发码，确认后写回账号；沿用同一套
+  `email_verifications` 表（`email_change` 场景），不套注册邮箱白名单规则
 
 验证码 6 位、10 分钟有效、错误 5 次作废、**只存哈希不存明文**。
 未配置邮件服务时接口返回 503 并提示联系管理员，绝不假装发送成功。
 
-## R2 头像公网地址
+### R2 头像公网地址
 
 后台 → 站点设置 → **R2 头像公网地址**。留空则头像走 `/api/avatar/<key>` 由 Worker 代理读取
 （桶无需开启公开访问）。填写后头像直接外链，省 Worker 流量。
-
-`scripts/ensure-r2.ts` 会自动寻找/创建桶并**自动写入 `[[r2_buckets]]` 绑定**；
-失败（权限不足）则移除绑定并降级，不阻断部署。
+绑定与降级行为见上一节。
 
 ---
 
-## Spaceship 域名注册商（自动发现根域名）
+### Spaceship 域名注册商（自动发现根域名）
 
 后台 → 站点设置 → **Spaceship 域名注册商**，填入后即可自动发现账号下的域名：
 
@@ -777,7 +854,7 @@ GET  /api/admin/roots             当前全部根域名（含来源）
 
 ---
 
-## AI 自动审核 + 按根域名的 DNS 限额
+### AI 自动审核 + 按根域名的 DNS 限额
 
 后台 → **站点设置 → AI 自动审核**（`src/lib/aiReview.ts`）。
 
@@ -814,7 +891,7 @@ npx wrangler secret put AI_API_KEY
 
 ---
 
-## 中英文切换（全站）
+### 中英文切换（全站）
 
 `src/app/lib/i18n.ts`。顶栏有 **中 / EN** 切换器，控制台、落地页、登录页三种
 顶栏都会自动注入；也可按 `Alt + L` 快速切换。
@@ -834,7 +911,7 @@ npx wrangler secret put AI_API_KEY
 选择存 `localStorage.terradata_lang`，`<html lang>` / `data-lang` 由
 `src/html/spa.ts` 里的同步预置脚本预置，刷新不闪。
 
-## 登录页与落地页版式
+### 登录页与落地页版式
 
 - 登录页改为「左侧品牌陈述 + 右侧表单卡片」，移除原先右侧四块堆砌的说明模块，
   顶栏也不再放壁纸切换器；登录 / 注册 / 找回密码三个面板的全部 DOM id 保留
@@ -843,7 +920,7 @@ npx wrangler secret put AI_API_KEY
 - 落地页进一步改为 Zerexa Domains 风格：超大标题、整行搜索框（前缀 + 根域名
   下拉 + 查询按钮）、三个胶囊入口、四张指标卡；搜索按所选后缀查询
 
-## 注册页四步向导与后缀选择器
+### 注册页四步向导与后缀选择器
 
 `/register` 参考 DnsNeko 改为四步：使用须知 → 选择域名 → 确认信息 → 提交注册。
 后缀按钮**嵌在同一个输入框里**，点开浮层按「`.后缀` … `Free`」列出全部根域名。
@@ -853,12 +930,12 @@ npx wrangler secret put AI_API_KEY
 - `data-no-i18n` 标在选择器上：域名字符串不参与翻译，避免任何动态文本被回退
 - 支持 `/register?label=foo&root=v-1.top`，从 WHOIS / 落地页跳转时保持后缀选中
 
-## WHOIS 查询其它根域名
+### WHOIS 查询其它根域名
 
 WHOIS 页与落地页搜索框都加了根域名下拉。只写前缀时按选中的根域名拼成完整
 FQDN 再查；输入完整域名仍走外部 WHOIS / RDAP。
 
-## AI 自动审核诊断
+### AI 自动审核诊断
 
 `aiReview()` 现在：12 秒超时、`/models` 探测失败时逐个回退候选模型、
 `max_tokens` 被网关拒绝时自动去掉参数重试、兼容 `approved` / `pass` / 纯文本等

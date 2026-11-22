@@ -3,8 +3,13 @@
  * 外部符号由 runtime 提供；DOM 查询作用于当前挂载的页面。
  */
 import { api, esc, fmtTime, openModal, closeModal, loadBranding, resetBranding, applyBranding, statusBadge, mountShell, showDialog } from '../lib/runtime';
+import { POINT_DEFAULTS } from '../../lib/pointDefaults';
 
 import type { LegacyCtx } from '../lib/types';
+
+/* 0 是合法值（免费），不能用 `||` 兜底 —— 否则管理员设 0 后重开页面
+   会看到默认值，一点保存就把 0 覆盖掉。只把 undefined / 空串交给默认。 */
+function pick(v, d) { return (v === undefined || v === null || v === '') ? d : v; }
 
 /** 站点设置页的操作反馈：统一用弹窗，不再弹底部黑色药丸。 */
 function settingsFeedback(msg: string, type: 'ok' | 'err' = 'ok') {
@@ -514,12 +519,12 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             <div class="field">
               <label>积分规则</label>
               <div class="grid2">
-                <div><span class="dim">每日签到奖励</span><input id="sCheckin" type="number" min="0" max="1000" value="${esc(s.checkin_points || '5')}"></div>
-                <div><span class="dim">新用户初始积分</span><input id="sInitial" type="number" min="0" max="10000" value="${esc(s.initial_points || '10')}"></div>
-                <div><span class="dim">申请子域名消耗</span><input id="sCost" type="number" min="0" max="10000" value="${esc(s.domain_cost || '5')}"></div>
-                <div><span class="dim">单字域名消耗</span><input id="sShortCost" type="number" min="0" max="100000" value="${esc(s.short_domain_cost || '35')}"></div>
+                <div><span class="dim">每日签到奖励</span><input id="sCheckin" type="number" min="0" max="1000" value="${esc(pick(s.checkin_points, POINT_DEFAULTS.checkin))}"></div>
+                <div><span class="dim">新用户初始积分</span><input id="sInitial" type="number" min="0" max="10000" value="${esc(pick(s.initial_points, POINT_DEFAULTS.initial))}"></div>
+                <div><span class="dim">申请子域名消耗</span><input id="sCost" type="number" min="0" max="10000" value="${esc(pick(s.domain_cost, POINT_DEFAULTS.domainCost))}"></div>
+                <div><span class="dim">单字域名消耗</span><input id="sShortCost" type="number" min="0" max="100000" value="${esc(pick(s.short_domain_cost, POINT_DEFAULTS.shortCost))}"></div>
               </div>
-              <div class="hint">「单字域名长度上限」= ${esc(s.short_domain_len || '1')}（长度不超过该值即按单字计价）。管理员不消耗积分。老用户首次进入按已有域名数补偿，已有域名不受影响。</div>
+              <div class="hint">「单字域名长度上限」= ${esc(pick(s.short_domain_len, POINT_DEFAULTS.shortLen))}（长度不超过该值即按单字计价）。管理员不消耗积分。老用户首次进入按已有域名数补偿，已有域名不受影响。填 0 = 免费，保存后原样显示。</div>
             </div>
             <div class="field">
               <label>按根域名设置申请积分</label>

@@ -2,6 +2,7 @@ import { mergeRootEnv, effectiveRootList } from './lib/rootStore.js';
 import { DEFAULT_MESSAGE } from './lib/applyGate.js';
 import { loadAiConfig } from './lib/aiReview.js';
 import { parseRootCosts } from './lib/points.js';
+import { POINT_DEFAULTS } from './lib/pointDefaults.js';
 import { runAiReviewBatch } from './lib/aiBatch.js';
 import { emailRuleHint, emailRuleOf } from './lib/emailRule.js';
 import { DEFAULT_FOOTER_ICP_HTML } from './lib/footerIcp.js';
@@ -179,7 +180,7 @@ app.use('/api/stats', publicCors);
 // 公开配置（含站点品牌，登录页也要用）
 app.get('/api/config', async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','default_quota')"
+    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota')"
   ).all();
   const s = Object.fromEntries(results.map((r) => [r.key, r.value]));
   // 显式取「生效列表」：不依赖中间件是否成功替换 c.env 引用，
@@ -211,10 +212,13 @@ app.get('/api/config', async (c) => {
     avatarUpload: !!c.env.AVATARS,
     // 注册页后缀菜单据此显示每个后缀的积分（0 = Free，未配置 = 按全局规则）
     rootPointCosts: parseRootCosts(s.root_point_costs),
+    // 与后台「积分规则」同一份生效值；页面说明据此实时渲染，不再写死数字
     pointRules: {
-      domainCost: Number(s.domain_cost || 5) || 0,
-      shortCost: Number(s.short_domain_cost || 35) || 0,
-      shortLen: Number(s.short_domain_len || 1) || 1,
+      checkin: Number(s.checkin_points ?? POINT_DEFAULTS.checkin) || 0,
+      initial: Number(s.initial_points ?? POINT_DEFAULTS.initial) || 0,
+      domainCost: Number(s.domain_cost ?? POINT_DEFAULTS.domainCost) || 0,
+      shortCost: Number(s.short_domain_cost ?? POINT_DEFAULTS.shortCost) || 0,
+      shortLen: Number(s.short_domain_len ?? POINT_DEFAULTS.shortLen) || 1,
     },
     allowSignup: c.env.ALLOW_SIGNUP !== '0',
     requireApproval: c.env.REQUIRE_APPROVAL === '1',

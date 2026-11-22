@@ -194,12 +194,25 @@ INSERT OR IGNORE INTO settings(key, value) VALUES ('announcement', '欢迎使用
 INSERT OR IGNORE INTO settings(key, value) VALUES ('max_accounts_per_ip', '2');
 -- 新用户默认子域名配额：-1 = 不限量，0 = 不允许申请；后台「站点设置」可改
 INSERT OR IGNORE INTO settings(key, value) VALUES ('default_quota', '5');
--- 积分规则
-INSERT OR IGNORE INTO settings(key, value) VALUES ('checkin_points', '5');      -- 每日签到奖励
-INSERT OR IGNORE INTO settings(key, value) VALUES ('domain_cost', '5');         -- 申请一个子域名消耗
-INSERT OR IGNORE INTO settings(key, value) VALUES ('short_domain_cost', '35');  -- 单字域名消耗
+-- 积分规则（新默认与 src/lib/pointDefaults.ts 逐项一致，由健康巡检断言）
+INSERT OR IGNORE INTO settings(key, value) VALUES ('checkin_points', '30');     -- 每日签到奖励
+INSERT OR IGNORE INTO settings(key, value) VALUES ('domain_cost', '60');        -- 申请一个子域名消耗
+INSERT OR IGNORE INTO settings(key, value) VALUES ('short_domain_cost', '300'); -- 单字域名消耗
 INSERT OR IGNORE INTO settings(key, value) VALUES ('short_domain_len', '1');    -- 长度 <= 该值视为单字域名
-INSERT OR IGNORE INTO settings(key, value) VALUES ('initial_points', '10');     -- 新用户初始积分
+INSERT OR IGNORE INTO settings(key, value) VALUES ('initial_points', '100');    -- 新用户初始积分
+
+-- 老库升级：只把「仍是旧默认、且从未升级过」的库刷成新默认。
+-- 管理员后来手动改过的值（含故意设成 5 / 10 / 35）一律保留，不覆盖。
+-- points_defaults_v2 是一次性标记，避免每次部署反复改写自定义值。
+UPDATE settings SET value = '30'  WHERE key = 'checkin_points'    AND value = '5'
+  AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'points_defaults_v2');
+UPDATE settings SET value = '60'  WHERE key = 'domain_cost'       AND value = '5'
+  AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'points_defaults_v2');
+UPDATE settings SET value = '300' WHERE key = 'short_domain_cost' AND value = '35'
+  AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'points_defaults_v2');
+UPDATE settings SET value = '100' WHERE key = 'initial_points'    AND value = '10'
+  AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'points_defaults_v2');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('points_defaults_v2', '1');
 -- WHOIS 持有人邮箱显示方式：masked 脱敏（默认）| none 不显示 | full 完整
 INSERT OR IGNORE INTO settings(key, value) VALUES ('whois_holder', 'masked');
 -- 站点品牌（后台「站点设置」可改）

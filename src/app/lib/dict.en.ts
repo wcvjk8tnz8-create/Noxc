@@ -510,7 +510,8 @@ export const EXTRA_DICT: Record<string, string> = {
   '· 管理员不限积分。': '· Admins have unlimited points.',
   '· 申请一个普通子域名消耗': '· A standard subdomain costs ',
   '· 想要域名永久化或更多配额？去「': '· Want a perpetual domain or more quota? Go to "',
-  '普通域名消耗 5 分，单字域名（如': 'A standard domain costs 5 points; a single-character one (e.g. ',
+  '积分按站点当前规则实时计算：确认页会显示本次消耗，签到地显示每日奖励与初始积分。持有数量受配额限制，管理员不限。':
+    'Points follow the live site rules: the confirmation step shows the exact cost, and the check-in page shows the daily reward and starting balance. Quota limits how many domains you can hold; admins are exempt.',
   '如发现该域名存在钓鱼、恶意程序、垃圾邮件等滥用行为，请联系站点管理员。':
     'If this domain is used for phishing, malware, spam or other abuse, please contact the site administrator.',
   '这次是「免审核直接开通」，不是 AI 判定；真跑模型要 1–5 秒（最坏 20 秒）。':

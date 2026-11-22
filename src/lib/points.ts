@@ -1,13 +1,14 @@
 // ============================================================
 //  积分
-//  - 每日签到领取（默认 +5）
-//  - 申请子域名消耗（普通 5 分，单字域名 35 分）
+//  - 每日签到领取 / 申请子域名消耗 / 单字域名消耗：默认值见 pointDefaults.ts
+//    （+30 / 60 / 300），数据库 settings 优先
 //  - 可按根域名单独设置消耗积分，允许 0（该后缀免费）
 //  - 管理员无限（points = -1）
 //  - 老用户的已有子域名不追溯扣分
 // ============================================================
 
 import { normalizeDomain } from './roots.js';
+import { POINT_DEFAULTS } from './pointDefaults.js';
 
 export const UNLIMITED_POINTS = -1;
 
@@ -37,7 +38,7 @@ export function serializeRootCosts(map) {
 }
 
 /** 读取用户积分；从未初始化则按 initial_points 初始化 */
-export async function getPoints(db, userId, initial = 10) {
+export async function getPoints(db, userId, initial = POINT_DEFAULTS.initial) {
   const row = await db.prepare('SELECT points FROM user_points WHERE user_id = ?').bind(userId).first();
   if (row) return row.points;
   await db
@@ -53,7 +54,7 @@ export async function getPoints(db, userId, initial = 10) {
  * 保证老用户升级后资产不缩水（已有域名不会被扣分或回收）。
  * 新用户（0 个域名）拿到的是 initial_points。
  */
-export async function ensurePoints(db, userId, { initial = 10, domainCost = 5 } = {}) {
+export async function ensurePoints(db, userId, { initial = POINT_DEFAULTS.initial, domainCost = POINT_DEFAULTS.domainCost } = {}) {
   const row = await db.prepare('SELECT points FROM user_points WHERE user_id = ?').bind(userId).first();
   if (row) return row.points;
   const cnt = await db
@@ -143,7 +144,7 @@ export async function recordCheckin(db, userId, day, points) {
  */
 export function domainCost(
   label,
-  { domainCost = 5, shortCost = 35, shortLen = 1, rootCosts = {} } = {},
+  { domainCost = POINT_DEFAULTS.domainCost, shortCost = POINT_DEFAULTS.shortCost, shortLen = POINT_DEFAULTS.shortLen, rootCosts = {} } = {},
   isAdmin = false,
   root = '',
 ) {

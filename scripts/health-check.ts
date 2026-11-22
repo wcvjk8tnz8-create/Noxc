@@ -1230,6 +1230,39 @@ for (const f of ['src/html/root-meoy.ts', 'src/html/root-v1.ts']) {
     `${f} 语言按钮为固定 44px 盒模型（不依赖字体行高）`);
 }
 
+/* 积分默认值单一来源：schema.sql 的 INSERT 与 pointDefaults.ts 必须逐项一致，
+   且前端页面不得再写死 5 / 35 / 10 —— 否则后台改了设置，页面说明又对不上实际扣费。 */
+const pd = read('src/lib/pointDefaults.ts');
+const pdVal = (k) => {
+  const m = pd.match(new RegExp('\\b' + k + ':\\s*(\\d+)'));
+  return m ? m[1] : null;
+};
+const schemaPd = read('schema.sql');
+const schemaInsert = (k) => {
+  const m = schemaPd.match(new RegExp("INSERT OR IGNORE INTO settings\\(key, value\\) VALUES \\('" + k + "', '(\\d+)'\\)"));
+  return m ? m[1] : null;
+};
+for (const [k, sk] of [['checkin', 'checkin_points'], ['domainCost', 'domain_cost'],
+                       ['shortCost', 'short_domain_cost'], ['shortLen', 'short_domain_len'],
+                       ['initial', 'initial_points']]) {
+  check(pdVal(k) !== null && pdVal(k) === schemaInsert(sk),
+    `积分默认值 ${k} 在 pointDefaults.ts 与 schema.sql 一致（${pdVal(k)}）`);
+}
+check(/points_defaults_v2/.test(schemaPd) && /NOT EXISTS/.test(schemaPd),
+  '积分默认值迁移是一次性的，不覆盖管理员自定义值');
+for (const f of ['src/routes/points.ts', 'src/index.ts', 'src/lib/points.ts',
+                 'src/app/legacy/admin.ts', 'src/app/legacy/register.ts',
+                 'src/app/pages/Checkin.tsx']) {
+  check(/POINT_DEFAULTS/.test(read(f)), `${f} 引用统一默认值（无散落硬编码）`);
+}
+check(!/普通域名消耗 5 分/.test(read('src/app/pages/Register.tsx'))
+   && /faqPointRules/.test(read('src/app/pages/Register.tsx'))
+   && /faqPointRules/.test(read('src/app/legacy/register.ts')),
+  '注册须知积分说明随 /api/config 动态渲染');
+check(read('src/app/lib/i18n.ts').includes('当前规则：普通域名 (\\d+) 分')
+   && read('src/app/lib/i18n.ts').includes('Current rules: standard'),
+  '动态规则行有英文句式（英文模式不会夹生）');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

@@ -3,6 +3,7 @@
  * 外部符号由 runtime 提供；DOM 查询作用于当前挂载的页面。
  */
 import { api, toast, mountShell, onDoc } from '../lib/runtime';
+import { POINT_DEFAULTS } from '../../lib/pointDefaults';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -12,7 +13,13 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   var AI_ROOTS = [];
   var DNS_UNLIMITED = [];
   var ROOT_COSTS = {};
-  var POINT_RULES = { domainCost: 5, shortCost: 35, shortLen: 1 };
+  var POINT_RULES = {
+    checkin: POINT_DEFAULTS.checkin,
+    initial: POINT_DEFAULTS.initial,
+    domainCost: POINT_DEFAULTS.domainCost,
+    shortCost: POINT_DEFAULTS.shortCost,
+    shortLen: POINT_DEFAULTS.shortLen,
+  };
   var checkTimer = 0;
 
   /* 当前后缀的规则提示：AI 自动审核 / DNS 记录不限 */
@@ -110,7 +117,14 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       AI_ROOTS = Array.isArray(cfg.aiReviewRoots) ? cfg.aiReviewRoots : [];
       DNS_UNLIMITED = Array.isArray(cfg.dnsUnlimitedRoots) ? cfg.dnsUnlimitedRoots : [];
       ROOT_COSTS = (cfg.rootPointCosts && typeof cfg.rootPointCosts === 'object') ? cfg.rootPointCosts : {};
-      if (cfg.pointRules) POINT_RULES = cfg.pointRules;
+      if (cfg.pointRules) POINT_RULES = Object.assign({}, POINT_RULES, cfg.pointRules);
+      /* 注册须知的规则行随后台设置实时更新，杜绝「页面写 5 分、实际扣 60 分」 */
+      var faq = document.getElementById('faqPointRules');
+      if (faq) {
+        faq.textContent = '当前规则：普通域名 ' + POINT_RULES.domainCost + ' 分 · 单字域名 '
+          + POINT_RULES.shortCost + ' 分 · 每日签到 +' + POINT_RULES.checkin
+          + ' 分 · 新用户初始 ' + POINT_RULES.initial + ' 分';
+      }
       updateRootTip(list[0] || '');
 
       /* 每个后缀在菜单里直接标出消耗积分：0 = Free，未配置 = 按全局规则 */
