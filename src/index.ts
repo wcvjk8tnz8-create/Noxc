@@ -45,6 +45,32 @@ import showcaseRoutes from './routes/showcase.js';
 
 const app = new Hono();
 
+/**
+ * 服务文档静态资源的取用：ASSETS 的 html_handling 会把
+ *   /docs/index.html → /docs/、/docs/foo.html → /docs/foo
+ * 这类路径做规范化 3xx。如果直接把 3xx 交回浏览器，下一轮请求又进 Worker，
+ * Worker 又把路径改写回 /docs/index.html，就形成 Safari 报的
+ * 「太多重新导向」无限循环（/docs 改 VitePress 后真实踩过）。
+ *
+ * 这里在 Worker 内部跟随这些 3xx，只把最终的 200/404 返回给浏览器；
+ * 记录访问过的 path，检测到自指立即停下并回 404，绝不外吐 3xx。
+ */
+async function docsAsset(c: any, startPath: string): Promise<Response> {
+  let url = new URL(startPath, c.req.url);
+  const seen = new Set<string>();
+  for (let i = 0; i < 5; i++) {
+    const key = url.pathname;
+    if (seen.has(key)) break;            // 内部自指循环，停止
+    seen.add(key);
+    const res = await c.env.ASSETS.fetch(new Request(url, c.req.raw));
+    if (res.status < 300 || res.status >= 400) return res;
+    const loc = res.headers.get('location');
+    if (!loc) return res;
+    url = new URL(loc, url);
+  }
+  return new Response('docs asset redirect loop', { status: 404 });
+}
+
 // /api/xxx/ 与 /api/xxx 等价（去掉结尾斜杠后重新分发）
 /* 老库补列：任何请求进来先跑一次（模块级缓存，成功即不再查 PRAGMA）。
    以前靠 schema.sql 重建表补列，每次部署都会清空用户案例展示开关。 */
@@ -129,10 +155,11 @@ app.use('*', async (c, next) => {
   return next();
 });
 
-/* 旧链接 /docs/dnshe 一律回到直出页的 DNSHE 章节，不留 404。
-   /docs 本体在下方 app.all('*') 里按 path 由 TypeScript 模板直出。 */
-app.get('/docs/dnshe', (c) => c.redirect('/docs#dnshe', 302));
-app.get('/docs/dnshe.html', (c) => c.redirect('/docs#dnshe', 302));
+/* 旧链接 /docs/dnshe 回到 VitePress 的 DNSHE 章节。
+   不能直接 302 到 /docs/dnshe.html：ASSETS 会把 .html 规范化回 /docs/dnshe，
+   又撞上这条路由 → 循环。改为内部取到内容后直接响应，浏览器零重定向。 */
+app.get('/docs/dnshe', (c) => docsAsset(c, '/docs/dnshe.html'));
+app.get('/docs/dnshe.html', (c) => docsAsset(c, '/docs/dnshe.html'));
 
 // 健康检查
 app.get('/api/health', (c) =>
@@ -352,17 +379,16 @@ app.all('*', async (c) => {
     const rootPage = rootPageFor(reqUrl.hostname);
     if (rootPage) return c.html(rootPage);
   }
-  /* 服务文档：VitePress 静态站（产物由 scripts/copy-docs.mjs 并入
-     dist/client/docs/，base = /docs/）。ASSETS 不会自动把目录补成 index.html，
-     所以 /docs 与 /docs/ 显式改写；/docs/* 的页面与资源原样交给 ASSETS。
-     /docs.html 是老书签，302 到新的目录路径。
+  /* 服务文档：VitePress 静态站（产物由 scripts/copy-docs.ts 并入
+     dist/client/docs/，base = /docs/）。
+     注意：不要再自己改写 /docs → /docs/index.html。ASSETS 自带规范化会把
+     /docs/index.html 301 回 /docs/，而 /docs/ 进 Worker 后尾斜杠被去掉又成
+     /docs，浏览器侧就无限重定向（Safari 直接报「太多重新导向」）。
+     统一经 docsAsset() 在 Worker 内部消化 3xx，只外吐 200/404。
      SPA_PATHS 里仍留 docs 作兜底，但这个分支更靠前，不会走 React 外壳。 */
-  if (path === '/docs' || path === '/docs/') {
-    const u = new URL('/docs/index.html', c.req.url);
-    return c.env.ASSETS.fetch(new Request(u, c.req.raw));
-  }
+  if (path === '/docs' || path === '/docs/') return docsAsset(c, '/docs/');
   if (path === '/docs.html') return c.redirect('/docs/', 302);
-  if (path.startsWith('/docs/')) return c.env.ASSETS.fetch(c.req.raw);
+  if (path.startsWith('/docs/')) return docsAsset(c, reqUrl.pathname);
   if (SPA_PATHS.has(path) || SPA_PATHS.has(path + '.html')) {
     const url = new URL('/', c.req.url);
     return c.env.ASSETS.fetch(new Request(url, c.req.raw));

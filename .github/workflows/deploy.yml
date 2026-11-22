@@ -128,6 +128,10 @@ jobs:
       - name: SPA 直达回落回归
         run: npx tsx scripts/spa-routes-regression.ts
 
+      # /docs 改 VitePress 后曾因 ASSETS 规范化 + Worker 改写形成无限重定向
+      - name: 服务文档重定向循环回归
+        run: npx tsx scripts/docs-redirect-regression.ts
+
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
       - name: 统计展开回归
         run: npx tsx scripts/stats-breakdown-regression.ts

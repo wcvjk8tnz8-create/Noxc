@@ -442,19 +442,22 @@ subdomain-hub/
 
 ### 1. 获取 Cloudflare 凭据
 
-| 需要什么 | 去哪里拿 |
-|---|---|
-| **API Token** | 用下方「一键创建」链接，权限与名称已预填 |
-| **Account ID** | <https://dash.cloudflare.com/?to=/:account/workers-and-pages> 右侧栏 |
-| **Zone ID** | 选中根域名 → Overview → 右下角 API 区块 |
+**第一步：先建 Token。** 用下面这条预填链接，不用自己逐项勾权限：
 
 **一键创建（推荐）**：
 
 👉 [创建 Noxc Deploy Token（用户 Token）](https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_kv_storage%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_r2%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22d1%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_routes%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&accountId=%2A&zoneId=all&name=Noxc%20Deploy%20Token)
 
-打开即是 Create Custom Token 表单，7 项权限与名称已勾好；确认 Account / Zone 范围后
-`Continue to summary` → `Create Token`，**token 只显示一次，立刻复制**。
+打开即是 Create Custom Token 表单，7 项权限与名称 `Noxc Deploy Token` 已预填；
+确认 Account / Zone 范围后 `Continue to summary` → `Create Token`，
+**token 只显示一次，立刻复制**，别贴到聊天或日志里。
 CI 场景若不想依赖个人账号，可用 [Account-owned Token](https://dash.cloudflare.com/?to=/:account/api-tokens&permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_kv_storage%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_r2%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22d1%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_routes%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&name=Noxc%20Deploy%20Token)（需 Super/Administrator）。
+
+| 需要什么 | 去哪里拿 |
+|---|---|
+| **API Token** | 用上方「一键创建 Noxc Deploy Token」链接，7 项权限与名称已预填 |
+| **Account ID** | <https://dash.cloudflare.com/?to=/:account/workers-and-pages> 右侧栏 |
+| **Zone ID** | 选中根域名 → Overview → 右下角 API 区块 |
 
 API Token 需要的权限（**缺 KV / R2 时部署照样成功，但绑定会静默降级**）：
 
@@ -644,6 +647,13 @@ npm run deploy      # build + wrangler deploy
 文档源在 `docs-src/`，`vitepress build docs-src` 的产物由 `scripts/copy-docs.ts`
 并入 `dist/client/docs/`；Worker 把 `/docs` 显式改写为 `/docs/index.html` 交给
 ASSETS，`/docs/*` 的页面与图片原样回落，`/docs.html` 老书签 302 到 `/docs/`。
+**`/docs` 不要再自己改写路径**：Cloudflare ASSETS 的 `html_handling` 会把
+`/docs/index.html` 规范化 301 到 `/docs/`，而 `/docs/` 进 Worker 后尾斜杠被去掉又成
+`/docs`；若 Worker 把 `/docs` 改写成 `/docs/index.html` 并把 3xx 直接交给浏览器，
+就会形成 Safari 报的「太多重新导向」无限循环。现在统一经 `src/index.ts` 的
+`docsAsset()` 在 Worker 内部跟随这些 3xx，只把最终 200/404 返回浏览器，并检测自指循环。
+`docs-redirect-regression.ts` 专门守着这条（含病态 ASSETS 与反向对照）。
+
 文档图片放在 `docs-src/img/`，中文页用 `./img/figN.png`、英文页用 `../img/figN.png` 相对引用，由 Vite 打包成带 hash 的静态资源。写成 `/img/...` 或 `/docs/img/...` 这类根绝对路径，会被 Vite 当成模块去 resolve 而直接构建失败。
 文档为**中英双语各 8 页**，含 DNSHE 托管的 8 张截图；站点公告通过 VitePress 的
 `layout-top` 插槽显示（纯文本、不解析 HTML），与站内其余页面同源。

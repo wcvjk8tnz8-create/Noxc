@@ -89,7 +89,15 @@ function makeEnv() {
             status: 200, headers: { 'content-type': 'text/html' },
           });
         }
+        // 模拟 Cloudflare Assets 的 html_handling 规范化：
+        // /docs/index.html → 301 /docs/，/docs/x.html → 301 /docs/x
         if (u.pathname === '/docs/index.html') {
+          return new Response('', { status: 301, headers: { location: '/docs/' } });
+        }
+        if (u.pathname.endsWith('.html') && u.pathname.startsWith('/docs/')) {
+          return new Response('', { status: 301, headers: { location: u.pathname.slice(0, -5) } });
+        }
+        if (u.pathname === '/docs/' || /^\/docs\/[a-z-]+$/.test(u.pathname)) {
           return new Response('<!doctype html><html><body><div id="app">VITEPRESS_DOCS</div><h1>Noxc 服务文档</h1></body></html>', {
             status: 200, headers: { 'content-type': 'text/html' },
           });
@@ -128,18 +136,21 @@ for (const p of ['/definitely-not-a-page', '/img/logo.jpg', '/assets/x.js']) {
     `${p} 原样交给 ASSETS（回落清单没有放宽成通配）`);
 }
 
-/* /docs 由 VitePress 静态产物提供（产物在 dist/client/docs/），
-   Worker 显式改写为 /docs/index.html 交给 ASSETS，不被 SPA 回落吞掉。 */
+/* /docs 由 VitePress 静态产物提供。ASSETS 会把 /docs/index.html 与
+   /*.html 规范化成 301，docsAsset() 在 Worker 内部消化，浏览器零重定向。 */
 {
   const r = await hit('/docs');
   check(r.status === 200 && r.text.includes('VITEPRESS_DOCS') &&
-    r.calls.length === 1 && r.calls[0] === '/docs/index.html',
-    '/docs 直达 → ASSETS 的 /docs/index.html（VitePress 静态页）');
-  const r2 = await hit('/docs/quick-start.html');
-  check(r2.status === 404 && r2.calls[0] === '/docs/quick-start.html',
-    '/docs/* 子页原样交给 ASSETS，不误走 SPA 外壳');
-  const r3 = await hit('/docs.html');
-  check(r3.status === 302, '/docs.html 老书签 302 到 /docs/');
+    !r.text.includes('redirect') && r.calls[0] === '/docs/',
+    '/docs 直达 → 200（ASSETS 规范化 3xx 被内部消化，不外吐重定向）');
+  const r2 = await hit('/docs/');
+  check(r2.status === 200 && r2.text.includes('VITEPRESS_DOCS'),
+    '/docs/ 直达同样 200');
+  const r3 = await hit('/docs/quick-start.html');
+  check(r3.status === 200 && r3.calls.length >= 2 && r3.calls[1] === '/docs/quick-start',
+    '/docs/* 的 .html 规范化 301 在内部跟随，子页正常 200');
+  const r4 = await hit('/docs.html');
+  check(r4.status === 302, '/docs.html 老书签 302 到 /docs/');
 }
 
 /* 根路径在普通主机上走 SPA 首页；根域名落地页只在特定 Host 直出 */

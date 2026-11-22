@@ -1233,9 +1233,10 @@ check(
 check(/fetch\('\/api\/config'/.test(vpAnn) && /announcement\.value\s*=/.test(vpAnn),
   '文档页公告异步补挂，接口失败保持隐藏，不阻塞首屏');
 check(
-  !/docsHtml/.test(docIndex) && /\/docs\/index\.html/.test(docIndex) &&
-  /path\.startsWith\('\/docs\/'\)/.test(docIndex) && !/c\.html\(docsHtml\)/.test(docIndex),
-  '/docs 由 VitePress 静态产物提供，Worker 不再用 TS 模板直出'
+  /async function docsAsset/.test(docIndex) &&
+  !/new URL\('\/docs\/index\.html', c\.req\.url\)/.test(docIndex) &&
+  !/docsHtml/.test(docIndex) && !/c\.html\(docsHtml\)/.test(docIndex),
+  '/docs 走 VitePress 静态产物，ASSETS 规范化 3xx 由 docsAsset 内部消化，不再外吐重定向'
 );
 check(
   /docs:build/.test(read('package.json')) &&
@@ -1551,6 +1552,35 @@ check(/vitepress/.test(sbPkg) && /docs:build/.test(sbPkg)
   'npm run build 串起 Vite + VitePress 两条构建链');
 check(/校验 VitePress 文档产物/.test(sbCI) && /dist\/client\/docs\/en\/index\.html/.test(sbCI),
   'CI 校验 VitePress 中英产物与截图确实落地');
+
+/* /docs 无限重定向：VitePress 改版时把 /docs 显式改写成 /docs/index.html，
+   ASSETS 又规范化 301 回 /docs/，Worker 去尾斜杠又变 /docs → Safari 报
+   「太多重新导向」。docsAsset() 在内部消化 3xx，绝不外吐给浏览器。 */
+const drIdx = read('src/index.ts');
+const drReg = read('scripts/docs-redirect-regression.ts');
+const drCI = read('.github/workflows/deploy.yml');
+const drReadme = read('README.md');
+check(/async function docsAsset\(/.test(drIdx) && /seen\.has\(key\)/.test(drIdx)
+  && /redirect loop/.test(drIdx),
+  'docsAsset 内部跟随 ASSETS 规范化 3xx + 自指检测 + 不外吐 3xx');
+check(!/new URL\('\/docs\/index\.html', c\.req\.url\)/.test(drIdx),
+  '旧的「/docs 显式改写 index.html」写法已删除（循环根因）');
+check(/docsAsset\(c, '\/docs\/'\)/.test(drIdx) && /docsAsset\(c, reqUrl\.pathname\)/.test(drIdx),
+  '/docs 与 /docs/* 统一走内部消化');
+check(/服务文档重定向循环回归/.test(drCI) && /docs-redirect-regression\.ts/.test(drReg),
+  '专项回归进 CI：模拟 ASSETS 规范化 + 病态自指 + 反向对照');
+check(/太多重新导向/.test(drReadme), 'README 记录了这次循环的根因与规避方式');
+
+/* 一键创建 Token 预填链接：必须是完整 7 项权限的深链，且放在部署章节开头 */
+const tkReadme = read('README.md');
+const tkUrl = (tkReadme.match(/\[创建 Noxc Deploy Token（用户 Token）\]\((https:[^)]+)\)/) || [])[1] || '';
+check(tkUrl.includes('permissionGroupKeys=') && tkUrl.includes('name=Noxc%20Deploy%20Token')
+  && tkUrl.includes('workers_kv_storage') && tkUrl.includes('workers_r2')
+  && tkUrl.includes('accountId=%2A') && tkUrl.includes('zoneId=all'),
+  'README 一键创建链接含 7 项预填权限、名称与 Account/Zone 范围');
+check(tkReadme.indexOf('## 三、部署步骤') < tkReadme.indexOf('创建 Noxc Deploy Token')
+  && tkReadme.indexOf('创建 Noxc Deploy Token') < tkReadme.indexOf('| 需要什么 |'),
+  '一键创建链接位于部署章节开头、凭据表格之前（第一眼就能看到）');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
