@@ -40,6 +40,28 @@
 也可用环境变量 `ROOT_REG_LIMITS` 配置（后台设置优先）。
 
 
+## KV / R2 自动绑定排查
+
+CI 会尝试自动创建并绑定 Workers KV（`KV`）与 R2（`AVATARS`）。绑定成功会写进 **Job Summary**，站点 `/api/config` 的 `kvBound` / `avatarUpload` 也能查。
+
+若 Summary 显示「未自动绑定」、或这两个布尔值都是 `false`，原因基本都是 **API Token 对这两个资源没有权限**：Cloudflare 对「token 有效但越权」也返回 `Authentication error (code 10000)`，所以部署与 D1 仍然成功，只有 KV / R2 的接口被拒。脚本为保证部署不中断会移除绑定并降级 —— **步骤是绿的，但绑定确实没挂上**，这也是最容易误判的地方。
+
+推荐修法（一次配置，之后全自动）：
+
+1. Cloudflare Dashboard → My Profile → API Tokens → 编辑部署用的 Token；
+2. Permissions 增加两项：`Account → Workers KV Storage → Edit`、`Account → R2 → Edit`（保留原有的 Workers Scripts / D1 / DNS 权限）；
+3. 重新跑一次 Actions，脚本会自动创建 `noxc-kv` namespace 与 `meoy-avatars` 桶并写入绑定。
+
+不想动 Token，也可以在控制台手动创建后填仓库 Variables 绕过 API：
+
+| 资源 | 控制台操作 | Variables |
+|---|---|---|
+| KV | 建 namespace `noxc-kv`，复制 id | `KV_NAMESPACE_ID=<id>`（脚本直接写绑定，不调 API） |
+| R2 | 建桶 `meoy-avatars` | `R2_BUCKET_NAME=meoy-avatars` + `R2_ASSUME_EXISTS=1`（跳过 API 校验直写绑定；桶不存在时部署会明确报错） |
+
+> CI 对 `wrangler.toml` 的绑定修改只在本次部署生效，**不会提交回仓库**。请以 Job Summary 和 `/api/config` 为准，不要只看仓库里的 `wrangler.toml`。
+
+
 ## 一、核心特性
 
 ### 1. 12 种 DNS 记录类型全支持

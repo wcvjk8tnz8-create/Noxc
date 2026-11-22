@@ -29,8 +29,30 @@ const TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const NAME = process.env.R2_BUCKET_NAME || 'meoy-avatars';
 const CUSTOM = String(process.env.R2_CUSTOM_DOMAIN || '').trim();
 const ZONE = String(process.env.CF_ZONE_ID || '').trim();
+// 桶已在 Cloudflare 控制台手动创建、但 API Token 没有 R2 列桶权限时，
+// 设为 1 可跳过 API 校验直接写绑定（KV 侧对应的是 KV_NAMESPACE_ID）。
+const ASSUME = String(process.env.R2_ASSUME_EXISTS || '').trim() === '1';
 
 const TOML = new URL('../wrangler.toml', import.meta.url).pathname;
+
+/**
+ * 定位 [[header]] 绑定块的行区间。
+ * 旧版用「吃到下一个顶层节」的整段正则，会把块间的说明注释（例如 KV 的
+ * # [[kv_namespaces]] 占位说明）一起吞掉；这里按行处理，注释一律保留。
+ */
+function bindingBlock(lines: string[], header: string): [number, number] | null {
+  const start = lines.findIndex((l) => new RegExp(`^\\s*\\[\\[${header}\\]\\]`).test(l));
+  if (start < 0) return null;
+  let end = start + 1;
+  while (end < lines.length) {
+    const l = lines[end];
+    if (/^\s*#/.test(l)) break;                       // 块间注释，保留
+    if (/^\s*\[(?:\[|[a-z_])/.test(l)) break;         // 下一个顶层节
+    if (/^\s*$/.test(l) || /^\s*[A-Za-z_]+\s*=/.test(l)) { end++; continue; }
+    break;
+  }
+  return [start, end];
+}
 
 async function disableR2(reason) {
   // 与 ensure-kv.ts 一致：降级不阻断部署，但原因必须在 CI 页面可见，
@@ -52,11 +74,11 @@ async function disableR2(reason) {
 
   try {
     const { readFileSync, writeFileSync } = await import('node:fs');
-    let t = readFileSync(TOML, 'utf8');
-    if (/^\s*\[\[r2_buckets\]\]/m.test(t)) {
-      // 删除 [[r2_buckets]] 整块，直到下一个顶层节或文件末尾
-      t = t.replace(/^\s*\[\[r2_buckets\]\][\s\S]*?(?=^\s*\[(?:\[|[a-z_]))|^\s*\[\[r2_buckets\]\][\s\S]*$/m, '');
-      writeFileSync(TOML, t);
+    const lines = readFileSync(TOML, 'utf8').split('\n');
+    const range = bindingBlock(lines, 'r2_buckets');
+    if (range) {
+      lines.splice(range[0], range[1] - range[0]);
+      writeFileSync(TOML, lines.join('\n'));
       console.log('  ✓ 已从 wrangler.toml 移除 [[r2_buckets]] 绑定');
     }
   } catch (e) {
@@ -77,14 +99,12 @@ async function enableR2(bucketName) {
   const { readFileSync, writeFileSync } = await import('node:fs');
   let t = readFileSync(TOML, 'utf8');
   const block = `[[r2_buckets]]\nbinding = "AVATARS"\nbucket_name = "${bucketName}"`;
+  const lines = t.split('\n');
+  const range = bindingBlock(lines, 'r2_buckets');
 
-  if (/^\s*\[\[r2_buckets\]\]/m.test(t)) {
-    // 已存在：只更新 bucket_name，保留其余字段
-    t = t.replace(
-      /^\s*\[\[r2_buckets\]\][\s\S]*?(?=^\s*\[(?:\[|[a-z_]))|^\s*\[\[r2_buckets\]\][\s\S]*$/m,
-      block + '\n\n'
-    );
-    writeFileSync(TOML, t);
+  if (range) {
+    lines.splice(range[0], range[1] - range[0], ...block.split('\n'));
+    writeFileSync(TOML, lines.join('\n'));
     console.log(`✔ 已更新 wrangler.toml 的 R2 绑定：AVATARS → ${bucketName}`);
   } else {
     // 不存在：追加到 [[d1_databases]] 之前（与其他绑定放一起）
@@ -110,6 +130,16 @@ async function enableR2(bucketName) {
   }
 }
 
+// 兜底路径：桶已手动建好，只是 Token 调不了 R2 API。R2 绑定只需要桶名，
+// 不需要 namespace id，所以跳过校验直接写绑定；若桶实际不存在，
+// wrangler deploy 会明确报错（不会静默丢失绑定，也不会带病上线）。
+if (ASSUME) {
+  console.log(`✔ 按 Variables 配置跳过 R2 API 校验，直接绑定桶「${NAME}」`);
+  console.log('  · 若该桶实际不存在，wrangler deploy 会报错，请在控制台创建后重试。');
+  await enableR2(NAME);
+  process.exit(0);
+}
+
 if (!ACCOUNT || !TOKEN) {
   await disableR2('缺少 CLOUDFLARE_ACCOUNT_ID 或 CLOUDFLARE_API_TOKEN');
 }
@@ -132,7 +162,9 @@ async function cf(path, method = 'GET', body) {
   try { json = JSON.parse(text); }
   catch { throw new Error(`Cloudflare 返回无法解析的内容（HTTP ${r.status}）`); }
   if (!r.ok || !json.success) {
-    const msg = (json.errors || []).map((e) => e.message || e.code).join('；') || `HTTP ${r.status}`;
+    // 与 ensure-kv.ts 一致：code 10000 也可能是「token 有效但缺 R2 权限」
+    const msg = (json.errors || []).map((e) =>
+      `${e.message || 'Cloudflare error'}${e.code ? ` (code ${e.code})` : ''}`).join('；') || `HTTP ${r.status}`;
     throw new Error(msg);
   }
   return json.result;
