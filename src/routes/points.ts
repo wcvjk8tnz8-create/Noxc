@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { POINT_DEFAULTS } from '../lib/pointDefaults.js';
+import { ensureShowcaseReward } from '../lib/showcaseReward.js';
 import { ok, fail, now, audit } from '../lib/util.js';
 import {
   UNLIMITED_POINTS,
@@ -42,6 +43,15 @@ app.get('/me', async (c) => {
   const u = c.get('user');
   const rules = await pointRules(c.env);
   const isAdmin = u.role === 'admin';
+  /* 存量用户：功能上线前就已经开启展示的，进控制台 / 签到地时自动补发一次，
+     不需要重新点开关。奖励本身失败不影响积分接口返回。 */
+  if (!isAdmin) {
+    try {
+      const bonus = await ensureShowcaseReward(c.env, u.id);
+      if (bonus > 0) await audit(c, u.id, 'points.showcase_reward', 'showcase',
+        `用户案例展示奖励补发 +${bonus}`);
+    } catch { /* 降级：积分照常返回 */ }
+  }
   const points = isAdmin ? UNLIMITED_POINTS : await ensurePoints(c.env.DB, u.id, rules);
   const day = todayStr();
   const checked = await hasCheckedIn(c.env.DB, u.id, day);

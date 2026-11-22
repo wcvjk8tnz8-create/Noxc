@@ -1055,6 +1055,8 @@ app.post('/settings', async (c) => {
   if (!(await numRule('short_domain_cost', body.shortDomainCost, 0, 100000, '单字域名消耗积分'))) return fail(c, c.__ruleErr);
   if (!(await numRule('short_domain_len', body.shortDomainLen, 1, 10, '单字域名长度上限'))) return fail(c, c.__ruleErr);
   if (!(await numRule('initial_points', body.initialPoints, 0, 10000, '新用户初始积分'))) return fail(c, c.__ruleErr);
+  // 用户案例展示奖励：0 = 关闭奖励；已领过的不回收，之后再调回来也不会补发
+  if (!(await numRule('showcase_reward_points', body.showcaseRewardPoints, 0, 100000, '用户案例展示奖励积分'))) return fail(c, c.__ruleErr);
 
   /* 新用户默认子域名配额：后台可自定义；-1 = 不限量，0 = 不允许申请。
      优先级高于环境变量 DEFAULT_QUOTA，注册时直接读这个值。 */

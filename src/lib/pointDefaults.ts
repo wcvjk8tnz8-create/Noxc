@@ -18,4 +18,13 @@ export const POINT_DEFAULTS = {
   shortLen: 1,
 } as const;
 
+/**
+ * 用户案例展示奖励：账号首次把任意一个已开通域名开启展示，一次性发放。
+ * 关闭展示不回收；再开、换域名、重复提交都不叠加（口径同 Star / NodeLoc 奖励）。
+ * 后台「站点设置 → 积分规则」可用 settings.showcase_reward_points 覆盖；
+ * 设 0 = 关闭奖励，但已领过的不回收。
+ */
+export const SHOWCASE_REWARD_POINTS = 6000;
+export const SHOWCASE_REWARD_CAP = 100000;
+
 /** schema.sql 里的旧默认（5 / 10 / 5 / 35）只用于一次性迁移判定，不参与运行期逻辑。 */

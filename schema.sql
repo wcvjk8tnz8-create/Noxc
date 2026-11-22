@@ -614,6 +614,15 @@ CREATE TABLE IF NOT EXISTS root_reg_counts (
   PRIMARY KEY (user_id, root_domain)
 );
 
+-- 用户案例展示积分奖励：user_id 主键保证每账号只发一次，并发 INSERT OR IGNORE 天然去重。
+-- 只建表、绝不 RENAME / DROP 业务表（展示开关曾因重建表被反复清空）。
+CREATE TABLE IF NOT EXISTS showcase_rewards (
+  user_id     INTEGER PRIMARY KEY,
+  amount      INTEGER NOT NULL DEFAULT 0,
+  fqdn        TEXT    NOT NULL DEFAULT '',
+  created_at  INTEGER NOT NULL
+);
+
 -- ============================================================
 --  站点设置默认值
 -- ============================================================
@@ -628,6 +637,8 @@ INSERT OR IGNORE INTO settings(key, value) VALUES ('github_star_bonus', '5');
 -- 按根域名每人注册次数：留空 = 全部不限制。格式 "meoy.top:1,noxc.uk:-1"
 -- -1 = 无限；0 = 禁止该后缀；正整数 = 累计次数上限。
 INSERT OR IGNORE INTO settings(key, value) VALUES ('root_reg_limits', '');
+-- 用户案例展示奖励：首次开启展示一次性发放，0 = 关闭奖励。与 SHOWCASE_REWARD_POINTS 一致。
+INSERT OR IGNORE INTO settings(key, value) VALUES ('showcase_reward_points', '6000');
 
 -- ============================================================
 --  用户案例展示列：旧库由 src/lib/showcase.ts 的 PRAGMA + ALTER 补齐，

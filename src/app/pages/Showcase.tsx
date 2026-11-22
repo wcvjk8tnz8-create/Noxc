@@ -74,6 +74,7 @@ export default function ShowcasePage() {
           <h1 className="rv-title">用户案例</h1>
           <p className="rv-lede">由用户自愿展示的主页，点击卡片即可访问</p>
           <p className="showcase-note">所有域名预设都不展示，只有你主动开启才会出现在这里。</p>
+          <p className="showcase-note">开启展示还能获得积分奖励，详见域名详情里的说明。</p>
           <p className="showcase-note"><a href="/dashboard">去域名管理开启展示 →</a></p>
         </section>
 

@@ -1263,6 +1263,42 @@ check(read('src/app/lib/i18n.ts').includes('当前规则：普通域名 (\\d+) �
    && read('src/app/lib/i18n.ts').includes('Current rules: standard'),
   '动态规则行有英文句式（英文模式不会夹生）');
 
+/* 用户案例展示奖励：每账号一次性 +6000（后台可改），开启展示即发、
+   关闭不回收、重复开启不叠加、管理员跳过、关闭奖励设 0。
+   必须同时挂在 PATCH 开关与 /api/points/me（存量用户惰性补发）两处。 */
+const rewardLib = read('src/lib/showcaseReward.ts');
+const rewardPd = read('src/lib/pointDefaults.ts');
+check(/SHOWCASE_REWARD_POINTS\s*=\s*6000/.test(rewardPd), '展示奖励默认 6000 分写在唯一常量源');
+check(/showcase_reward_points', '6000'\)/.test(schemaPd)
+   && /CREATE TABLE IF NOT EXISTS showcase_rewards/.test(schemaPd)
+   && /user_id\s+INTEGER PRIMARY KEY/.test(schemaPd),
+  'schema 有展示奖励表与 6000 默认值，主键天然防并发重复发放');
+check(/INSERT OR IGNORE INTO showcase_rewards/.test(rewardLib)
+   && /meta\?\.changes/.test(rewardLib),
+  '奖励用 INSERT OR IGNORE + changes 判定，并发下只发一次');
+check(/status = 'approved'/.test(rewardLib)
+   && /String\(user\.role\) === 'admin'/.test(rewardLib)
+   && /UNLIMITED_POINTS/.test(rewardLib),
+  '只有已开通域名算展示，管理员 / 无限积分账号跳过');
+check(!/showcase\s*=\s*0[\s\S]{0,200}DELETE FROM showcase_rewards/.test(rewardLib),
+  '关闭展示不回收奖励');
+check(/ensureShowcaseReward\(c\.env, Number\(row\.user_id\)\)/.test(read('src/routes/subdomains.ts'))
+   && /showcaseReward/.test(read('src/routes/subdomains.ts')),
+  'PATCH 展示开关即时发奖，且发给域名所有者而非操作者');
+check(/ensureShowcaseReward\(c\.env, u\.id\)/.test(read('src/routes/points.ts')),
+  '/api/points/me 为存量已展示用户惰性补发');
+check(/showcaseRewardPoints: await showcaseRewardOf/.test(read('src/index.ts'))
+   && /sShowcaseReward/.test(read('src/app/legacy/admin.ts'))
+   && /showcaseRewardPoints: document/.test(read('src/app/legacy/admin.ts'))
+   && /'showcase_reward_points', body\.showcaseRewardPoints/.test(read('src/routes/admin.ts')),
+  '奖励积分可在后台设置，且 /api/config 下发当前值');
+check(read('src/app/lib/i18n.ts').includes('已开启展示，积分 \\+(\\d+)')
+   && read('src/app/lib/dict.en.ts').includes('Showcase bonus points (once per account)'),
+  '展示奖励提示有英文句式与新词条');
+check(/开启展示还能获得积分奖励/.test(read('src/app/pages/Showcase.tsx'))
+   && /one-time points bonus/.test(read('src/html/docs.ts')),
+  '展示页与服务文档都写明奖励规则');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

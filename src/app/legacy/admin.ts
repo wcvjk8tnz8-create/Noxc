@@ -3,7 +3,7 @@
  * 外部符号由 runtime 提供；DOM 查询作用于当前挂载的页面。
  */
 import { api, esc, fmtTime, openModal, closeModal, loadBranding, resetBranding, applyBranding, statusBadge, mountShell, showDialog } from '../lib/runtime';
-import { POINT_DEFAULTS } from '../../lib/pointDefaults';
+import { POINT_DEFAULTS, SHOWCASE_REWARD_POINTS } from '../../lib/pointDefaults';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -524,7 +524,8 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
                 <div><span class="dim">申请子域名消耗</span><input id="sCost" type="number" min="0" max="10000" value="${esc(pick(s.domain_cost, POINT_DEFAULTS.domainCost))}"></div>
                 <div><span class="dim">单字域名消耗</span><input id="sShortCost" type="number" min="0" max="100000" value="${esc(pick(s.short_domain_cost, POINT_DEFAULTS.shortCost))}"></div>
               </div>
-              <div class="hint">「单字域名长度上限」= ${esc(pick(s.short_domain_len, POINT_DEFAULTS.shortLen))}（长度不超过该值即按单字计价）。管理员不消耗积分。老用户首次进入按已有域名数补偿，已有域名不受影响。填 0 = 免费，保存后原样显示。</div>
+              <div style="margin-top:8px"><span class="dim">用户案例展示奖励积分（每账号一次性）</span><input id="sShowcaseReward" type="number" min="0" max="100000" value="${esc(pick(s.showcase_reward_points, SHOWCASE_REWARD_POINTS))}"></div>
+              <div class="hint">「单字域名长度上限」= ${esc(pick(s.short_domain_len, POINT_DEFAULTS.shortLen))}（长度不超过该值即按单字计价）。管理员不消耗积分。老用户首次进入按已有域名数补偿，已有域名不受影响。填 0 = 免费，保存后原样显示。用户首次把已开通域名开启「用户案例展示」即发放上面的奖励，关闭展示不回收、重复开启不叠加；填 0 = 关闭该奖励。</div>
             </div>
             <div class="field">
               <label>按根域名设置申请积分</label>
@@ -776,6 +777,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             initialPoints: document.getElementById('sInitial').value,
             domainCost: document.getElementById('sCost').value,
             shortDomainCost: document.getElementById('sShortCost').value,
+            showcaseRewardPoints: document.getElementById('sShowcaseReward').value,
             rootPointCosts: (function(){
               var o = {};
               document.querySelectorAll('#rootCostsBox .root-cost-input').forEach(function(el){

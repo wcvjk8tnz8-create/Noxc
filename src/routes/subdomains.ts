@@ -13,6 +13,7 @@ import { aiReviewDetailed } from '../lib/aiReview.js';
 import { ensureAiColumns, queueAiBatch } from '../lib/aiBatch.js';
 import { captchaEnabled, consumePass } from '../lib/captcha.js';
 import { ensureShowcaseColumns, cleanShowcaseInput } from '../lib/showcase.js';
+import { ensureShowcaseReward } from '../lib/showcaseReward.js';
 
 const app = new Hono();
 
@@ -461,7 +462,20 @@ app.patch('/:id', async (c) => {
   await c.env.DB.prepare(`UPDATE subdomains SET ${sets.join(', ')} WHERE id = ?`)
     .bind(...vals)
     .run();
-  return ok(c, {});
+
+  /* 用户案例展示奖励：发给「域名所有者」而不是当前操作者（管理员可代改别人的域名）。
+     每账号一次性；关闭展示不回收；存量已展示用户由 /api/points/me 惰性补发。 */
+  let showcaseReward = 0;
+  if (showcase.showcase === 1) {
+    try {
+      showcaseReward = await ensureShowcaseReward(c.env, Number(row.user_id));
+      if (showcaseReward > 0) {
+        await audit(c, c.get('user')?.id ?? Number(row.user_id), 'points.showcase_reward',
+          String(row.fqdn || ''), `用户案例展示奖励 +${showcaseReward}`);
+      }
+    } catch { /* 奖励失败不能影响展示开关本身保存成功 */ }
+  }
+  return ok(c, { showcaseReward });
 });
 
 /* ---------- 续期 ----------

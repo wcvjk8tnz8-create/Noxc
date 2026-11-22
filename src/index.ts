@@ -12,6 +12,7 @@ import { publicStats } from './lib/publicStats.js';
 import { nodelocEnabled } from './lib/nodeloc.js';
 import { githubEnabled } from './lib/github.js';
 import { ensureCoreColumns } from './lib/showcase.js';
+import { showcaseRewardOf } from './lib/showcaseReward.js';
 import { ensureOauthTables } from './lib/oauthStore.js';
 import { rootPageFor } from './html/rootPages.js';
 import { docsHtml } from './html/docs.js';
@@ -212,6 +213,8 @@ app.get('/api/config', async (c) => {
     avatarUpload: !!c.env.AVATARS,
     // 注册页后缀菜单据此显示每个后缀的积分（0 = Free，未配置 = 按全局规则）
     rootPointCosts: parseRootCosts(s.root_point_costs),
+    // 用户案例展示奖励：前端提示「开启展示可得 X 积分」，随后台设置变
+    showcaseRewardPoints: await showcaseRewardOf(c.env),
     // 与后台「积分规则」同一份生效值；页面说明据此实时渲染，不再写死数字
     pointRules: {
       checkin: Number(s.checkin_points ?? POINT_DEFAULTS.checkin) || 0,

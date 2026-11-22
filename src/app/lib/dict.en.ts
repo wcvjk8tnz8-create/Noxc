@@ -1002,6 +1002,8 @@ export const EXTRA_DICT: Record<string, string> = {
   '保存中…': 'Saving…',
   '已开启展示，稍后会出现在用户案例页': 'Showcase enabled — it will appear on the User Showcase page shortly',
   '已关闭展示': 'Showcase disabled',
+  '用户案例展示奖励积分（每账号一次性）': 'Showcase bonus points (once per account)',
+  '开启展示还能获得积分奖励，详见域名详情里的说明。': 'Turning it on also earns a one-time points bonus — see the domain details page.',
   '站长：': 'Owner: ',
   '邮箱即登录账号。如需更换，请在下方「安全设置」里通过新邮箱验证码修改。': 'Your email is your login. To change it, use "Change email" under Security settings and verify the new address.',
   '更换邮箱': 'Change email',

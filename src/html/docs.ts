@@ -437,6 +437,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
         <li data-en="Only approved domains on active accounts are listed. The API never returns emails or user IDs; the owner label prefers the profile nickname.">只有已开通且账号正常的域名会出现；公开接口不返回邮箱与用户 ID，站长名优先取个人资料昵称。</li>
         <li data-en="Card title, one-line description and emoji are editable; blank title falls back to the domain label, blank emoji to a globe.">展示标题、描述与 emoji 都能改；标题留空回退到域名前缀，图标留空用地球。</li>
         <li data-en="Switching it off removes the card immediately and never touches the domain or its DNS records.">关掉开关即从公开页移除，不影响域名本身与 DNS 记录。</li>
+        <li data-en="First-time activation on an approved domain grants a one-time points bonus (default 6000, configurable under Site settings). Each account earns it once: turning it off does not reclaim it, and re-enabling or showcasing more domains does not stack. Admins and unlimited-points accounts are excluded.">首次把已开通域名开启展示会获得一次性积分奖励（默认 6000，可在站点设置里调整）。每个账号只发一次：关闭展示不回收，再开或展示更多域名都不叠加；管理员与无限积分账号不参与。</li>
       </ul>
       <p><a href="/showcase" data-en="Open the User Showcase →">打开用户案例页 →</a></p>
     </section>

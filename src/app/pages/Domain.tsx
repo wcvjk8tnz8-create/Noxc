@@ -13,11 +13,19 @@ function ShowcaseSettings() {
   const [emoji, setEmoji] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reward, setReward] = useState(6000);
   const id = new URLSearchParams(window.location.search).get('id');
 
   useEffect(() => {
     if (!id) return;
     let alive = true;
+    api.get('/api/config')
+      .then((d: any) => {
+        if (!alive) return;
+        const n = Number(d?.showcaseRewardPoints);
+        if (Number.isFinite(n) && n >= 0) setReward(n);
+      })
+      .catch(() => { /* 读不到时用内置默认 */ });
     api.get(`/api/subdomains/${encodeURIComponent(id)}`)
       .then((d: any) => {
         if (!alive) return;
@@ -35,13 +43,16 @@ function ShowcaseSettings() {
     if (!id || busy) return;
     setBusy(true); setMsg('');
     try {
-      await api.patch(`/api/subdomains/${encodeURIComponent(id)}`, {
+      const r: any = await api.patch(`/api/subdomains/${encodeURIComponent(id)}`, {
         showcase: on ? 1 : 0,
         showcase_title: title,
         showcase_desc: desc,
         showcase_emoji: emoji,
       });
-      setMsg(on ? '已开启展示，稍后会出现在用户案例页' : '已关闭展示');
+      const bonus = Number(r?.showcaseReward || 0);
+      setMsg(on
+        ? (bonus > 0 ? `已开启展示，积分 +${bonus}` : '已开启展示，稍后会出现在用户案例页')
+        : '已关闭展示');
     } catch (e: any) {
       setMsg(e?.message || '保存失败');
     } finally { setBusy(false); }
@@ -54,7 +65,9 @@ function ShowcaseSettings() {
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
         <span>在「用户案例」页展示这个域名</span>
       </label>
-      <p className="hint">预设不展示。只有你主动开启、且域名已开通时才会公开显示；不会展示邮箱。</p>
+      <p className="hint">{reward > 0
+        ? `预设不展示。只有你主动开启、且域名已开通时才会公开显示；不会展示邮箱。首次开启已开通域名的展示可获得 ${reward} 积分（每账号一次）。`
+        : '预设不展示。只有你主动开启、且域名已开通时才会公开显示；不会展示邮箱。'}</p>
       <div className="field">
         <label>展示标题</label>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="留空则用域名前缀" maxLength={60} />
