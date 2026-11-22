@@ -182,7 +182,7 @@ app.use('/api/stats', publicCors);
 // 公开配置（含站点品牌，登录页也要用）
 app.get('/api/config', async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota')"
+    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota','announcement')"
   ).all();
   const s = Object.fromEntries(results.map((r) => [r.key, r.value]));
   // 显式取「生效列表」：不依赖中间件是否成功替换 c.env 引用，
@@ -238,6 +238,10 @@ app.get('/api/config', async (c) => {
     siteName: s.site_name || 'Noxc',
     logoUrl: s.logo_url || '/img/logo.jpg',
     faviconUrl: s.favicon_url || '/favicon.ico',
+    // 站点公告：后台「站点设置 → 站点公告」的纯文本，留空则不渲染。
+    // 以前漏在 SELECT 清单外，前端永远读到 undefined，公告条一次都没出现过。
+    // 只回纯文本（不解析 HTML），前端用 textContent 渲染，管理员写什么就显示什么。
+    announcement: String(s.announcement || '').trim().slice(0, 300),
     fontBody: s.font_body || 'system',
     fontDisplay: s.font_display || 'system',
     // 首页展示的额度跟着后台「站点设置」走，与注册同一逐级回落口径

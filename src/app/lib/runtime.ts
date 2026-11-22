@@ -93,6 +93,8 @@ export function refreshRuntime() {
   try { mountSiteFooter(); } catch {}
   try { mountIcpBadge(); } catch {}
   try { mountContactBadge(); } catch {}
+  // 站点公告：每个页面都要出现。loadBranding 有缓存，切页不会重复发请求。
+  try { void loadBranding().then((b) => mountAnnouncement(b.announcement)); } catch {}
   // 首屏还没取到品牌配置时补一次（缓存命中，不额外阻塞渲染）
   if (!icpBadgeLoaded() || !contactBadgeLoaded()) {
     try {
@@ -316,7 +318,7 @@ document.addEventListener('click', (e) => {
 });
 
 /* ---------- 站点品牌（站点名 / Logo，管理员可在后台改） ---------- */
-export const DEFAULT_BRAND = { siteName: 'Noxc', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', footerContactHtml: '', fontBody: 'system', fontDisplay: 'system', defaultQuota: 5 };
+export const DEFAULT_BRAND = { siteName: 'Noxc', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', footerContactHtml: '', fontBody: 'system', fontDisplay: 'system', defaultQuota: 5, announcement: '' };
 export let brandPromise = null;
 /* stale-while-revalidate：切页先用上一次的值立刻渲染，网络刷新放后台。
    以前每个页面都 await 一次 /api/config，接口一慢整页就卡在骨架上。 */
@@ -335,6 +337,8 @@ function normalizeBrand(d) {
     footerIcpHtml: typeof d.footerIcpHtml === 'string' ? d.footerIcpHtml : '',
     // 服务端已清洗：只含 <a> 文字链接与纯文本，可直接 innerHTML
     footerContactHtml: typeof d.footerContactHtml === 'string' ? d.footerContactHtml : '',
+    // 站点公告是管理员自填的纯文本，不是 HTML，渲染时必须走 textContent
+    announcement: typeof d.announcement === 'string' ? d.announcement.trim() : '',
   };
 }
 
@@ -444,6 +448,47 @@ export function applyBranding(b) {
   // 后台保存后不用刷新整页，联系方式当场出现在页脚
   try { mountContactBadge(typeof b.footerContactHtml === 'string' ? b.footerContactHtml : ''); } catch {}
   try { applyDefaultQuota(b.defaultQuota); } catch {}
+  // 后台保存后不用刷新整页，公告条当场出现 / 更新 / 隐藏
+  try { mountAnnouncement(b.announcement); } catch {}
+}
+
+/**
+ * 站点公告条：后台「站点设置 → 站点公告」配置，全站每个页面都显示。
+ *
+ * 两个历史坑，一起在这里收口：
+ *  1) /api/config 以前没把 announcement 放进 SELECT 清单，前端永远读到 undefined；
+ *  2) 旧逻辑只在 mountShell() 里插、还要求页面有 .main，所以首页 / 登录 /
+ *     注册 / WHOIS / 条款等页面根本不会渲染 —— 就是「哪里都看不到」。
+ *
+ * 现在由 refreshRuntime()（每次切页都跑）+ applyBranding()（后台保存即时生效）
+ * 共同调用：控制台插在 .main 内顶部（顶栏下方），其它页面插在 body 最前。
+ * 公告是管理员自填内容，必须 textContent 渲染（绝不 innerHTML），并标
+ * data-no-i18n，英文模式下也不会被词典改写或翻成夹生句。
+ */
+export function mountAnnouncement(text: string) {
+  const id = 'siteAnnouncement';
+  const msg = String(text ?? '').trim();
+  let bar = document.getElementById(id) as HTMLElement | null;
+  if (!msg) { if (bar) bar.remove(); return; }   // 留空则不显示
+
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = id;
+    bar.className = 'site-announcement';
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('data-no-i18n', '');
+    const dot = document.createElement('span');
+    dot.className = 'sa-dot';
+    const body = document.createElement('span');
+    body.className = 'sa-text';
+    bar.append(dot, body);
+  }
+  const body = bar.querySelector('.sa-text');
+  if (body) body.textContent = msg;   // 只写纯文本，管理员输入原样呈现
+  if (!bar.isConnected) {
+    const host = document.querySelector('.main') || document.body;
+    host.insertBefore(bar, host.firstChild);
+  }
 }
 
 /** 生成 Logo 图片 HTML（size 为像素） */
@@ -1709,21 +1754,8 @@ export async function mountShell(active, opt: {
     }
   });
 
-  /* 公告条：后台可配置，未配置则不渲染 */
-  try {
-    const cfg = await api.get('/api/config');
-    const notice = String(cfg.notice || cfg.announcement || '').trim();
-    const main = document.querySelector('.main');
-    if (notice && main && !document.getElementById('shellNotice')) {
-      const n = document.createElement('div');
-      n.id = 'shellNotice';
-      n.className = 'notice';
-      n.innerHTML = '<span class="n-ico"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-2h2v2Zm0-4h-2V7h2v6Z"/></svg></span><span>' + esc(notice) + '</span>';
-      const first = main.querySelector('.main-in') || main.firstElementChild;
-      if (first) main.insertBefore(n, first);
-      else main.insertBefore(n, main.firstChild);
-    }
-  } catch {}
+  /* 公告条已移到 mountAnnouncement()，由 refreshRuntime() 全站挂载，
+     这里不再重复请求 /api/config，也不再要求页面必须有 .main。 */
 
   /* 页脚 */
   try {

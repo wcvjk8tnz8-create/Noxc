@@ -760,3 +760,54 @@ html[data-theme="dark"] .bgswitch button.on {
 html body .quick-row {
   grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)) !important;
 }
+
+/* 7. 站点公告条：后台「站点设置 → 站点公告」配置，全站每个页面都显示。
+      专用 class，不复用 .notice（那是卡片样式，被多处 !important 压成白卡、
+      white-space:nowrap 还会把长公告截断）。纯文档流，不 fixed、不 sticky，
+      因此不会压住 fixed 顶栏，也不给页面加 padding。零彩色，跟 Zerexa 一致。 */
+html body .site-announcement {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 10px clamp(20px, 5vw, 48px) !important;
+  background: var(--zx-paper-2) !important;
+  border-top: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 1px solid var(--zx-hair) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--zx-body) !important;
+  font-family: var(--zx-sans, var(--sans, system-ui, sans-serif)) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.7 !important;
+  letter-spacing: 0 !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+html body .site-announcement .sa-dot {
+  display: block !important;
+  width: 7px !important;
+  height: 7px !important;
+  flex: 0 0 7px !important;
+  margin-top: .55em !important;
+  border-radius: 50% !important;
+  background: var(--zx-ink) !important;
+}
+html body .site-announcement .sa-text {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  color: var(--zx-body) !important;
+}
+@media (max-width: 640px) {
+  html body .site-announcement {
+    padding: 9px 20px !important;
+    font-size: 12.5px !important;
+  }
+}

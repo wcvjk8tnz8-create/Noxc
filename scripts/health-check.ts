@@ -1405,6 +1405,46 @@ check(!/'原密码不正确'/.test(pwDict + pwServerDict) && !/'原密码':/.tes
 check(/修改密码验证码回归/.test(pwReg) && /password-change-regression\.ts/.test(pwCI),
   '专项回归脚本进了 CI，覆盖发码/一次性/场景隔离/会话与审计');
 
+/* 站点公告：后台「站点设置」的字段以前是死的 —— /api/config 没查这个 key，
+   且旧渲染只在 mountShell()（要求 .main）里插，前台每个页面都看不到。 */
+const anCfg = read('src/index.ts');
+const anRuntime = read('src/app/lib/runtime.ts');
+const anDesign = read('src/app/styles/design-system.css');
+const anShared = read('src/html/announcement.ts');
+const anDocs = read('src/html/docs.ts');
+const anRoot1 = read('src/html/root-meoy.ts');
+const anRoot2 = read('src/html/root-v1.ts');
+const anSchema = read('schema.sql');
+const anReg = read('scripts/announcement-regression.ts');
+const anCI = read('.github/workflows/deploy.yml');
+check(/WHERE key IN \([^)]*'announcement'[^)]*\)/.test(anCfg)
+  && /announcement: String\(s\.announcement/.test(anCfg),
+  '/api/config 查询并下发站点公告（历史根因 1：SELECT 清单漏了 key）');
+check(/export function mountAnnouncement/.test(anRuntime)
+  && /body\.textContent = msg/.test(anRuntime)
+  && /data-no-i18n/.test(anRuntime),
+  '公告条用 textContent 渲染并标 data-no-i18n，不解析 HTML、英文模式不改写');
+check(/document\.querySelector\('\.main'\) \|\| document\.body/.test(anRuntime)
+  && !/shellNotice|cfg\.notice \|\| cfg\.announcement/.test(anRuntime),
+  '全站挂载（控制台插 .main、其余插 body），旧的只在控制台渲染逻辑已删');
+check(/void loadBranding\(\)\.then\(\(b\) => mountAnnouncement\(b\.announcement\)\)/.test(anRuntime)
+  && /try \{ mountAnnouncement\(b\.announcement\); \} catch \{\}/.test(anRuntime),
+  'refreshRuntime 每次切页挂载 + applyBranding 后台保存即时生效');
+check(/bar\.className = 'site-announcement'/.test(anRuntime)
+  && /html body \.site-announcement/.test(anDesign)
+  && /white-space: normal/.test(anDesign),
+  '专用 class 与样式（可换行、纯文档流），不复用 .notice 卡片');
+for (const [label, t] of [['/docs', anDocs], ['meoy.top', anRoot1], ['v-1.top', anRoot2]] as [string, string][]) {
+  check(/ANNOUNCEMENT_CSS/.test(t) && /ANNOUNCEMENT_BODY/.test(t)
+    && /ANNOUNCEMENT_JS/.test(t) && /renderAnnouncement\(/.test(t),
+    `${label} 独立模板也显示公告（共享片段，不依赖 SPA 运行时）`);
+}
+check(/s\.textContent\s*=\s*t/.test(anShared), '共享片段同样纯文本渲染，防 XSS');
+check(/VALUES \('announcement', ''\)/.test(anSchema), '全新库公告默认留空，不再写死旧品牌欢迎语');
+check(/\| 站点公告 \| 空 \| 纯文本/.test(read('README.md')), 'README 不再写「预留」');
+check(/站点公告回归/.test(anReg) && /announcement-regression\.ts/.test(anCI),
+  '公告专项回归进 CI，覆盖真跑 /api/config + 挂载链路 + 浏览器实拍');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

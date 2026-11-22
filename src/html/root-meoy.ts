@@ -1,5 +1,6 @@
 /** meoy.top 根域名落地页（自包含，供静态托管导出或 Worker 按 Host 直出） */
 import { reverieRootCss } from './reverieRootCss.js';
+import { ANNOUNCEMENT_CSS, ANNOUNCEMENT_BODY, ANNOUNCEMENT_JS } from './announcement.js';
 
 export const meoyTopHtml = String.raw`<!doctype html>
 <html lang="en">
@@ -220,8 +221,10 @@ body{
 <style id="td-reverie">
 ${reverieRootCss}
 </style>
+${ANNOUNCEMENT_CSS}
 </head>
 <body>
+${ANNOUNCEMENT_BODY}
 <div class="stage">
   <header class="head rise" style="--d:.02s">
     <a class="brand" id="brandLink" href="#"><i></i>Noxc</a>
@@ -288,6 +291,7 @@ ${reverieRootCss}
 </div>
 
 <script>
+${ANNOUNCEMENT_JS}
 /* ── 部署配置：只改这两行 ── */
 var PANEL = "https://nic.299282.xyz";   /* 官网 / 控制台地址，不带结尾斜杠 */
 /* 过渡角色提前预热：点链接时图片已在缓存，不会等 760ms 才冒出来 */
@@ -392,6 +396,8 @@ function loadRoots(){
             : (d.rootDomain ? [d.rootDomain] : []));
         /* 服务端确实给了清单才覆盖；空清单不覆盖，避免「有些域名没加载出来」 */
         if (list.length) fill(list);
+        /* 站点公告：与后缀清单共用同一次请求，不新增往返 */
+        renderAnnouncement(d);
         /* 页脚备案号：后台「站点设置」可覆盖；管理员清空则隐藏。
            接口没给这个字段（跨域失败 / 旧后端）时保留首屏默认值 */
         var icp = document.getElementById("icpSlot");

@@ -6,7 +6,10 @@
  * 纯阅读页：零框架、零首屏接口，8 张截图全部 lazy + picture webp。
  * 英文统一 Redaction 35（Google Fonts 异步，失败回退系统中文字体）；
  * 中英、深浅色、手机目录与表格横滑都在本文件内自洽，不依赖 SPA 运行时。
+ * 站点公告由 announcement.ts 的共享片段挂载（同样不依赖 SPA 运行时）。
  */
+import { ANNOUNCEMENT_CSS, ANNOUNCEMENT_BODY, ANNOUNCEMENT_JS } from './announcement.js';
+
 export const docsHtml = String.raw`<!doctype html>
 <html lang="zh-CN" data-lang="zh">
 <head>
@@ -228,8 +231,10 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
 @media (prefers-reduced-motion: reduce){body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:none}}
 
 </style>
+${ANNOUNCEMENT_CSS}
 </head>
 <body class="td-doc">
+${ANNOUNCEMENT_BODY}
 
 <header class="doc-top">
   <a class="brand" href="/"><i aria-hidden="true"></i>Noxc<small>SERVICE DOCS</small></a>
@@ -425,6 +430,7 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
         <li data-en="Default quota and sync-to-all; reserved labels are appended to a built-in baseline (ai / dash / nic) that cannot be removed.">新用户默认配额、一键同步；保留域名是在内置基线（<code>ai</code>/<code>dash</code>/<code>nic</code>）上追加，基线删不掉。</li>
         <li data-en="Registration captcha: enable/disable and pick the image set. The dialog only opens on submit; admins creating a name manually are exempt.">注册滑块验证：开关与图库子集；弹窗只在提交时出现，管理员手动开通豁免。</li>
         <li data-en="Footer ICP number and footer contact link — paste an <a> anchor, empty hides it. Both are rendered server-side on first paint.">页脚备案号、页脚联系方式：贴 <code>&lt;a&gt;</code> 链接即可，留空隐藏；两者首屏直出，不等接口。</li>
+        <li data-en="Site announcement: plain text up to 300 characters, empty hides it. It appears at the top of every page (console, home, login, docs and root-domain landing pages), is rendered as text rather than HTML, and is never translated.">站点公告：纯文本最多 300 字，留空不显示。保存后全站每页顶部都出现（控制台、首页、登录页、文档页、根域名落地页），按纯文本渲染、不解析 HTML，也不随界面语言翻译。</li>
         <li data-en="AI review channel, root domain list, public stats, email allowlist and third-party email requests, DNSHE NS presets.">AI 审核通道、根域名列表、首页公开统计、邮箱白名单与第三方邮箱申请、DNSHE NS 预设。</li>
       </ul>
     </section>
@@ -548,6 +554,20 @@ body.doc-arrived .doc-shell,body.doc-arrived .doc-hero{animation:docFade 420ms c
     }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
     [].slice.call(document.querySelectorAll('.doc-sec')).forEach(function (s) { io.observe(s); });
   }
+})();
+</script>
+
+<!-- 站点公告：/docs 是 Worker 同源直出，直接读 /api/config。
+     接口失败或公告留空时保持隐藏，不影响文档页其它功能。 -->
+<script>
+${ANNOUNCEMENT_JS}
+(function(){
+  try{
+    fetch('/api/config',{headers:{'Accept':'application/json'}})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(d){renderAnnouncement(d);})
+      .catch(function(){});
+  }catch(e){}
 })();
 </script>
 

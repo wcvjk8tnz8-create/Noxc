@@ -189,7 +189,10 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 INSERT OR IGNORE INTO settings(key, value) VALUES ('signup_open', '1');
 INSERT OR IGNORE INTO settings(key, value) VALUES ('approval_required', '1');
-INSERT OR IGNORE INTO settings(key, value) VALUES ('announcement', '欢迎使用二级域名分发系统');
+-- 站点公告：后台「站点设置 → 站点公告」填纯文本，留空则不显示。
+-- 以前默认写死旧品牌欢迎语，且 /api/config 没查这个 key，导致公告条从未出现。
+-- 全新库默认留空，由管理员自行决定是否展示；已有值不受 INSERT OR IGNORE 影响。
+INSERT OR IGNORE INTO settings(key, value) VALUES ('announcement', '');
 -- 同 IP 可注册的账号数上限（管理员可在后台调整）
 INSERT OR IGNORE INTO settings(key, value) VALUES ('max_accounts_per_ip', '2');
 -- 新用户默认子域名配额：-1 = 不限量，0 = 不允许申请；后台「站点设置」可改
