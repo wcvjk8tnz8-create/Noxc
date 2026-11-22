@@ -76,7 +76,15 @@ export const SERVER_DICT: Record<string, string> = {
   '密码至少 8 位': 'Password must be at least 8 characters',
   '新密码至少 8 位': 'New password must be at least 8 characters',
   '密码过长': 'Password is too long', '密码已重置': 'Password has been reset',
-  '原密码不正确': 'Current password is incorrect',
+  '密码修改已改为邮箱验证码，请刷新页面后重试':
+    'Password changes now use an email code. Refresh the page and try again.',
+  '当前账号邮箱无法接收邮件，请先在「个人资料 → 更换邮箱」换成可收信地址，再修改密码':
+    'Your account email cannot receive mail. Change it under Profile → Change email first, then change your password.',
+  '账号已被封禁，无法修改密码': 'This account is banned and cannot change its password',
+  '账号不存在': 'Account not found',
+  '修改账号密码': 'Change account password',
+  '修改密码验证码': 'Password change verification code',
+  '密码已修改': 'Password changed',
   '该邮箱已注册': 'This email is already registered',
   '该邮箱未注册': 'This email is not registered',
   '请填写有效的邮箱地址': 'Enter a valid email address',

@@ -92,7 +92,7 @@ export default function ProfilePage() {
             <div className="card">
               <h2>安全设置</h2>
               <div className="alert info" style={{marginBottom: "12px"}}>
-                建议定期更换密码，并妥善保管账号。修改密码后，其它设备上的登录状态会被登出。
+                修改密码需通过账号邮箱的验证码确认，不再需要输入原密码。修改后，其它设备上的登录状态会被登出。
               </div>
               <div className="sec-row">
                 <div><div className="sec-t">登录密码</div><div className="sec-d">上次修改时间未知</div></div>

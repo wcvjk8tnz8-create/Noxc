@@ -78,6 +78,13 @@ export async function sendMail(cfg, to, subject, html, text) {
 const CODE_TTL_MS = 10 * 60 * 1000; // 验证码 10 分钟有效
 const MAX_TRIES = 5;
 
+/**
+ * 已登录用户「修改密码」专用验证码场景。
+ * 与 register / reset / email_change 完全隔离：不同场景的码不能互相套用，
+ * 也不会出现「忘记密码的验证码拿来改已登录账号密码」。
+ */
+export const PASSWORD_CHANGE_SCENE = 'password_change';
+
 function randomCode() {
   const a = new Uint32Array(1);
   crypto.getRandomValues(a);
@@ -108,10 +115,11 @@ export async function issueCode(env, email, scene, ip) {
 
   const siteName =
     (await env.DB.prepare("SELECT value FROM settings WHERE key = 'site_name'").first())?.value || 'Noxc';
-  /* 场景文案：注册 / 重置密码 / 更换账号邮箱，共用同一套验证码与节流 */
+  /* 场景文案：注册 / 重置密码 / 修改密码 / 更换账号邮箱，共用同一套验证码与节流 */
   const SCENE: Record<string, { subject: string; action: string }> = {
     register: { subject: '注册验证码', action: '注册' },
     reset: { subject: '重置密码验证码', action: '重置密码' },
+    [PASSWORD_CHANGE_SCENE]: { subject: '修改密码验证码', action: '修改账号密码' },
     email_change: { subject: '更换邮箱验证码', action: '更换账号邮箱' },
   };
   const meta = SCENE[scene] || SCENE.register;

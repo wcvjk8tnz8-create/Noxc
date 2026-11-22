@@ -3,12 +3,30 @@ import { hashPassword, verifyPassword, randomToken } from '../lib/crypto.js';
 import { ok, fail, now, audit, clientIp, defaultQuotaOf } from '../lib/util.js';
 import { createSession, setSessionCookie, clearSessionCookie, destroySession, UNLIMITED } from '../middleware/auth.js';
 import { notifyLoginIp, notify } from '../lib/notify.js';
-import { issueCode, checkCode, mailConfig, mailEnabled } from '../lib/mail.js';
+import { issueCode, checkCode, mailConfig, mailEnabled, PASSWORD_CHANGE_SCENE } from '../lib/mail.js';
 import { signupEmailOk, emailRuleReject, blockedEmailDomain, isOauthInternalEmail, BLOCKED_EMAIL_MESSAGE } from '../lib/emailRule.js';
 
 const app = new Hono();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/**
+ * 账号邮箱能不能真的收到验证码。
+ *
+ * 这里刻意**不套注册邮箱规则**（白名单 / edu）：那是「谁能新注册」的门槛，
+ * 已登录账号不该被它卡住改密。只排除根本无法投递的地址：NodeLoc 自动建号
+ * 留下的 nl.<hex>@oauth.local 占位邮箱，以及 .local / .test / .invalid 等保留 TLD。
+ * 这类账号请先在「个人资料 → 更换邮箱」换成可收信地址。
+ */
+function mailCanReceive(mail: string): boolean {
+  const m = String(mail || '').trim().toLowerCase();
+  if (!m.includes('@') || isOauthInternalEmail(m)) return false;
+  const tld = m.slice(m.lastIndexOf('@') + 1).split('.').pop() || '';
+  return !['local', 'localhost', 'internal', 'test', 'example', 'invalid', 'onion'].includes(tld);
+}
+
+const MAIL_UNDELIVERABLE =
+  '当前账号邮箱无法接收邮件，请先在「个人资料 → 更换邮箱」换成可收信地址，再修改密码';
 
 /** 同 IP 允许的账号数 */
 async function maxPerIp(env) {
@@ -191,20 +209,79 @@ app.get('/me', async (c) => {
   return ok(c, { user: publicUser(full), used: used?.n || 0 });
 });
 
-// 修改密码
+/* ───────── 修改密码：邮箱验证码（不再要原密码） ─────────
+   收码地址一律取会话里的 u.email，绝不信任前端传来的 email —— 否则攻击者
+   可以拿自己邮箱的验证码去改别人的账号。场景 password_change 独立于
+   register / reset / email_change，忘记密码的码不能拿来改已登录账号密码。 */
+
+/** POST /api/auth/password/send-code —— 给「当前账号邮箱」发修改密码验证码 */
+app.post('/password/send-code', async (c) => {
+  const u = c.get('user');
+  if (!u) return fail(c, '请先登录', 401, { needLogin: true });
+
+  const cfg = await mailConfig(c.env);
+  if (!mailEnabled(cfg)) {
+    return fail(
+      c,
+      '站点未配置邮件服务，无法发送验证码。请联系管理员在「站点设置 → 邮件与验证码」中配置 Resend 或 Brevo。',
+      503,
+      { mailNotConfigured: true }
+    );
+  }
+
+  const mail = String(u.email || '').trim().toLowerCase();
+  if (!mailCanReceive(mail)) return fail(c, MAIL_UNDELIVERABLE, 400, { needEmailChange: true });
+
+  // 节流：同一邮箱同一场景 60 秒内只发一次
+  const recent: any = await c.env.DB.prepare(
+    'SELECT created_at FROM email_verifications WHERE email = ? AND scene = ? ORDER BY id DESC LIMIT 1'
+  ).bind(mail, PASSWORD_CHANGE_SCENE).first();
+  if (recent?.created_at && Date.now() - Number(recent.created_at) < 60_000) {
+    return fail(c, '发送过于频繁，请 60 秒后再试');
+  }
+
+  const r = await issueCode(c.env, mail, PASSWORD_CHANGE_SCENE, clientIp(c));
+  if (!r.sent) return fail(c, r.warning || '验证码发送失败', 502);
+  // 只回自己的邮箱，不回验证码；devCode 仅在未配置服务商时出现，上面已拦截
+  return ok(c, { sent: true, expiresIn: 600, email: mail });
+});
+
+/** POST /api/auth/password —— 校验邮箱验证码并写入新密码 */
 app.post('/password', async (c) => {
   const u = c.get('user');
   if (!u) return fail(c, '请先登录', 401, { needLogin: true });
-  const { oldPassword, newPassword } = await c.req.json().catch(() => ({}));
+  const body: any = await c.req.json().catch(() => ({}));
+  const { code, newPassword } = body;
   if (!newPassword || String(newPassword).length < 8) return fail(c, '新密码至少 8 位');
-  const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(u.id).first();
-  if (!(await verifyPassword(String(oldPassword || ''), user.password_hash))) return fail(c, '原密码不正确');
+  if (String(newPassword).length > 128) return fail(c, '密码过长');
+
+  /* 旧版前端（浏览器缓存）还会传原密码。明确提示刷新，而不是含糊报「验证码不正确」 */
+  if (!code && (body.oldPassword !== undefined || body.currentPassword !== undefined)) {
+    return fail(c, '密码修改已改为邮箱验证码，请刷新页面后重试', 400,
+      { needCode: true, needRefresh: true });
+  }
+
+  const mail = String(u.email || '').trim().toLowerCase();
+  if (!mailCanReceive(mail)) return fail(c, MAIL_UNDELIVERABLE, 400, { needEmailChange: true });
+
+  // checkCode 通过后立即标记 used，天然一次性；错 5 次 / 10 分钟过期同其它场景
+  const v = await checkCode(c.env, mail, PASSWORD_CHANGE_SCENE, String(code || '').trim());
+  if (!v.ok) return fail(c, v.reason || '验证码不正确', 400, { needCode: true });
+
+  const user: any = await c.env.DB.prepare('SELECT id, status FROM users WHERE id = ?').bind(u.id).first();
+  if (!user) return fail(c, '账号不存在', 404);
+  if (String(user.status) === 'banned') return fail(c, '账号已被封禁，无法修改密码', 403);
+
   await c.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
     .bind(await hashPassword(String(newPassword)), u.id)
     .run();
-  // 改密后踢掉其它会话
-  await c.env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').bind(u.id, u.token).run();
-  await audit(c, u.id, 'user.password', u.email);
+  // 改密后踢掉其它会话，当前会话保留
+  await c.env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?')
+    .bind(u.id, u.token).run();
+  await audit(c, u.id, 'user.password_code', mail, '通过账号邮箱验证码修改密码');
+  await notify(c.env, u.id, 'system', '密码已修改',
+    `你的账号密码已通过邮箱验证码修改。操作 IP：${clientIp(c) || '未知'}。若非本人操作请立即联系管理员。`,
+    '/profile.html').catch(() => null);
   return ok(c, {});
 });
 
@@ -221,7 +298,9 @@ export default app;
 
 // ============ 邮箱验证码 ============
 
-/** POST /api/auth/verify/send —— 发送验证码（scene: register / reset） */
+/** POST /api/auth/verify/send —— 发送验证码（scene: register / reset）
+ *  刻意不开放 password_change / email_change：这两个场景必须走登录态接口，
+ *  用会话里的邮箱发码，否则未登录者可以拿任意地址触发邮件、拿来枚举或骚扰。 */
 app.post('/verify/send', async (c) => {
   const { email, scene } = await c.req.json().catch(() => ({}));
   const mail = String(email || '').trim().toLowerCase();
@@ -269,12 +348,17 @@ app.post('/verify/send', async (c) => {
   return ok(c, { sent: true, expiresIn: 600 });
 });
 
-/** POST /api/auth/verify/check —— 仅校验验证码是否正确（不消耗） */
+/** POST /api/auth/verify/check —— 校验并消耗验证码
+ *  checkCode 通过后会把码标记 used，所以这里不是「只看看」。
+ *  只开放公开场景 register / reset：password_change / email_change 必须走登录态
+ *  接口，否则未登录者可以拿任意邮箱连打错码，把别人的改密 / 换绑码消耗掉。 */
 app.post('/verify/check', async (c) => {
   const { email, scene, code } = await c.req.json().catch(() => ({}));
   const mail = String(email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(mail)) return fail(c, '请填写有效的邮箱地址');
-  const v = await checkCode(c.env, mail, String(scene || 'register'), String(code || ''));
+  const sc = String(scene || 'register');
+  if (!['register', 'reset'].includes(sc)) return fail(c, '场景不合法');
+  const v = await checkCode(c.env, mail, sc, String(code || ''));
   if (!v.ok) return fail(c, v.reason || '验证码不正确');
   return ok(c, {});
 });

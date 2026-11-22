@@ -102,7 +102,7 @@ export const EXTRA_DICT: Record<string, string> = {
   '已配置': 'Configured', '已移除': 'Removed', '已切换': 'Switched',
   '已恢复': 'Restored', '个域名': ' domains', '已删除': 'Deleted',
   '已发布': 'Published', '已发送': 'Sent', '早上好': 'Good morning',
-  '未说明': 'Not specified', '已释放': 'Released', '原密码': 'Current password',
+  '未说明': 'Not specified', '已释放': 'Released',
   '已托管': 'Delegated', '已查询': 'Looked up', '自定义': 'Custom',
   '已更新': 'Updated', '序列号': 'Serial', '已解析': 'Resolved',
   '永久化': 'Make perpetual', '已回复': 'Replied', '持有人': 'Holder',
@@ -202,7 +202,7 @@ export const EXTRA_DICT: Record<string, string> = {
   '子域名不存在': 'Subdomain not found', '域名已被停用': 'Domain suspended',
   '模型探测异常': 'Model probe failed', '每日签到积分': 'Daily check-in points',
   '域名消耗积分': 'Domain cost in points', '验证码不正确': 'Incorrect verification code',
-  '该邮箱已注册': 'This email is already registered', '原密码不正确': 'Current password is incorrect',
+  '该邮箱已注册': 'This email is already registered',
   '该邮箱未注册': 'This email is not registered', '内容不能为空': 'Content cannot be empty',
   '未知的服务商': 'Unknown provider', '图片文件无效': 'Invalid image file',
   '兑换码不存在': 'Redemption code not found', '（单字域名）': '(single-character domain)',
@@ -400,8 +400,8 @@ export const EXTRA_DICT: Record<string, string> = {
     'No DNS records yet. Creating a subdomain does not add records automatically — use the button above.',
   '邮箱即登录账号，暂不支持自助修改。如有需要请联系管理员。':
     'Your email is your login and cannot be changed here. Contact an admin if needed.',
-  '建议定期更换密码，并妥善保管账号。修改密码后，其它设备上的登录状态会被登出。':
-    'Change your password regularly and keep it safe. Other devices are signed out after a change.',
+  '修改密码需通过账号邮箱的验证码确认，不再需要输入原密码。修改后，其它设备上的登录状态会被登出。':
+    'Changing your password requires a code sent to your account email; your current password is no longer needed. Other devices are signed out afterwards.',
   '仅支持小写字母、数字与连字符；不能以连字符开头或结尾；长度 1–63 个字符。':
     'Lowercase letters, digits and hyphens only; no leading or trailing hyphen; 1–63 characters.',
   '创建子域名不会自动写入任何 DNS 记录，开通后到「DNS 记录」页按需添加。':
@@ -1107,4 +1107,23 @@ export const EXTRA_DICT: Record<string, string> = {
   '点 Star，再回来领取': 'first, then come back to claim',
   '登录失败，请稍后重试': 'Sign-in failed, please try again',
   'Star 奖励已领取过': 'Star bonus already claimed',
+
+  /* ── 修改密码（邮箱验证码） ── */
+  '当前账号邮箱': 'Account email',
+  '验证码将发送至当前账号邮箱': 'A code will be sent to your account email',
+  '修改密码需通过账号邮箱的验证码确认，不再需要输入原密码。':
+    'Changing your password needs a code sent to your account email; your current password is no longer required.',
+  '新密码（至少 8 位）': 'New password (at least 8 characters)',
+  '确认修改': 'Save changes',
+  '验证码已发送到当前账号邮箱，10 分钟内有效': 'Code sent to your account email, valid for 10 minutes',
+  '请先获取并填写验证码': 'Request a code and enter it first',
+  '修改失败，请稍后重试': 'Could not change the password, please try again',
+  '验证码 10 分钟内有效': 'The code is valid for 10 minutes',
+  '密码修改已改为邮箱验证码，请刷新页面后重试':
+    'Password changes now use an email code. Refresh the page and try again.',
+  '当前账号邮箱无法接收邮件，请先在「个人资料 → 更换邮箱」换成可收信地址，再修改密码':
+    'Your account email cannot receive mail. Change it under Profile → Change email first, then change your password.',
+  '账号已被封禁，无法修改密码': 'This account is banned and cannot change its password',
+  '密码已修改': 'Password changed',
+  '你的账号密码已通过邮箱验证码修改。': 'Your password was changed using an email verification code.',
 };

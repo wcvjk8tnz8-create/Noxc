@@ -11,9 +11,10 @@
  * 页面，中间不 await、不 .then；refreshRuntime() 再统一放出页面。
  */
 import {
-  api, esc, fmtTime, fmtDate, toast, openModal, closeModal,
+  api, esc, fmtTime, fmtDate, toast, openModal,
   loadBranding, applyBranding, statusBadge, mountShell, renderAvatars,
 } from '../lib/runtime';
+import { openPasswordChangeModal } from '../lib/passwordChange';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -333,20 +334,9 @@ export async function mountDashboard(_root: HTMLElement | null): Promise<void> {
     if (pre) location.replace('/register?label=' + encodeURIComponent(pre));
   })();
 
+  // 修改密码：邮箱验证码（与个人资料页共用同一个弹窗，口径不会两边漂移）
   const btnPwd = document.getElementById('btnPwd');
-  if (btnPwd) btnPwd.onclick = () => {
-    openModal('修改密码', `
-      <div class="field"><label>原密码</label><input id="op" type="password"></div>
-      <div class="field"><label>新密码（至少 8 位）</label><input id="np" type="password"></div>
-      <div class="row end"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" id="okPwd">保存</button></div>`);
-    const okPwd = document.getElementById('okPwd');
-    if (okPwd) okPwd.onclick = async () => {
-      try {
-        await api.post('/api/auth/password', { oldPassword: (document.getElementById('op') as HTMLInputElement).value, newPassword: (document.getElementById('np') as HTMLInputElement).value });
-        toast('已更新，其它设备已下线'); closeModal();
-      } catch (e) { toast((e as Error).message, 'err'); }
-    };
-  };
+  if (btnPwd) btnPwd.onclick = () => openPasswordChangeModal();
 
   /* ── 首屏：快照、骨架、字体并行；全部到齐后一次渲染 ──
      不再 mountShell().then() 里 fire-and-forget 地分波写 DOM，

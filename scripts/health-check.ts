@@ -1345,6 +1345,66 @@ check(read('src/app/lib/i18n.ts').includes('单次注册 (\\d+) 天，到期前 
 check(!/单次注册 365 天，到期前 180 天可续期/.test(read('src/app/lib/dict.en.ts')),
   '词典里不再有写死 365 / 180 的整句词条');
 
+/* 修改密码改为邮箱验证码：不再要原密码；发码只认会话邮箱；场景独立；两处入口共用弹窗。 */
+const pwMail = read('src/lib/mail.ts');
+const pwAuth = read('src/routes/auth.ts');
+const pwModal = read('src/app/lib/passwordChange.ts');
+const pwProfile = read('src/app/legacy/profile.ts');
+const pwDash = read('src/app/legacy/dashboard.ts');
+const pwDict = read('src/app/lib/dict.en.ts');
+const pwServerDict = read('src/lib/i18nServer.ts');
+const pwReg = read('scripts/password-change-regression.ts');
+const pwCI = read('.github/workflows/deploy.yml');
+check(/PASSWORD_CHANGE_SCENE\s*=\s*'password_change'/.test(pwMail)
+   && /\[PASSWORD_CHANGE_SCENE\]: \{ subject: '修改密码验证码', action: '修改账号密码' \}/.test(pwMail),
+  '改密验证码有独立场景与专属邮件标题/正文');
+check(/app\.post\('\/password\/send-code'/.test(pwAuth)
+   && /String\(u\.email/.test(pwAuth)
+   && /mailEnabled\(cfg\)/.test(pwAuth)
+   && /issueCode\(c\.env, mail, PASSWORD_CHANGE_SCENE/.test(pwAuth)
+   && /60_000/.test(pwAuth),
+  '发码端点为登录态，只发到会话邮箱，带邮件配置检查与 60 秒节流');
+check(/checkCode\(c\.env, mail, PASSWORD_CHANGE_SCENE/.test(pwAuth)
+   && /user\.password_code/.test(pwAuth)
+   && /DELETE FROM sessions WHERE user_id = \? AND token != \?/.test(pwAuth),
+  '改密校验一次性验证码、写审计并踢掉其它会话');
+check(!/verifyPassword\(String\(oldPassword/.test(pwAuth)
+   && !/原密码不正确/.test(pwAuth)
+   && /needRefresh/.test(pwAuth),
+  '后端彻底不要原密码，旧前端明确提示刷新');
+check((pwAuth.match(/!\['register', 'reset'\]\.includes\(/g) || []).length >= 2
+   && !/'password_change'\]\.includes/.test(pwAuth),
+  '公开发码 / 公开校验接口白名单都只有 register / reset，未开放改密场景');
+check(/isOauthInternalEmail\(m\)/.test(pwAuth) && /'local', 'localhost', 'internal', 'test'/.test(pwAuth),
+  '占位邮箱与保留 TLD 明确提示先换邮箱，不假装发码');
+check(/openPasswordChangeModal\(\)/.test(pwProfile) && /openPasswordChangeModal\(\)/.test(pwDash)
+   && /from '\.\.\/lib\/passwordChange'/.test(pwDash)
+   && /from '\.\.\/lib\/passwordChange'/.test(pwProfile),
+  '控制台与个人资料共用同一个验证码改密弹窗');
+check(!/oldPassword|currentPassword|pOld|id="op"/.test(pwProfile + pwDash)
+   && /不再需要输入原密码/.test(read('src/app/pages/Profile.tsx')),
+  '前端不再出现原密码输入框或旧字段，说明文案明确「不再需要输入原密码」');
+check(/btnPwdSend/.test(pwModal) && /pwdCode/.test(pwModal) && /pwdNew/.test(pwModal)
+   && /\/api\/auth\/password\/send-code/.test(pwModal)
+   && /placeholder="验证码将发送至当前账号邮箱"/.test(pwModal)
+   && /纯数字倒计时/.test(pwModal),
+  '弹窗含发码 / 验证码 / 新密码，邮箱提示用 placeholder 以便英文模式翻译');
+check(/修改密码需通过账号邮箱的验证码确认/.test(read('src/app/pages/Profile.tsx')),
+  '安全设置说明改为邮箱验证码口径');
+for (const k of ['当前账号邮箱', '验证码已发送到当前账号邮箱，10 分钟内有效',
+                 '请先获取并填写验证码', '确认修改',
+                 '密码修改已改为邮箱验证码，请刷新页面后重试']) {
+  check(pwDict.includes(`'${k}'`), `前端词典含改密文案「${k}」`);
+}
+for (const k of ["'密码修改已改为邮箱验证码，请刷新页面后重试'",
+                 "'当前账号邮箱无法接收邮件", "'账号已被封禁，无法修改密码'"]) {
+  check(pwServerDict.includes(k), `服务端词典含改密提示「${k.slice(1, 13)}…」`);
+}
+check(!/'原密码不正确'/.test(pwDict + pwServerDict) && !/'原密码':/.test(pwDict),
+  '旧「原密码」相关词条已清理');
+check(/修改密码验证码回归/.test(pwReg) && /password-change-regression\.ts/.test(pwCI),
+  '专项回归脚本进了 CI，覆盖发码/一次性/场景隔离/会话与审计');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

@@ -4,6 +4,7 @@
  */
 import { api, esc, fmtTime, toast, openModal, closeModal, loadBranding, applyBranding, mountShell, MeoyRenderAvatars, refreshRuntime } from '../lib/runtime';
 import { nodelocStartUrl, githubStartUrl } from '../lib/oauthUrl';
+import { openPasswordChangeModal } from '../lib/passwordChange';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -296,26 +297,9 @@ export async function mountProfile(_root: HTMLElement | null): Promise<void> {
     btn.disabled = false;
   }
   
-  /* ---------- 修改密码 ---------- */
-  document.getElementById('btnPwd').onclick = () => {
-    openModal('修改密码', `
-      <div class="field"><label>原密码</label><input id="pOld" type="password" autocomplete="current-password"></div>
-      <div class="field"><label>新密码（至少 8 位）</label><input id="pNew" type="password" autocomplete="new-password"></div>
-      <div class="row end">
-        <button class="btn" onclick="closeModal()">取消</button>
-        <button class="btn primary" id="okPwd">确认修改</button>
-      </div>`);
-    document.getElementById('okPwd').onclick = async () => {
-      try {
-        await api.post('/api/auth/password', {
-          oldPassword: document.getElementById('pOld').value,
-          newPassword: document.getElementById('pNew').value,
-        });
-        toast('密码已修改，其它设备已登出');
-        closeModal();
-      } catch (e) { toast(e.message, 'err'); }
-    };
-  };
+  /* ---------- 修改密码：邮箱验证码（与控制台共用同一个弹窗） ---------- */
+  const btnPwd = document.getElementById('btnPwd');
+  if (btnPwd) btnPwd.onclick = () => openPasswordChangeModal();
   
   /* ---------- 更换邮箱：验证码发到新邮箱，验证通过即写入 ----------
      NodeLoc 登录建出来的 nl.<hex>@oauth.local 占位账号、以及第三方邮箱
