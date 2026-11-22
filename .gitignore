@@ -8,3 +8,7 @@ node_modules/
 /index.html
 # Vite 产物 / 根域名静态页导出目录
 /dist/
+
+# Python 字节码缓存（schema-persistence.py 等运维脚本）
+__pycache__/
+*.pyc
