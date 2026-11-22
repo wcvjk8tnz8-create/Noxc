@@ -869,8 +869,9 @@ const zxHome = read('src/app/pages/Home.tsx');
 check(/zx-facts/.test(zxHome) && /zx-fact-v/.test(zxHome) &&
       (zxHome.match(/className="zx-fact"/g) || []).length === 4,
   '首页含真图同款四张特性卡（免费额度 / 开通时效 / 解析方式 / 有效期）');
-check(/免费额度/.test(zxHome) && /开通时效/.test(zxHome) && /NS 委托/.test(zxHome) && /长期有效/.test(zxHome),
-  '四张卡文案与实拍一致');
+check(/免费额度/.test(zxHome) && /开通时效/.test(zxHome) && /NS 委托/.test(zxHome) && /有效期/.test(zxHome)
+   && /id="factValidDays"/.test(zxHome) && !/长期有效/.test(zxHome),
+  '四张卡文案与实拍一致，且「有效期」随站点设置动态填充（不再写长期有效）');
 check(/font-weight:\s*900\s*!important/.test(designCss) && /letter-spacing:\s*-\.045em/.test(designCss),
   '标题为无衬线超粗黑体（900 / -.045em），不再是衬线');
 check(!/#1667f2|#5b93ff|#0b47c4|#8ab4ff|#e8f0ff|#16233c/.test(designCss),
@@ -1298,6 +1299,51 @@ check(read('src/app/lib/i18n.ts').includes('已开启展示，积分 \\+(\\d+)')
 check(/开启展示还能获得积分奖励/.test(read('src/app/pages/Showcase.tsx'))
    && /one-time points bonus/.test(read('src/html/docs.ts')),
   '展示页与服务文档都写明奖励规则');
+
+/* 域名有效期 / 续期：窗口默认取「有效期的一半」（少于一半即可续期），
+   且首页 / 注册须知 / 条款都不得再写死 365 / 180。 */
+const expLib = read('src/lib/expiry.ts');
+const expHome = read('src/app/legacy/home.ts');
+const expReg = read('src/app/legacy/register.ts');
+const expRegTsx = read('src/app/pages/Register.tsx');
+const expAdminTs = read('src/app/legacy/admin.ts');
+check(/RENEW_HALF_RATIO\s*=\s*0\.5/.test(expLib)
+   && /Math\.floor\(v \* RENEW_HALF_RATIO\)/.test(expLib)
+   && /export function renewalWindowDays/.test(expLib)
+   && /export function expiryTipText/.test(expLib),
+  '续期窗口按有效期一半推算，且有统一文案函数');
+check(/renewWindowAuto/.test(expLib) && /renew_window_days', ''\)/.test(schemaPd),
+  '留空 = 自动口径，后台可显式覆盖');
+check(/renew_window_half_v2/.test(schemaPd) && /NOT EXISTS/.test(schemaPd)
+   && /value = '180'/.test(schemaPd),
+  '老库旧默认 180 一次性清空，管理员自定义值保留');
+check(/expiry: await expiryRules\(c\.env\)/.test(read('src/index.ts')),
+  '/api/config 下发生效后的有效期与续期窗口');
+check(/expiryTipText\(rules\)/.test(expHome) && /cfg\.expiry/.test(expHome)
+   && !/单次注册 365 天/.test(expHome),
+  '首页后缀卡文案随站点设置变，不再写死 365 / 180');
+check(/factValidDays/.test(expHome) && /id="factValidDays"/.test(zxHome),
+  '首页四张特性卡的「有效期」也随站点设置变');
+check(/faqExpiry/.test(expRegTsx) && /faqExpiry/.test(expReg)
+   && /expiryTipText\(cfg\.expiry\)/.test(expReg)
+   && !/单次注册 \d+ 天/.test(expRegTsx) && !/有效期 365 天/.test(expRegTsx),
+  '注册须知有效期说明动态渲染，首屏兜底也不写死天数');
+check(/expiry: await expiryRules\(c\.env\)/.test(read('src/routes/admin.ts'))
+   && !/secrets:\s*\{[\s\S]{0,260}expiry:/.test(read('src/routes/admin.ts')),
+  '后台设置 expiry 在顶层（不再误塞 secrets 导致输入框永远显示写死值）');
+check(/value="" placeholder="自动"/.test(expAdminTs)
+   && /renewWindowAuto \? '' :/.test(expAdminTs)
+   && /1-3650 天之间/.test(read('src/routes/admin.ts')),
+  '后台续期窗口留空 = 自动，保存时有范围校验');
+check(!/到期前 180 天/.test(read('src/routes/terms.ts'))
+   && !/renewable within 180 days/.test(read('src/lib/i18nServer.ts'))
+   && /少于一半/.test(read('src/routes/terms.ts')),
+  '服务条款改为「剩余少于一半即可续期」，不再写死 180 天');
+check(read('src/app/lib/i18n.ts').includes('单次注册 (\\d+) 天，到期前 (\\d+) 天可续期')
+   && read('src/app/lib/i18n.ts').includes('自动：(\\d+) 天'),
+  '动态有效期文案与后台 placeholder 都有英文句式');
+check(!/单次注册 365 天，到期前 180 天可续期/.test(read('src/app/lib/dict.en.ts')),
+  '词典里不再有写死 365 / 180 的整句词条');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);

@@ -514,6 +514,10 @@ app.get('/settings', async (c) => {
     rootPointCosts: parseRootCosts(raw.root_point_costs),
     // 按根域名「每人注册次数」（-1 = 无限；留空 = 不限制）
     rootRegLimits: parseRootRegLimits(raw.root_reg_limits),
+    // 域名有效期 / 续期窗口（renewWindowAuto=true 时后台输入框留空）
+    // 以前误放在 secrets 里，前端读 d.expiry 一直是 undefined，输入框永远显示 HTML 写死的 365/180，
+    // 一点保存就把旧值写回数据库覆盖真实配置 —— 必须放在顶层。
+    expiry: await expiryRules(c.env),
     // 系统保留名称：base 是代码基线（不可删），extra 是后台追加，effective 为最终生效
     reserved: await reservedOverview(c.env),
 
@@ -585,7 +589,6 @@ app.get('/settings', async (c) => {
       dnsheApiKeyMasked: mask(raw.dnshe_api_key || envKey),
       dnsheApiSecretMasked: mask(raw.dnshe_api_secret || envSecret),
       fromEnv: !!(envKey && envSecret),   // 来自环境变量时后台不可改
-      expiry: await expiryRules(c.env),
     },
   });
 });
@@ -973,9 +976,30 @@ app.post('/settings', async (c) => {
     await set('max_accounts_per_ip', String(Math.floor(n)));
   }
 
-  // 域名有效期规则
-  if (body.domainValidDays !== undefined) await set('domain_valid_days', String(body.domainValidDays || '').trim());
-  if (body.renewWindowDays !== undefined) await set('renew_window_days', String(body.renewWindowDays || '').trim());
+  /* 域名有效期规则。
+     续期窗口留空 = 自动取「有效期的一半」（少于一半即可续期），这样管理员只改
+     有效期时窗口会跟着变；填数字才是显式覆盖。老代码无校验，后台输入框因
+     expiry 放错位置一直显示写死的 365/180，保存就会把旧值写回库里。 */
+  if (body.domainValidDays !== undefined) {
+    const s = String(body.domainValidDays ?? '').trim();
+    const n = Number(s);
+    if (!s || !Number.isFinite(n) || n < 1 || n > 3650) {
+      return fail(c, '新域名有效期需在 1-3650 天之间');
+    }
+    await set('domain_valid_days', String(Math.floor(n)));
+  }
+  if (body.renewWindowDays !== undefined) {
+    const s = String(body.renewWindowDays ?? '').trim();
+    if (s === '') {
+      await set('renew_window_days', '');
+    } else {
+      const n = Number(s);
+      if (!Number.isFinite(n) || n < 0 || n > 3650) {
+        return fail(c, '续期窗口需在 0-3650 天之间（留空 = 有效期一半）');
+      }
+      await set('renew_window_days', String(Math.floor(n)));
+    }
+  }
 
   // Spaceship 域名注册商 API（只读：拉取账号下域名）
   if (body.spaceshipApiUrl !== undefined) {

@@ -326,9 +326,9 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <label>域名有效期</label>
               <div class="grid2">
                 <div><span class="dim">新域名有效期（天）</span><input id="sValidDays" type="number" min="1" max="3650" value="365"></div>
-                <div><span class="dim">到期前可续期天数</span><input id="sRenewWindow" type="number" min="0" max="3650" value="180"></div>
+                <div><span class="dim">续期窗口（天，留空 = 有效期一半）</span><input id="sRenewWindow" type="number" min="0" max="3650" value="" placeholder="自动"></div>
               </div>
-              <div class="hint">迁移前已注册的域名已设为<b>永久有效</b>，不追溯有效期。</div>
+              <div class="hint">有效期剩余少于一半即可续期，窗口默认自动取有效期的一半（改有效期会跟着变）；需要固定天数才在这里填，留空则一直自动。迁移前已注册的域名已设为永久有效，不追溯有效期。</div>
             </div>
             <div class="field">
               <label>DNS 提供商 API（可选 · 突破 200 条记录限制）</label>
@@ -935,13 +935,18 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
       const aiBatchResetBtn = document.getElementById('aiBatchResetBtn');
       if (aiBatchResetBtn) aiBatchResetBtn.onclick = () => runAiBatch(true);
 
-      // 有效期规则
+      // 有效期规则（expiry 已从 secrets 提到顶层，这里才真正读得到）
       {
         const ex = d.expiry || {};
         const vd = document.getElementById('sValidDays');
         const rw = document.getElementById('sRenewWindow');
-        if (vd && ex.validDays) vd.value = ex.validDays;
-        if (rw && ex.renewWindowDays) rw.value = ex.renewWindowDays;
+        if (vd && Number.isFinite(Number(ex.validDays))) vd.value = ex.validDays;
+        if (rw) {
+          /* 自动口径下输入框必须留空：填了 182 再点保存会把「自动」固化成显式值，
+             以后管理员把有效期改成 90 天，窗口就不会跟着变。 */
+          rw.value = ex.renewWindowAuto ? '' : String(ex.renewWindowDays ?? '');
+          rw.placeholder = `自动：${ex.renewWindowDays} 天`;
+        }
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
         set('sAbuseEmail', (d.items || {}).abuse_email);
         set('sAbuseUrl', (d.items || {}).abuse_report_url);

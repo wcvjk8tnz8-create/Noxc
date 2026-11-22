@@ -119,7 +119,7 @@ export default function HomePage() {
           <div className="zx-fact"><span className="zx-fact-k">免费额度</span><span className="zx-fact-v"><span data-default-quota data-no-i18n>5</span> 个 / 邮箱</span></div>
           <div className="zx-fact"><span className="zx-fact-k">开通时效</span><span className="zx-fact-v">30 秒</span></div>
           <div className="zx-fact"><span className="zx-fact-k">解析方式</span><span className="zx-fact-v">NS 委托</span></div>
-          <div className="zx-fact"><span className="zx-fact-k">有效期</span><span className="zx-fact-v">长期有效</span></div>
+          <div className="zx-fact"><span className="zx-fact-k">有效期</span><span className="zx-fact-v" id="factValidDays">—</span></div>
         </section>
 
         {/* ══ 01 可选后缀 ══ */}

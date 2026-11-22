@@ -70,7 +70,7 @@ const SECTIONS_ZH: Section[] = [
       '若用户行为导致本站被投诉、被处罚或产生损失，用户应全额赔偿本站因此遭受的一切损失。',
     ],
     list: [
-      '域名有效期：新申请的域名有效期为一年（具体天数以站点设置为准），到期前 180 天内可自行续期；迁移前已注册的域名为永久有效，不追溯有效期。',
+      '域名有效期：新申请的域名有效期以站点设置为准（默认 365 天），有效期剩余少于一半时即可自行续期；迁移前已注册的域名为永久有效，不追溯有效期。',
       '域名到期后将被停用并释放解析，到期前会尽力提示，但用户应自行关注到期时间，因未及时续期导致的解析中断、业务损失，本站不承担责任。',
       '同一账号同一时间只能有一个待审核申请；若通过任何方式在短时间内提交多个申请，本站只批准其中一个，其余自动驳回。',
       '续期、释放、修改 DNS 记录等操作一旦执行不可撤销，因误操作导致的解析中断由用户自行承担。',
@@ -148,7 +148,7 @@ const SECTIONS_EN: Section[] = [
       'If your conduct causes complaints, penalties or losses to us, you shall fully compensate us for all such losses.',
     ],
     list: [
-      'Domain validity: newly approved domains are valid for one year (the exact number of days follows site settings) and may be renewed within 180 days before expiry; domains registered before the migration remain permanent and are not retroactively given an expiry date.',
+      'Domain validity: newly approved domains are valid for the period set by the site (365 days by default) and may be renewed once less than half of that period remains; domains registered before the migration remain permanent and are not retroactively given an expiry date.',
       'Expired domains are disabled and their records released. We will try to send a reminder, but you are responsible for tracking expiry; we are not liable for outages or losses caused by late renewal.',
       'An account may have only one pending application at a time. If several are submitted within a short period by any means, we will approve only one and automatically reject the rest.',
       'Renewal, release and DNS record changes cannot be undone once executed. You are responsible for outages caused by mistaken operations.',

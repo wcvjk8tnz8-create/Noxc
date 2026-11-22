@@ -295,7 +295,7 @@ const DICT: Record<string, string> = {
   '免费额度': 'Free quota', '后台自定义': 'Set in admin', '可在后台调整': 'Adjustable in admin',
   '开通时效': 'Provisioning', '审核后即时': 'Instant on approval', 'AI 后缀可秒批': 'AI suffixes approve in seconds',
   '解析方式': 'DNS hosting', '完整 DNS': 'Full DNS',
-  '有效期': 'Validity', '365 天': '365 days', '到期前 180 天可续': 'Renew within 180 days of expiry',
+  '有效期': 'Validity', '365 天': '365 days',
   '可选后缀': 'Available suffixes',
   '为什么选择 Noxc': 'Why Noxc',
   '免费额度、完整 DNS 与独立控制台，适合个人站点、Demo 和轻量服务。':
@@ -467,6 +467,10 @@ const PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
     m => `Not checked in yet — ${m[1]} points available. Single-character labels (e.g. a, 1) cost ${m[2]} points.`],
   [/^签到 \+(\d+) · 域名 -(\d+) · 单字域名 -(\d+)$/,
     m => `Check-in +${m[1]} · Domain -${m[2]} · Single-char -${m[3]}`],
+  /* 有效期 / 续期窗口随站点设置变，必须整句翻，不能被子串切成夹生 */
+  [/^单次注册 (\d+) 天，到期前 (\d+) 天可续期$/,
+    m => `Each registration lasts ${m[1]} days; renew within ${m[2]} days of expiry`],
+  [/^自动：(\d+) 天$/, m => `Auto: ${m[1]} days`],
   [/^已开启展示，积分 \+(\d+)$/, m => `Showcase enabled — +${m[1]} points`],
   [/^预设不展示。只有你主动开启、且域名已开通时才会公开显示；不会展示邮箱。首次开启已开通域名的展示可获得 (\d+) 积分（每账号一次）。$/,
     m => `Hidden by default. Only active domains you opt in are listed, and your email is never shown. First-time showcase activation earns ${m[1]} points, once per account.`],

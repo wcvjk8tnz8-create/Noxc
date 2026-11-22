@@ -532,8 +532,8 @@ export const SERVER_DICT: Record<string, string> = {
     'We may modify, suspend or terminate all or part of the service at any time without liability to you or third parties.',
   '若用户行为导致本站被投诉、被处罚或产生损失，用户应全额赔偿本站因此遭受的一切损失。':
     'If your conduct causes complaints, penalties or losses to us, you shall fully compensate us for all resulting damages.',
-  '域名有效期：新申请的域名有效期为一年（具体天数以站点设置为准），到期前 180 天内可自行续期；迁移前已注册的域名为永久有效，不追溯有效期。':
-    'Validity: newly requested domains are valid for one year (exact days depend on site settings) and can be renewed within 180 days before expiry. Domains registered before migration are perpetual and not retroactively expired.',
+  '域名有效期：新申请的域名有效期以站点设置为准（默认 365 天），有效期剩余少于一半时即可自行续期；迁移前已注册的域名为永久有效，不追溯有效期。':
+    'Validity: newly requested domains follow the period set by the site (365 days by default) and can be renewed once less than half of that period remains. Domains registered before migration are perpetual and not retroactively expired.',
   '域名到期后将被停用并释放解析，到期前会尽力提示，但用户应自行关注到期时间，因未及时续期导致的解析中断、业务损失，本站不承担责任。':
     'Expired domains are suspended and their records released. We try to notify you, but you must track expiry yourself; we are not liable for downtime or loss caused by late renewal.',
   '同一账号同一时间只能有一个待审核申请；若通过任何方式在短时间内提交多个申请，本站只批准其中一个，其余自动驳回。':

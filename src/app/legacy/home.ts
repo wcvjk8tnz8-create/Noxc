@@ -4,6 +4,7 @@
  */
 import { api, esc, loadBranding, applyBranding } from '../lib/runtime';
 import { svgIcon } from '../lib/icons';
+import { expiryTipText } from '../../lib/expiry';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -19,17 +20,20 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
   const preferNoxc = (list) => [...list].sort((a, b) =>
     (String(b).toLowerCase() === 'noxc.uk' ? 1 : 0) - (String(a).toLowerCase() === 'noxc.uk' ? 1 : 0));
   
-  /* ---------- 可选后缀卡片 ---------- */
-  function renderSuffix(list) {
+  /* ---------- 可选后缀卡片 ----------
+     有效期与续期窗口来自 /api/config，不再写死 365 / 180：
+     后台把有效期改成 90 天，这里自动变成「单次注册 90 天，到期前 45 天可续期」。 */
+  function renderSuffix(list, rules) {
     const box = document.getElementById('suffixGrid');
     if (!list.length) { box.innerHTML = '<div class="nk-sk">暂未配置根域名</div>'; return; }
+    const tip = esc(expiryTipText(rules));
     box.innerHTML = list.map((d, i) => `
       <div class="card nk-suf">
         ${i === 0 ? '<span class="nk-hot">首推</span>' : ''}
         <div class="rv-suf-ico">${svgIcon('leaf', 18)}</div>
         <div class="nk-suf-name">.${esc(d.toUpperCase())}</div>
         <div class="nk-suf-desc">${esc(d)}</div>
-        <div class="nk-suf-tip">单次注册 365 天，到期前 180 天可续期</div>
+        <div class="nk-suf-tip" data-expiry-tip>${tip}</div>
       </div>`).join('');
   }
   
@@ -77,7 +81,13 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
         document.querySelectorAll('[data-stat-users]').forEach((el) => { el.textContent = fmt(st.users); });
         document.querySelectorAll('[data-stat-domains]').forEach((el) => { el.textContent = fmt(st.domains); });
       }
-      renderSuffix(ROOTS);
+      const expiry = cfg.expiry || {};
+      renderSuffix(ROOTS, expiry);
+      /* 四张特性卡的「有效期」也跟站点设置走，不再写「长期有效」误导用户 */
+      const fact = document.getElementById('factValidDays');
+      if (fact && Number.isFinite(Number(expiry.validDays))) {
+        fact.textContent = `${Number(expiry.validDays)} 天`;
+      }
       renderTags();
       try {
         const h = location.origin;

@@ -4,6 +4,7 @@
  */
 import { api, toast, mountShell, onDoc } from '../lib/runtime';
 import { POINT_DEFAULTS } from '../../lib/pointDefaults';
+import { expiryTipText } from '../../lib/expiry';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -125,6 +126,9 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
           + POINT_RULES.shortCost + ' 分 · 每日签到 +' + POINT_RULES.checkin
           + ' 分 · 新用户初始 ' + POINT_RULES.initial + ' 分';
       }
+      /* 有效期与续期窗口同样随站点设置变，不再写死 365 / 180 */
+      var expiryFaq = document.getElementById('faqExpiry');
+      if (expiryFaq && cfg.expiry) expiryFaq.textContent = expiryTipText(cfg.expiry);
       updateRootTip(list[0] || '');
 
       /* 每个后缀在菜单里直接标出消耗积分：0 = Free，未配置 = 按全局规则 */

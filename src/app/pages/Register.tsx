@@ -267,7 +267,8 @@ export default function RegisterPage() {
           <div className="acc-body">积分按站点当前规则实时计算：确认页会显示本次消耗，签到地显示每日奖励与初始积分。持有数量受配额限制，管理员不限。</div>
           <div className="acc-body dim" id="faqPointRules" style={{fontSize: 12, opacity: .75}}>当前规则：普通域名 60 分 · 单字域名 300 分 · 每日签到 +30 分 · 新用户初始 100 分</div>
           <div className="acc">3. 有效期与续期</div>
-          <div className="acc-body">新注册域名有效期 365 天，到期前 180 天内可续期。管理员持有的域名为永久有效。</div>
+          <div className="acc-body" id="faqExpiry">有效期与续期规则以站点设置为准。</div>
+          <div className="acc-body dim" style={{fontSize: 12, opacity: .75}}>有效期剩余少于一半即可续期；管理员持有的域名为永久有效。</div>
           <div className="acc">4. 同一时间只能有一个待审核申请</div>
           <div className="acc-body">已有待审核申请时提交入口会锁定，请等待审核结果（或被驳回）后再提交。</div>
         </div>

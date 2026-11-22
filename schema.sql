@@ -236,7 +236,14 @@ UPDATE settings SET value = '/favicon.ico' WHERE key = 'favicon_url' AND value =
 
 -- 有效期规则（管理员可在后台「站点设置」调整）
 INSERT OR IGNORE INTO settings(key, value) VALUES ('domain_valid_days', '365');   -- 新申请域名有效期（天）
-INSERT OR IGNORE INTO settings(key, value) VALUES ('renew_window_days', '180');   -- 到期前多少天内可续期
+-- 续期窗口：留空 = 自动取「有效期的一半」（少于一半即可续期）；填数字 = 显式覆盖
+INSERT OR IGNORE INTO settings(key, value) VALUES ('renew_window_days', '');
+
+-- 老库升级：旧默认是固定 180 天，与「365 天的一半」口径不一致。
+-- 只把仍等于旧默认、且尚未升级过的库清空一次；管理员后来自己填的值一律保留。
+UPDATE settings SET value = '' WHERE key = 'renew_window_days' AND value = '180'
+  AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'renew_window_half_v2');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('renew_window_half_v2', '1');
 
 -- ══════════════════════════════════════════════════════════
 --  兑换码：V-XXX 域名永久化 / PE-XXXXX 配额

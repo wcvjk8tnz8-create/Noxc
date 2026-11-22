@@ -138,6 +138,44 @@ def main():
     print('✓ 结论：GitHub 表 / access_token / 默认关闭 + 注册次数累计跨部署保留')
 
     print('✓ 结论：连续部署两次后展示开关 / 标题 / 描述 / 域名数据完整保留')
+
+    # ── 续期窗口：留空 = 自动取有效期一半；老库旧默认 180 只清一次 ──
+    def legacy_db(values):
+        c = sqlite3.connect(':memory:')
+        c.execute('CREATE TABLE settings(key TEXT PRIMARY KEY, value TEXT)')
+        for k, v in values.items():
+            c.execute('INSERT INTO settings VALUES (?,?)', (k, v))
+        return c
+
+    def win(c):
+        r = c.execute("SELECT value FROM settings WHERE key='renew_window_days'").fetchone()
+        return None if r is None else r[0]
+
+    fresh = sqlite3.connect(':memory:')
+    deploy(fresh, '第 5 次部署（全新库续期窗口）')
+    if win(fresh) != '':
+        print('✗ 全新库续期窗口默认值不是「留空 = 自动」')
+        return 1
+    old = legacy_db({'domain_valid_days': '365', 'renew_window_days': '180'})
+    deploy(old, '第 6 次部署（老库 180 迁移）')
+    if win(old) != '':
+        print('✗ 老库旧默认 180 未被清空')
+        return 1
+    deploy(old, '第 7 次部署（连跑不回写）')
+    if win(old) != '':
+        print('✗ 重复部署把自动口径又写回旧值')
+        return 1
+    custom = legacy_db({'renew_window_days': '200'})
+    deploy(custom, '第 8 次部署（管理员自定义值）')
+    if win(custom) != '200':
+        print('✗ 管理员显式设置的续期窗口被覆盖')
+        return 1
+    marked = legacy_db({'renew_window_days': '180', 'renew_window_half_v2': '1'})
+    deploy(marked, '第 9 次部署（升级后管理员又填 180）')
+    if win(marked) != '180':
+        print('✗ 已升级库里管理员后来填的 180 被误清')
+        return 1
+    print('✓ 结论：续期窗口默认留空自动 / 旧 180 只清一次 / 自定义值不覆盖')
     return 0
 
 
