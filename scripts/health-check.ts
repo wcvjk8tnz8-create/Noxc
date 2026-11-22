@@ -1543,7 +1543,7 @@ check(/startI18n/.test(sbCtrl), '动态渲染的展开表头也走 i18n');
 check(/\.rv-breakdown/.test(sbCss) && /\.nk-badge-hot/.test(sbCss),
   '展开面板与 HOT 样式在唯一视觉源里');
 check(/统计展开回归/.test(sbReg) && /stats-breakdown-regression\.ts/.test(sbCI),
-  '统计展开回归进 CI：真跑 SQLite 分组 + /api/config 下发 + 浏览器实拍');
+  '统计展开回归进 CI：跨 Node 版本内存 D1 + /api/config 下发 + 浏览器实拍');
 
 /* VitePress 文档：构建链接进 CI，产物由 copy-docs.ts 并入静态目录 */
 check(/vitepress/.test(sbPkg) && /docs:build/.test(sbPkg)

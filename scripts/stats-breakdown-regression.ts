@@ -1,15 +1,15 @@
 /**
  * 「域名总数可展开 + 首页 HOT」专项回归（CI 步骤：统计展开回归）
  *
- * 用 Node 24 内置 node:sqlite 建真库，真跑 publicStats() 的 GROUP BY，
- * 再真跑 Hono 的 /api/config 验证下发，最后静态核对前端渲染链路并做
- * 一次浏览器实拍（展开面板可见 / HOT 存在 / 无横向溢出）。
+ * 用跨 Node 版本的内存 D1 表（不依赖 node:sqlite，CI 是 Node 20），
+ * 真跑 publicStats() 的分组 / 排序 / 补 0 / hottest，再真跑 Hono 的
+ * /api/config 验证下发，最后静态核对前端渲染链路并做浏览器实拍
+ * （展开面板可见 / HOT 存在 / 无横向溢出）。
  *
  * 运行：npx tsx scripts/stats-breakdown-regression.ts
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import app from '../src/index.js';
 import { publicStats, resetPublicStatsCache } from '../src/lib/publicStats.js';
 
@@ -18,55 +18,87 @@ const bad: string[] = [];
 const check = (cond: any, msg: string) => (cond ? ok.push(msg) : bad.push(msg));
 const read = (p: string) => fs.readFileSync(path.resolve(p), 'utf8');
 
-/* ───────────────── 把 node:sqlite 包成 D1 形状 ───────────────── */
-function makeDb() {
-  const db = new DatabaseSync(':memory:');
-  db.exec(`
-    CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT);
-    CREATE TABLE subdomains (
-      id INTEGER PRIMARY KEY, fqdn TEXT, root_domain TEXT,
-      status TEXT, user_id INTEGER
-    );
-    CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
-    CREATE TABLE migrations (key TEXT PRIMARY KEY);
-    CREATE TABLE email_allowlist (id INTEGER PRIMARY KEY, email TEXT);
-    CREATE TABLE captcha_nonce (id INTEGER PRIMARY KEY, nonce TEXT);
-    CREATE TABLE showcase_rewards (user_id INTEGER PRIMARY KEY);
-    CREATE TABLE user_points (user_id INTEGER PRIMARY KEY, points INTEGER);
-    CREATE TABLE audit_log (id INTEGER PRIMARY KEY, action TEXT);
-    CREATE TABLE sessions (token TEXT PRIMARY KEY, user_id INTEGER, expires_at INTEGER);
-    INSERT INTO users VALUES (1, 'a@example.com'), (2, 'b@example.com'), (3, 'c@example.com');
-    INSERT INTO subdomains (fqdn, root_domain, status, user_id) VALUES
-      ('a.meoy.top', 'meoy.top', 'approved', 1),
-      ('b.meoy.top', 'meoy.top', 'approved', 1),
-      ('c.meoy.top', 'meoy.top', 'approved', 2),
-      ('d.v-1.top',  'v-1.top',  'approved', 2),
-      ('e.noxc.uk',  '',         'approved', 3),
-      ('f.meoy.top', 'meoy.top', 'pending',   3),
-      ('g.v-1.top',  'v-1.top',  'suspended', 1);
-  `);
+/* ───────────────── 内存 D1（跨 Node 20/22/24） ─────────────────
+   GROUP_SQL 在这里用等价的 JS 分组实现，返回与 SQLite 相同的 d / n / u 列，
+   其余 SQL 按本回归需要的形状应答；/api/config 的其它 helper 查不到就走
+   各自的 try/catch 兜底，与线上「表未建 / D1 抖动」的降级路径一致。 */
+type SubRow = { fqdn: string; root_domain: string; status: string; user_id: number };
 
-  const stmt = (sql: string, args: any[]) => ({
-    first: async () => {
-      try { return (db.prepare(sql).get(...args) as any) ?? null; } catch { return null; }
-    },
-    all: async () => {
-      try { return { results: db.prepare(sql).all(...args) as any[] }; } catch { return { results: [] as any[] }; }
-    },
-    run: async () => {
-      try {
-        const r: any = db.prepare(sql).run(...args);
-        return { meta: { changes: Number(r.changes) || 0, last_row_id: Number(r.lastInsertRowid) || 0 } };
-      } catch { return { meta: { changes: 0, last_row_id: 0 } }; }
-    },
+function makeDb() {
+  let subs: SubRow[] = [
+    { fqdn: 'a.meoy.top', root_domain: 'meoy.top', status: 'approved',  user_id: 1 },
+    { fqdn: 'b.meoy.top', root_domain: 'meoy.top', status: 'approved',  user_id: 1 },
+    { fqdn: 'c.meoy.top', root_domain: 'meoy.top', status: 'approved',  user_id: 2 },
+    { fqdn: 'd.v-1.top',  root_domain: 'v-1.top',  status: 'approved',  user_id: 2 },
+    { fqdn: 'e.noxc.uk',  root_domain: '',         status: 'approved',  user_id: 3 },
+    { fqdn: 'f.meoy.top', root_domain: 'meoy.top', status: 'pending',   user_id: 3 },
+    { fqdn: 'g.v-1.top',  root_domain: 'v-1.top',  status: 'suspended', user_id: 1 },
+  ];
+  const users = [1, 2, 3];
+  const settings = new Map<string, string>();
+
+  async function query(sql: string, args: any[]): Promise<any[]> {
+    const q = sql.replace(/\s+/g, ' ').trim();
+    if (/^SELECT COUNT\(\*\) AS n FROM users/.test(q)) return [{ n: users.length }];
+    if (/^SELECT COUNT\(\*\) AS n FROM subdomains WHERE status = 'approved'/.test(q)) {
+      return [{ n: subs.filter((r) => r.status === 'approved').length }];
+    }
+    if (/GROUP BY d/.test(q)) {
+      const map = new Map<string, { n: number; u: Set<number> }>();
+      for (const r of subs) {
+        if (r.status !== 'approved') continue;
+        const d = r.root_domain
+          ? r.root_domain.trim().toLowerCase()
+          : (r.fqdn.includes('.') ? r.fqdn.slice(r.fqdn.indexOf('.') + 1) : r.fqdn).toLowerCase();
+        const cur = map.get(d) || { n: 0, u: new Set<number>() };
+        cur.n += 1; cur.u.add(r.user_id); map.set(d, cur);
+      }
+      return [...map.entries()].map(([d, v]) => ({ d, n: v.n, u: v.u.size }));
+    }
+    if (/^SELECT key, value FROM settings WHERE key IN/.test(q)) {
+      return [...settings.entries()].map(([key, value]) => ({ key, value }));
+    }
+    if (/^SELECT value FROM settings WHERE key = \?/.test(q)) {
+      const v = settings.get(String(args[0]));
+      return v === undefined ? [] : [{ value: v }];
+    }
+    if (/^PRAGMA table_info\(subdomains\)/.test(q)) {
+      return ['id', 'fqdn', 'root_domain', 'status', 'user_id',
+        'showcase', 'showcase_title', 'showcase_desc', 'showcase_emoji']
+        .map((name) => ({ name }));
+    }
+    if (/^INSERT OR IGNORE INTO settings\(key, value\) VALUES/.test(q)) {
+      const m = q.match(/VALUES \('([^']+)', '([^']*)'\)/);
+      if (m && !settings.has(m[1])) settings.set(m[1], m[2]);
+      return [];
+    }
+    return [];   // 其它表：helper 自己有兜底
+  }
+
+  const build = (sql: string, args: any[]) => ({
+    first: async () => (await query(sql, args))[0] ?? null,
+    all: async () => ({ results: await query(sql, args) }),
+    run: async () => { await query(sql, args); return { meta: { changes: 0, last_row_id: 0 } }; },
   });
   const DB = {
     prepare(sql: string) {
-      const base = stmt(sql, []);
-      return { bind: (...args: any[]) => stmt(sql, args), ...base };
+      const base = build(sql, []);
+      return { bind: (...args: any[]) => build(sql, args), ...base };
     },
   };
-  return { db, DB };
+  return {
+    DB,
+    db: {
+      exec(q: string) {
+        if (/DELETE FROM subdomains WHERE fqdn IN/.test(q)) {
+          const names = [...q.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+          subs = subs.filter((r) => !names.includes(r.fqdn));
+        } else if (/UPDATE subdomains SET status = 'pending'/.test(q)) {
+          subs = subs.map((r) => ({ ...r, status: 'pending' }));
+        }
+      },
+    },
+  };
 }
 
 function makeEnv(DB: any) {
@@ -90,7 +122,7 @@ const CTX: any = { waitUntil() {}, passThroughOnException() {} };
   resetPublicStatsCache();
   const st = await publicStats(env);
 
-  check(st.users === 3, `注册人数 = 3（真库 COUNT），实际 ${st.users}`);
+  check(st.users === 3, `注册人数 = 3（内存表 COUNT），实际 ${st.users}`);
   check(st.domains === 5, `已开通域名 = 5（pending / suspended 不计入），实际 ${st.domains}`);
   check(st.roots.length === 4, `四个生效后缀都在清单里（含 0 个的 zero.top），实际 ${st.roots.length}`);
 
@@ -164,7 +196,7 @@ const ci = read('.github/workflows/deploy.yml');
 
 check(/GROUP BY d/.test(lib) && /COUNT\(DISTINCT user_id\)/.test(lib)
   && /root_domain/.test(lib) && /instr\(fqdn/.test(lib),
-  '统计 SQL 真分组：按 root_domain（空则回落到 fqdn）、域名数与去重用户数');
+  '统计 SQL 按 root_domain（空则回落到 fqdn）、域名数与去重用户数真分组');
 check(/hottest/.test(lib) && /effectiveRootList/.test(lib),
   '最热后缀由同一份数据算出，0 值后缀用生效列表补齐');
 check(/publicStats: await publicStats\(c\.env\)/.test(idx)
