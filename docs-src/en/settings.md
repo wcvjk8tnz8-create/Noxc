@@ -32,12 +32,23 @@ This is separate from per-suffix registration limits: one controls *whether* you
 
 ## Third-party domain access (external domain)
 
-The bottom of the console's Domain Management page lets you register a full domain you already own (e.g. `example.com`). The list and WHOIS results are consistently marked **(External domain)**.
+The entry sits directly under the console's **Register domain** card (the registration page also links to it). The list and WHOIS results are consistently marked **(External domain)**.
 
-- Stored in a separate `external_domains` table with a per-user index; it does **not** consume your registration quota, does **not** enter site statistics, and does **not** write DNS in this site's zone
-- Names under this site's active suffixes (including the roots themselves) cannot be registered here — use the registration page instead
-- Up to 5 per account; an optional DNSHE API Token creates a zone and returns the official nameservers. The token is used for that single request only and is **never stored or returned**
-- DNS stays with your registrar / DNSHE; use the existing NS delegation feature if you need this site to manage resolution
+**Three steps**
+
+1. Submit a full domain (e.g. `example.com`) — the system generates a verification TXT
+2. At your **current DNS provider**, add `_noxc-verify.example.com` → TXT → `noxc-verify=<random>`, then click *Verify ownership* (the backend queries public DoH resolvers; propagation can take minutes to hours)
+3. Pick a provider (Cloudflare / DNSHE), paste **your own API key** → *Connect provider* returns the official nameservers, then fill in type / name / value and write the DNS record with the same key
+
+> **The common trap**: the TXT record only proves ownership — it does **not** make resolution work. After a record is written to the provider's zone you must still change the **nameservers at your registrar** to the two assigned by that provider (Cloudflare shows Active / DNSHE delegation passes). Until that delegation is live, global DNS never queries that provider, so the record has no effect. See README appendix Z.5.
+
+**Boundaries and security**
+
+- Separate `external_domains` table with a per-user index; **no quota usage, not counted in site statistics, no writes to this site's DNS zone**
+- Names under this site's active suffixes (including the roots) cannot be registered here
+- Up to 5 per account; record names are restricted to the domain itself or its subdomains
+- **The API key is used for that single request only — never stored, logged or returned.** Re-enter it for each operation
+- A Cloudflare token needs `Zone Read + DNS Write`; if the DNSHE records endpoint errors, the UI tells you to add the record manually in the panel
 
 ## D1 read optimisation
 

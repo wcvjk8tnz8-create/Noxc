@@ -66,12 +66,25 @@ function exec(sql: string, args: any[]) {
     if (v !== undefined) rows.push({ value: v });
   } else if (/^SELECT key, value FROM settings WHERE key IN/.test(s)) {
     /* config 的批量读取：空库即可 */
+  } else if (/^PRAGMA table_info\(external_domains\)/.test(s)) {
+    for (const n of ['id','fqdn','user_id','note','provider','ns1','ns2','zone_id',
+      'verify_token','verify_status','verified_at','provider_key','created_at']) rows.push({ name: n });
   } else if (/^INSERT INTO external_domains/.test(s)) {
-    const [fqdn, userId, note, ns1, ns2, zoneId, createdAt] = args;
+    /* 新流程 SQL 里有字面量，bind 的参数是 fqdn,user_id,note,verify_token,created_at */
+    const [fqdn, userId, note, verifyToken, createdAt] = args;
     const id = ++S.seq;
-    S.ext.push({ id, fqdn, user_id: userId, note, provider: 'dnshe', ns1, ns2,
-      zone_id: zoneId, created_at: createdAt });
+    S.ext.push({ id, fqdn, user_id: userId, note, provider: 'dnshe', ns1: '', ns2: '',
+      zone_id: '', verify_token: verifyToken, verify_status: 'pending', verified_at: null,
+      provider_key: '', created_at: createdAt });
     lastRowId = id; changes = 1;
+  } else if (/^UPDATE external_domains SET verify_status = 'verified'/.test(s)) {
+    const r = S.ext.find((x) => x.id === Number(args[1]));
+    if (r) { r.verify_status = 'verified'; r.verified_at = args[0]; changes = 1; }
+  } else if (/^UPDATE external_domains SET provider = \?/.test(s)) {
+    const [provider, , zoneId, ns1, ns2, id] = args;
+    const r = S.ext.find((x) => x.id === Number(id));
+    if (r) { r.provider = provider; r.provider_key = provider; r.zone_id = zoneId;
+      r.ns1 = ns1; r.ns2 = ns2; changes = 1; }
   } else if (/^SELECT \* FROM external_domains WHERE user_id = \?/.test(s)) {
     for (const r of S.ext.filter((x) => x.user_id === Number(args[0]))) rows.push({ ...r });
   } else if (/^SELECT id FROM external_domains WHERE fqdn = \?$/.test(s)) {
@@ -216,7 +229,7 @@ check(/附录 Z · 故障排查与已知错误（固定放在文末）/.test(rea
 check(/Z\.1 D1 读取额度被打满/.test(readme) && /5M rows read/.test(readme),
   'README 文末记录本次 D1 事故与排查');
 
-/* ───────────── D. 第三方域名接入：真跑 Hono ───────────── */
+/* ───────────── D. 第三方域名接入：三步流程真跑 Hono ───────────── */
 S = fresh();
 const app = new Hono();
 app.use('*', async (c, next) => { c.set('user', { id: 7, email: 'u@example.com', role: 'user' }); await next(); });
@@ -228,63 +241,124 @@ const call = (method: string, body?: any, suffix = '') =>
     ...(body ? { body: JSON.stringify(body) } : {}),
   }), env(), CTX);
 
+/* 全局 fetch stub：区分公共 DoH / Cloudflare API，绝不真出网 */
+const realFetch = globalThis.fetch;
+let dohHit = false;
+let lastAuth = '';
+let postedRecord: any = null;
+(globalThis as any).fetch = async (url: string, opt: any) => {
+  const u = String(url);
+  if (u.includes('cloudflare-dns.com/dns-query') || u.includes('dns.google/resolve')) {
+    return new Response(JSON.stringify({
+      Status: 0,
+      Answer: dohHit
+        ? [{ name: '_noxc-verify.example.com', type: 16, TTL: 60, data: '"' + expectedTxt() + '"' }]
+        : [],
+    }), { status: 200, headers: { 'content-type': 'application/dns-json' } });
+  }
+  if (u.startsWith('https://api.cloudflare.com/client/v4/zones?')) {
+    lastAuth = String(opt?.headers?.Authorization || '');
+    return new Response(JSON.stringify({ success: true, result: [{
+      id: 'zone-1', name: 'example.com', status: 'active',
+      name_servers: ['ada.ns.cloudflare.com', 'bob.ns.cloudflare.com'],
+    }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }
+  if (u.includes('/zones/zone-1/dns_records')) {
+    lastAuth = String(opt?.headers?.Authorization || '');
+    postedRecord = JSON.parse(String(opt?.body || '{}'));
+    return new Response(JSON.stringify({ success: true, result: { id: 'rec-1' } }),
+      { status: 200, headers: { 'content-type': 'application/json' } });
+  }
+  throw new Error('unexpected fetch: ' + u);
+};
+function expectedTxt(): string { return 'noxc-verify=' + (S.ext[0]?.verify_token || ''); }
+
 {
   check(EXTERNAL_LABEL === '（外部域名）', '统一标签是（外部域名）');
+
+  /* ① 提交域名 → 只建 pending + 返回 TXT */
   const r = await call('POST', { domain: 'Example.COM.', note: '我的站' });
   const b: any = await r.json();
   check(r.status === 201 && b.item?.fqdn === 'example.com'
     && b.item?.kind === 'external' && b.item?.externalLabel === EXTERNAL_LABEL,
     '合法完整域名登记成功，归一化大小写/尾点，带（外部域名）标签');
-  check(b.zoneNote && !b.zoneNote.includes('Token'), '未填 Token 时给手动添加指引');
+  check(b.item?.verifyStatus === 'pending' && b.item?.verified === false
+    && b.item?.verifyHost === '_noxc-verify.example.com'
+    && b.item?.verifyValue?.startsWith('noxc-verify='),
+    '提交后是待验证，返回要添加的 TXT 主机名与值');
+  check(!JSON.stringify(b).includes('apiKey'), '提交响应不含任何 API key');
+  const id = b.item.id;
 
   const r2 = await call('POST', { domain: 'example.com' });
   check(r2.status === 400, '重复登记被拒绝');
+  check((await call('POST', { domain: 'meoy.top' })).status === 400, '本站根域名不能冒充外部域名');
+  check((await call('POST', { domain: 'abc.meoy.top' })).status === 400,
+    '本站后缀下的子域名必须走注册页（不能绕过配额/暂停）');
+  check((await call('POST', { domain: 'not a domain' })).status === 400, '非法域名格式被拒绝');
 
-  const r3 = await call('POST', { domain: 'meoy.top' });
-  check(r3.status === 400, '本站根域名不能冒充外部域名');
-  const r4 = await call('POST', { domain: 'abc.meoy.top' });
-  check(r4.status === 400, '本站后缀下的子域名必须走注册页（不能绕过配额/暂停）');
-  const r5 = await call('POST', { domain: 'not a domain' });
-  check(r5.status === 400, '非法域名格式被拒绝');
+  /* ② TXT 所有权验证（DoH） */
+  dohHit = false;
+  const v0: any = await (await call('POST', {}, `/${id}/verify`)).json();
+  check(v0.verified === false && /还没查到|TXT/.test(v0.detail),
+    'DoH 查不到 TXT 时明确提示等待 DNS 生效，不误判通过');
+  check((await call('POST', { provider: 'cloudflare', apiKey: 'K' }, `/${id}/connect`)).status === 400,
+    '未验证所有权时不允许连接供应商');
 
-  /* Token 只在本次请求中使用，成功时保存 NS，绝不落库 */
-  const realFetch = globalThis.fetch;
-  let captured = '';
-  (globalThis as any).fetch = async (_url: string, opt: any) => {
-    captured = String(opt?.headers?.Authorization || '');
-    return new Response(JSON.stringify({
-      zone: { id: 'z-1', nameservers: ['ns1.dnshe.com', 'ns2.dnshe.com'] },
-    }), { status: 200, headers: { 'content-type': 'application/json' } });
-  };
-  const r7 = await call('POST', { domain: 'with-token.com', dnsheToken: 'SECRET-TOKEN-123' });
-  const b7: any = await r7.json();
-  (globalThis as any).fetch = realFetch;
-  check(r7.status === 201 && b7.item?.ns1 === 'ns1.dnshe.com' && b7.item?.zoneId === 'z-1',
-    '填 Token 时自动创建 DNSHE 解析区域并保存返回的 NS / zone id');
-  check(captured.includes('SECRET-TOKEN-123')
-    && !JSON.stringify(S.ext).includes('SECRET-TOKEN-123')
-    && !JSON.stringify(b7).includes('SECRET-TOKEN-123'),
-    'Token 只出现在本次 API 请求头，不落库、不回传');
+  dohHit = true;
+  const v1: any = await (await call('POST', {}, `/${id}/verify`)).json();
+  check(v1.verified === true && v1.item?.verified === true,
+    'DoH 查到 _noxc-verify 的 TXT 后转为已验证');
+  const v2: any = await (await call('POST', {}, `/${id}/verify`)).json();
+  check(v2.verified === true, '重复验证幂等，不再重复改状态');
 
-  /* 补齐到上限 5（example.com + with-token.com 已占 2 个） */
-  for (const d of ['a.com', 'b.com', 'c.com']) await call('POST', { domain: d });
+  /* ③a 连接供应商：API key 只进请求头，不落库、不回传 */
+  const KEY = 'CF-SECRET-TOKEN-789';
+  const c1 = await call('POST', { provider: 'cloudflare', apiKey: KEY }, `/${id}/connect`);
+  const cb: any = await c1.json();
+  check(c1.status === 200 && cb.ns?.length === 2 && cb.item?.connected === true,
+    '连接 Cloudflare 成功，取回两台官方 NS，标记已连接');
+  check(lastAuth.includes(KEY), 'API key 出现在本次 Cloudflare 请求头');
+  check(!JSON.stringify(cb).includes(KEY) && !JSON.stringify(S.ext).includes(KEY),
+    'API key 不回传、不落库');
+  check(/NS 生效前/.test(cb.nsWarning || ''),
+    '接口明确警告：NS 未改前写入的记录不会生效（不假装加了 TXT 就能解析）');
+  check((await call('POST', { provider: 'unknown', apiKey: KEY }, `/${id}/connect`)).status === 400,
+    '不支持的供应商被拒绝');
+
+  /* ③b 添加 DNS 记录 */
+  check((await call('POST', { type: 'A', name: '@', content: '1.2.3.4' }, `/${id}/records`)).status === 400,
+    '不带 API key 不能写记录');
+  const badName = await call('POST', { apiKey: KEY, type: 'A', name: 'www.other.com', content: '1.2.3.4' }, `/${id}/records`);
+  check(badName.status === 400 && /必须属于/.test((await badName.json() as any).message || ''),
+    '记录名称被限定在本域名内，不能拿本站当任意 zone 的写接口');
+  const okRec = await call('POST', { apiKey: KEY, type: 'A', name: '@', content: '1.2.3.4', ttl: 600 }, `/${id}/records`);
+  const rb: any = await okRec.json();
+  check(okRec.status === 201 && rb.record?.id === 'rec-1'
+    && postedRecord?.name === 'example.com' && postedRecord?.type === 'A',
+    '@ 归一化为主域名，记录通过 Cloudflare API 写入成功');
+  check(!JSON.stringify(rb).includes(KEY) && /NS 尚未指向/.test(rb.nsWarning || ''),
+    '写记录后仍提示 NS 前提，响应不含 key');
+
+  /* 列表 / 上限 / 删除 */
+  const l: any = await (await call('GET')).json();
+  check(l.items.length === 1 && l.items.every((x: any) => x.externalLabel === EXTERNAL_LABEL)
+    && l.label === EXTERNAL_LABEL && l.max === 5
+    && l.providers.includes('cloudflare') && l.recordTypes.includes('TXT'),
+    '列表每条都标（外部域名），并回传供应商与记录类型');
+  check(l.items.every((x: any) => !('apiKey' in x) && !('api_key' in x)),
+    '列表响应不含任何 API key 字段');
+
+  for (const d of ['a.com', 'b.com', 'c.com', 'd.com']) await call('POST', { domain: d });
   const r6 = await call('POST', { domain: 'e.com' });
   check(r6.status === 400 && (await r6.json() as any).message.includes('5'),
     '每账号最多 5 个外部域名');
-
-  const l: any = await (await call('GET')).json();
-  check(l.items.length === 5 && l.items.every((x: any) => x.externalLabel === EXTERNAL_LABEL)
-    && l.label === EXTERNAL_LABEL && l.max === 5,
-    '列表每条都标（外部域名），并回传上限');
-  check(l.items.every((x: any) => !('dnsheToken' in x) && !('token' in x)),
-    '列表响应不含任何 Token 字段');
-
-  /* 删除权限 */
-  const mine = l.items[0].id;
-  const r8 = await call('DELETE', undefined, '/' + mine);
-  check(r8.status === 200, '可以删除自己的外部域名');
   const l2: any = await (await call('GET')).json();
-  check(l2.items.length === 4 && !l2.items.some((x: any) => x.id === mine),
+  check(l2.items.length === 5, '补齐后正好 5 个');
+
+  const r8 = await call('DELETE', undefined, '/' + id);
+  check(r8.status === 200, '可以删除自己的外部域名');
+  const l3: any = await (await call('GET')).json();
+  check(l3.items.length === 4 && !l3.items.some((x: any) => x.id === id),
     '删除后列表同步，被删记录不再出现');
 
   /* 独立表：不参与 publicStats 全表聚合 */
@@ -293,6 +367,7 @@ const call = (method: string, body?: any, suffix = '') =>
     && /idx_external_user/.test(schema),
     '外部域名独立表 + 按用户索引，不参与公开统计的全表扫描');
 }
+(globalThis as any).fetch = realFetch;
 
 /* ───────────── E. 前端标签与文档 ───────────── */
 const dash = read('src/app/pages/Dashboard.tsx');
@@ -307,6 +382,28 @@ check(/externalLabel: EXTERNAL_LABEL/.test(whoisRoute)
   'WHOIS 外部域名结果也用同一份（外部域名）标签');
 check(/外部域名/.test(docsZh) && /external domain/i.test(docsEn)
   && /第三方域名接入/.test(readme), '中英文档与 README 写明外部域名');
+check(/applyCard[\s\S]{0,400}<ExternalDomains \/>/.test(dash),
+  '第三方域名接入放在「注册域名」卡片下面');
+check(/id="externalCard"/.test(dash) && /dashboard#externalCard/.test(read('src/app/pages/Register.tsx')),
+  '注册页也有入口，跳到控制台该卡片');
+const extRoute = read('src/routes/externalDomains.ts');
+const extVerify = read('src/lib/externalVerify.ts');
+const extDns = read('src/lib/providerDns.ts');
+check(/checkOwnership/.test(extRoute) && /verify_status/.test(extRoute)
+  && /connectProvider/.test(extRoute) && /addRecord/.test(extRoute),
+  '后端三步流程：TXT 验证 → 连接供应商 → 写 DNS 记录');
+check(/cloudflare-dns\.com\/dns-query/.test(extVerify)
+  && /dns\.google\/resolve/.test(extVerify) && /type\) === 16/.test(extVerify),
+  '所有权验证走公共 DoH JSON，TXT(type=16) 双兜底');
+check(/api\.cloudflare\.com\/client\/v4/.test(extDns)
+  && /isNameInDomain/.test(extDns) && /proxied: false/.test(extDns),
+  'Cloudflare 官方 v4 写入，名称限定本域名，不默认开代理');
+check(/nsWarning/.test(extRoute) && /NS 生效前/.test(extRoute),
+  '接口明确提示 NS 前提，不假装加 TXT 就能解析');
+check(!/api_?key/i.test(read('schema.sql').slice(
+  read('schema.sql').indexOf('CREATE TABLE IF NOT EXISTS external_domains'),
+  read('schema.sql').indexOf('CREATE INDEX IF NOT EXISTS idx_external_user')).replace(/verify_token/g,'')),
+  'external_domains 表不存供应商 API key');
 check(/D1 读取与第三方域名回归/.test(ci)
   && /d1-read-external-domain-regression\.ts/.test(ci), '专项回归进 CI');
 check(/public_stats_snapshot/.test(health), '健康巡检有防回流断言');

@@ -10,9 +10,17 @@
  * 长句整译优先；短词用于 translateText 的全匹配与「全中文可消费」判定。
  */
 export const EXTRA_DICT: Record<string, string> = {
+  '第三方域名接入': 'Third-party domain access',
+  '前往接入': 'Go to access',
+  '已验证所有权': 'Ownership verified',
+  '待验证': 'Pending verification',
+  '验证所有权': 'Verify ownership',
+  '连接供应商': 'Connect provider',
+  '添加记录': 'Add record',
+  '提交域名': 'Submit domain',
+  '添加 DNS 记录': 'Add DNS record',
   '外部域名': 'External domains',
   '（外部域名）': '(External domain)',
-  '第三方域名接入': 'Third-party domain access',
   '当前没有可申请的后缀': 'No suffix is currently available',
   '暂停': 'Paused',
   '主推': 'Featured',
@@ -133,7 +141,6 @@ export const EXTRA_DICT: Record<string, string> = {
   '服务名': 'Service', '站点设置': 'Site settings', '审计日志': 'Audit log',
   '友善发言': 'Be kind', '今日签到': 'Check in today', '每日签到': 'Daily check-in',
   '注册时间': 'Registered', '到期时间': 'Expires', '写入位置': 'Write to',
-  '添加记录': 'Add record', '常用模板': 'Presets', '快捷操作': 'Quick actions',
   '添加解析': 'Add DNS record', '常见问题': 'FAQ', '域名前缀': 'Subdomain prefix',
   '问题反馈': 'Feedback', '更换头像': 'Change avatar', '选择头像': 'Choose avatar',
   '登录密码': 'Password', '账号邮箱': 'Account email', '提交注册': 'Submit request',

@@ -379,13 +379,6 @@ CNAME 探测走 DoH（cloudflare-dns.com → dns.google 双端点降级），5 �
 
 想换成本地图：把图片放进仓库的 `public/img/`，推一次，再把地址填进后台即可。
 
-### 13. 第三方域名接入（外部域名）
-
-控制台「域名管理」底部可登记自己的完整域名，列表与 WHOIS 统一标「（外部域名）」。
-独立表、按用户索引、不占配额、不计入公开统计、不写本站 DNS；可选 DNSHE API Token
-自动创建解析区域，Token 只在本次请求中使用且不落库。每账号最多 5 个。
-错误与限制统一见文末「附录 Z」。
-
 ### 12. 域名有效期与续期
 
 新域名默认有效期 **365 天**（后台「站点设置 → 域名有效期」可设 1–3650 天）。
@@ -404,6 +397,19 @@ CNAME 探测走 DoH（cloudflare-dns.com → dns.google 双端点降级），5 �
   管理员自定义值一律保留；后台 `expiry` 已从 `secrets` 提到顶层，输入框不会再显示写死值
 
 ---
+
+### 13. 第三方域名接入（外部域名）
+
+入口在控制台「**注册域名**」卡片下面，注册页底部也有跳转。列表与 WHOIS 统一标
+「（外部域名）」。流程：**提交域名 → 在当前 DNS 服务商加 `_noxc-verify.<域名>`
+TXT 验证所有权（后端走公共 DoH）→ 填自己的供应商 API key 连接 Cloudflare / DNSHE
+→ 添加 DNS 记录**。
+
+> TXT 只证明所有权，**记录生效还要求域名 NS 指向该供应商**，这一步在注册商完成。
+> 详见文末「附录 Z.5」，别把「加了 TXT 就能解析」当成事实。
+
+独立表 + 用户索引，不占配额、不计入公开统计、不写本站 DNS；每账号最多 5 个；
+记录名称限定为该域名或其子域；**API key 只在本次请求使用，不落库、每次重填**。
 
 ## 二、项目结构
 
@@ -1103,7 +1109,31 @@ CI 会尝试自动创建并绑定 Workers KV（`KV`）与 R2（`AVATARS`）。�
 - **PTR**：只有在 Cloudflare 托管反向区域（in-addr.arpa）时才真正生效，正向域中创建仅作占位
 - **NS**：Cloudflare 区域的根域 NS 不可修改，但子域委派（如 `sub.xxx.meoy.top` 的 NS）可以正常添加
 - TXT 单条最长 2048 字符（Cloudflare 限制），超出需分段
-- **外部域名**：只登记与展示，DNS 由域名注册商 / DNSHE 管理，本站不写入解析；
-  每个账号最多 5 个，DNSHE API Token 只在创建解析区域那一次请求中使用，不落库
+- **外部域名**：DNS 记录写在用户自己的 Cloudflare / DNSHE zone，本站只代调用 API，
+  不托管、不写本站解析；每账号最多 5 个，API key 不落库
 - Redaction 35 等外部字体异步加载，访问环境拉不到时回退系统字体
 
+### Z.5 外部域名：加了 TXT、也写了记录，但解析不生效
+
+**现象**：第三方域名接入里 TXT 验证通过了、也用 API key 成功写入 A / CNAME 记录，
+但 `dig` 或浏览器访问还是旧的 IP / 完全不解析。
+
+**根因**：TXT 只是**所有权证明**。DNS 记录真正生效的前提是父区域把域名委派给
+那家供应商 —— 也就是在**域名注册商**把 NS 改成供应商分配的两台主机名。
+Cloudflare 会分配 `xxx.ns.cloudflare.com` / `yyy.ns.cloudflare.com`，
+在 zone 状态变成 **Active** 之前写入的记录不会被全球 DNS 查询；
+DNSHE 同理要等委派检查通过。改 NS 前还常要先在注册商**关掉 DNSSEC**，
+否则切换期间域名可能整体不可达。（Cloudflare 官方文档：Full zone setup / Change nameservers）
+
+**排查顺序**
+
+1. 接口返回的 `ns` / `nsWarning` 有没有照抄到注册商，是否两台都填、用的是主机名不是 IP
+2. Cloudflare 面板 zone 是否 Active（Pending Nameserver Update 就是还没改对）
+3. 用 `dig NS example.com @1.1.1.1` 看权威 NS 是不是供应商那两台
+4. 注册商是否还开着 DNSSEC（有就先关，激活后再在新供应商侧重开）
+5. 旧 DNS 服务商里的记录改了没用 —— 它已经不是权威了，要去**当前委派指向的那家**改
+
+**另一个易混点**：本站 API key 不落库，所以每次「连接供应商」「添加记录」都要重新填。
+若 Cloudflare 报 Token 权限错误，检查 Token 是否含 `Zone Read + DNS Write`；
+若 DNSHE 记录接口返回 4xx/5xx，接口会明确提示到 `my.dnshe.org` 面板手动添加，
+不会假装写入成功。

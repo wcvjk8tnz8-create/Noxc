@@ -665,10 +665,18 @@ CREATE TABLE IF NOT EXISTS external_domains (
   ns1         TEXT    NOT NULL DEFAULT '',
   ns2         TEXT    NOT NULL DEFAULT '',
   zone_id     TEXT    NOT NULL DEFAULT '',
+  -- TXT 所有权验证：提交后 pending，DoH 查到 _noxc-verify.<domain> 才转 verified
+  verify_token  TEXT  NOT NULL DEFAULT '',
+  verify_status TEXT  NOT NULL DEFAULT 'pending',   -- pending | verified
+  verified_at   INTEGER,
+  -- 已连接的供应商（cloudflare / dnshe）；API key 绝不落库
+  provider_key  TEXT  NOT NULL DEFAULT '',
   created_at  INTEGER NOT NULL
 );
 -- 按用户查列表走索引，一次只扫描本人几行，不增加公开读取压力
 CREATE INDEX IF NOT EXISTS idx_external_user ON external_domains(user_id);
+-- 旧库补列由 src/routes/externalDomains.ts 的 ensureExternalColumns() 幂等完成
+-- （CREATE TABLE IF NOT EXISTS 不会给已存在的表加列）
 
 -- ============================================================
 --  用户案例展示列：旧库由 src/lib/showcase.ts 的 PRAGMA + ALTER 补齐，

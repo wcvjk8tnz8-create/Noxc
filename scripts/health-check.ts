@@ -1763,8 +1763,20 @@ check(/EXTERNAL_LABEL = '（外部域名）'/.test(d1Route)
   && /externalLabel: EXTERNAL_LABEL/.test(d1Whois)
   && /id="externalCard"/.test(d1Dash),
   '列表 / WHOIS / 控制台统一标（外部域名）');
-check(/dnsheToken/.test(d1Route) && !/dnsheToken/.test(d1Schema),
-  'DNSHE Token 只在请求中使用，不落库');
+const extTable = d1Schema.slice(d1Schema.indexOf('CREATE TABLE IF NOT EXISTS external_domains'),
+  d1Schema.indexOf('CREATE INDEX IF NOT EXISTS idx_external_user'));
+check(/apiKey/.test(d1Route) && !/api_?key|token/i.test(extTable.replace(/verify_token/g, '')),
+  '供应商 API key 只在请求中使用，不落库');
+check(/checkOwnership/.test(d1Route) && /verify_status/.test(d1Route)
+  && /connectProvider/.test(d1Route) && /addRecord/.test(d1Route),
+  '外部域名三步流程：TXT 验证 → 连接供应商 → 写 DNS 记录');
+check(/nsWarning/.test(d1Route) && /NS 尚未指向该供应商/.test(d1Route),
+  '接口明确提示「NS 未改前记录不生效」，不假装加了 TXT 就能解析');
+check(/applyCard[\s\S]{0,400}<ExternalDomains \/>/.test(d1Dash),
+  '第三方域名接入放在「注册域名」卡片下面');
+check(/isNameInDomain/.test(read('src/lib/providerDns.ts'))
+  && /cloudflare-dns\.com\/dns-query/.test(read('src/lib/externalVerify.ts')),
+  '写入名称限定在本域名内，TXT 验证走 DoH');
 check(/外部域名|D1 读取优化/.test(d1DocsZh) && /external domain|D1 read/i.test(d1DocsEn)
   && /附录 Z · 故障排查与已知错误（固定放在文末）/.test(d1Readme)
   && d1Readme.lastIndexOf('## 附录 Z') > d1Readme.lastIndexOf('## 附录 ·'),
