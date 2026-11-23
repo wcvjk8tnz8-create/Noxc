@@ -1698,7 +1698,11 @@ const pvReg = read('src/app/legacy/register.ts');
 const pvHome = read('src/app/legacy/home.ts');
 const pvWhois = read('src/app/legacy/whois.ts');
 const pvTpl = read('src/html/root-meoy.ts');
-const pvHtml = read('../root-pages/noxc.uk.html');
+/* 三份根域名静态落地页是仓库外的独立交付物（巡检明确禁止仓库跟踪 .html），
+   CI 里可能不存在。用条件读取：本地有就严格查，CI 没有则只依赖仓库内的
+   TS 模板断言，绝不因为找不到文件让整个巡检崩掉。 */
+const maybeRead = (p: string) => { try { return read(p); } catch { return ''; } };
+const pvHtml = maybeRead('../root-pages/noxc.uk.html');
 const pvCss = read('src/app/styles/design-system.css');
 const pvDocsZh = read('docs-src/settings.md');
 const pvDocsEn = read('docs-src/en/settings.md');
@@ -1719,8 +1723,8 @@ check(/const preferNoxc = \(list\) => sortPreferred\(list\)/.test(pvHome)
   && /\.filter\(\(r\) => !isApplyPausedFor\(r\.domain\)\)/.test(pvHome),
   '首页卡片 / 统计明细 / HOT 都不显示暂停后缀');
 check(/sortPreferred\(/.test(pvWhois) && /__NOXC_PRIMARY_ROOT__/.test(pvTpl)
-  && /__NOXC_PRIMARY_ROOT__/.test(pvHtml),
-  'WHOIS 与根域名落地页同样过滤并回落主推');
+  && (!pvHtml || /__NOXC_PRIMARY_ROOT__/.test(pvHtml)),
+  'WHOIS 与根域名落地页同样过滤并回落主推（仓库外静态页存在时一并核对）');
 check(/\.root-opt\[data-paused="1"\]/.test(pvCss), 'CSS 点击兜底存在');
 check(/自动切换|主推域名/.test(pvDocsZh) && /automatically|primary suffix/i.test(pvDocsEn)
   && /主推域名/.test(pvReadme), '中英文档与 README 写明自动切换口径');

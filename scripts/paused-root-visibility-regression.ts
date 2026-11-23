@@ -76,11 +76,10 @@ const home = read('src/app/legacy/home.ts');
 const whois = read('src/app/legacy/whois.ts');
 const tpl1 = read('src/html/root-meoy.ts');
 const tpl2 = read('src/html/root-v1.ts');
-const htmls = [
-  read('../root-pages/meoy.top.html'),
-  read('../root-pages/noxc.uk.html'),
-  read('../root-pages/v-1.top.html'),
-];
+/* 三份根域名静态落地页是仓库外的独立交付物（仓库巡检禁止跟踪 .html）。
+   CI 里可能不存在：存在就严格查，不存在则只依赖仓库内的 TS 模板断言。 */
+const htmlPaths = ['../root-pages/meoy.top.html', '../root-pages/noxc.uk.html', '../root-pages/v-1.top.html'];
+const htmls = htmlPaths.filter((q) => fs.existsSync(path.resolve(q))).map(read);
 const css = read('src/app/styles/design-system.css');
 const idx = read('src/index.ts');
 const sub = read('src/routes/subdomains.ts');
@@ -142,11 +141,9 @@ for (const t of [tpl1, tpl2]) {
     '模板计算主推域名，本页后缀暂停时自动改带主推');
   check(/root = alt;/.test(t), '模板查询跳转使用主推域名而不是被暂停后缀');
 }
-for (const h of htmls) {
-  check(/__NOXC_PRIMARY_ROOT__/.test(h) && /openRoots\.indexOf\('noxc.uk'\)/.test(h),
-    '静态落地页计算主推域名');
-  check(/domain=alt;/.test(h), '静态落地页暂停时跳注册带主推域名');
-}
+check(htmls.length === 0 || htmls.every((h) =>
+  /__NOXC_PRIMARY_ROOT__/.test(h) && /openRoots\.indexOf\('noxc.uk'\)/.test(h) && /domain=alt;/.test(h)),
+  '静态落地页（仓库外交付物，存在时核对）同样计算主推并回落');
 check(/\.root-opt\[data-paused="1"\]/.test(css) && /pointer-events: none !important/.test(css),
   'CSS 点击兜底存在');
 
