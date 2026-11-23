@@ -232,16 +232,22 @@ async function main() {
     check(rj.status === 200 && /application\/json/.test(rj.headers.get('content-type') || ''), '站点设置导出返回 JSON');
     check(j.format === SETTINGS_FORMAT && j.version === 1, 'JSON 带 format / version，导入端可校验');
     check(j.settings.site_name === 'Noxc' && j.settings.announcement === '欢迎使用Noxc', '普通设置原样导出');
-    check(j.settings.mail_api_key === '' && j.maskedKeys.includes('mail_api_key'),
-      '凭据类 key 默认脱敏并列进 maskedKeys');
+    check(j.settings.mail_api_key === 'SECRET_MAIL_KEY'
+      && j.settings.nodeloc_client_secret === 'SECRET_NL'
+      && j.maskSecrets === false && j.maskedKeys.length === 0,
+      '默认完整导出：API key / Secret 都是真值，不再有空的凭据位');
     check(!('public_stats_snapshot' in j.settings) && !('runtime_migrations_v3' in j.settings),
       '统计快照 / 迁移 marker 不进备份');
-    check(!settingsJson.includes('SECRET_MAIL_KEY'), '默认导出物里不含任何密钥明文');
+    check(Array.isArray(j.emptyKeys), 'JSON 列出 emptyKeys：库中本来未配置的项单独说明');
+    check(settingsJson.includes('SECRET_MAIL_KEY'), '默认导出物确实含密钥明文（请加密保存）');
 
-    const rj2 = await call('/api/admin/backup/export/settings?includeSecrets=1');
-    const j2 = JSON.parse(await rj2.text());
-    check(j2.includeSecrets === true && j2.settings.mail_api_key === 'SECRET_MAIL_KEY',
-      '显式 includeSecrets=1 才带凭据真值');
+    const rj2 = await call('/api/admin/backup/export/settings?maskSecrets=1');
+    const maskedText = await rj2.text();
+    const j2 = JSON.parse(maskedText);
+    check(j2.maskSecrets === true && j2.settings.mail_api_key === ''
+      && j2.maskedKeys.includes('mail_api_key'),
+      '仅 ?maskSecrets=1 生成脱敏副本，用于分享 / 排查');
+    check(!maskedText.includes('SECRET_MAIL_KEY'), '脱敏副本不含密钥明文');
 
     const bad = await call('/api/admin/backup/export/nope');
     check(bad.status === 400, '非法导出类型 400');
@@ -343,9 +349,9 @@ async function main() {
       '脱敏的空密钥被跳过，不会把当前密钥冲成空串');
     check(!s.settings.has('public_stats_snapshot'), '内部快照不会被灌回来');
 
-    /* includeSecrets 的备份可以真正恢复凭据 */
+    /* 默认导出的完整备份可以真正恢复凭据 */
     const s2 = fresh(); seed(s2);
-    const full = await (await appFor(s2).call('/api/admin/backup/export/settings?includeSecrets=1')).text();
+    const full = await (await appFor(s2).call('/api/admin/backup/export/settings')).text();
     s2.settings.clear();
     await appFor(s2).call('/api/admin/backup/import/settings', post({ data: full, mode: 'merge' }));
     check(s2.settings.get('mail_api_key') === 'SECRET_MAIL_KEY', '含凭据备份可完整恢复密钥');

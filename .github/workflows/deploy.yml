@@ -158,6 +158,9 @@ jobs:
       - name: 数据备份导出与汇入回归
         run: npx tsx scripts/backup-regression.ts
 
+      - name: Yunamo 风格皮肤回归（颜色保持 / 形态改造）
+        run: npx tsx scripts/yunamo-skin-regression.ts
+
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
       - name: 统计展开回归
         run: npx tsx scripts/stats-breakdown-regression.ts

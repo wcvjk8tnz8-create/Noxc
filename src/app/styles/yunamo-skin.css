@@ -1,0 +1,268 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Noxc · yunamo-skin.css —— 形态层（最后加载）
+
+   参照 Yunamo（yunamo.com）的界面语言：
+     · 大圆角描边组件、1px 发丝线、零阴影、零渐变、零玻璃拟态
+     · 等宽字体承担域名 / 输入框 / 按钮 / uppercase 小标，正文仍是系统无衬线
+     · 首屏「输入条 + 全宽大写按钮」两段式，下面跟 Try 示例 chips
+     · Features / How it works / FAQ 的清晰分区，顶栏可暂停动效
+
+   ── 铁律：颜色保持现在的 ──────────────────────────────────────────────
+   本文件**不定义任何色值**：所有 background / color / border-color 一律
+   引用 design-system.css 既有的 --zx-* / hsl(var(...)) 令牌，明/暗主题
+   自动跟随。回归脚本会扫描本文件，出现 #hex / rgb() / hsl() 字面量或
+   重定义 --zx-* 颜色变量即判失败。
+   只改：圆角、间距、字体族、字重、字距、布局、动效开关。
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root,
+html[data-theme="dark"] {
+  /* ── 几何：Tailwind/DaisyUI 的 rounded-xl / rounded-2xl 口径 ── */
+  --yn-radius: 14px;
+  --yn-radius-lg: 20px;
+  --yn-gap: 14px;
+
+  --zx-radius: var(--yn-radius);
+  --radius: var(--yn-radius);
+  --radius-s: 10px;
+  --radius-l: var(--yn-radius-lg);
+  --rv-r: var(--yn-radius);
+  --rv-r-lg: var(--yn-radius-lg);
+
+  /* ── 字体：等宽承担数据 / 控件 / 小标（Yunamo 最明显的识别点） ── */
+  --zx-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  --mono: var(--zx-mono);
+  --rv-mono: var(--zx-mono);
+  --td-mono: var(--zx-mono);
+
+  --yn-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* ── 按钮：从 999px 胶囊改为克制的圆角矩形 ────────────────────────── */
+html body .rv-pill {
+  border-radius: var(--yn-radius) !important;
+  font-family: var(--zx-mono);
+  letter-spacing: .05em;
+}
+html body .rv-pill.sm { border-radius: 10px !important; }
+html body .rv-pill.ink,
+html body .rv-pill.line { font-weight: 700; }
+
+/* ── 标题：从 900 超粗编辑式收敛到现代无衬线的常规粗体 ─────────────── */
+html body .rv-title {
+  font-weight: 700 !important;
+  letter-spacing: -.035em !important;
+  font-size: clamp(40px, 6vw, 78px) !important;
+}
+html body.page-home .rv-h2 {
+  font-weight: 700 !important;
+  letter-spacing: -.03em !important;
+}
+html body.page-home .rv-col h3 { font-weight: 700 !important; }
+html body .card h2 { font-family: var(--zx-sans) !important; }
+
+/* ── 等宽小标 / 数据：uppercase + 字距 ─────────────────────────────── */
+html body.page-home .rv-eyebrow,
+html body.page-home .rv-sec-no,
+html body.page-home .rv-art-cap,
+html body.page-home .rv-stat b,
+html body.page-home .rv-hint,
+html body.page-home .zx-fact-k,
+html body .nk-suf-name,
+html body .rv-bd-head,
+html body .rv-bd-name,
+html body .rv-bd-num,
+html body th,
+html body code,
+html body pre,
+html body .mono,
+html body .fqdn {
+  font-family: var(--zx-mono) !important;
+}
+html body.page-home .rv-eyebrow,
+html body.page-home .rv-sec-no,
+html body.page-home .rv-art-cap {
+  letter-spacing: .24em;
+  text-transform: uppercase;
+}
+
+/* ── 首屏查询区：输入条一行 + 全宽大写按钮一行（Yunamo 招牌布局） ──── */
+html body.page-home .rv-ask {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: var(--yn-gap);
+  width: 100% !important;
+  max-width: 900px;
+  margin: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  min-height: 0 !important;
+}
+html body.page-home .rv-ask-ico { display: none !important; }
+html body.page-home .rv-ask #qName {
+  grid-column: 1; grid-row: 1;
+  flex: none !important;
+  border: 1px solid var(--zx-hair) !important;
+  border-right: 0 !important;
+  border-radius: var(--yn-radius) 0 0 var(--yn-radius) !important;
+  background: var(--zx-paper) !important;
+  padding: 18px 20px !important;
+  min-height: 62px;
+  font-family: var(--zx-mono) !important;
+  font-size: 17px !important;
+  color: var(--zx-ink);
+}
+html body.page-home .rv-root-wrap {
+  grid-column: 2; grid-row: 1;
+  border: 1px solid var(--zx-hair) !important;
+  border-left: 1px solid var(--zx-hair-2) !important;
+  border-radius: 0 var(--yn-radius) var(--yn-radius) 0 !important;
+  background: var(--zx-paper) !important;
+  padding: 0 18px !important;
+  min-height: 62px;
+  font-family: var(--zx-mono) !important;
+}
+html body.page-home .rv-root-wrap select { font-family: var(--zx-mono) !important; }
+html body.page-home .rv-ask-btn {
+  grid-column: 1 / -1; grid-row: 2;
+  width: 100% !important;
+  min-height: 58px !important;
+  padding: 0 28px !important;
+  border-radius: var(--yn-radius) !important;
+  font-family: var(--zx-mono) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase !important;
+}
+
+/* ── Try 示例 chips：细边框、小圆角；只填输入框，零接口请求 ─────────── */
+.yn-try {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-top: 14px;
+  font-family: var(--zx-mono); font-size: 12px;
+}
+.yn-try > span { color: var(--zx-muted); letter-spacing: .12em; }
+.yn-try button {
+  border: 1px solid var(--zx-hair);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--zx-body);
+  font: inherit;
+  padding: 7px 13px;
+  min-height: 36px;
+  cursor: pointer;
+  transition: border-color .18s var(--yn-ease), transform .18s var(--yn-ease);
+}
+.yn-try button:hover { border-color: var(--zx-ink); transform: translateY(-1px); }
+.yn-try button:focus-visible { outline: 2px solid var(--zx-hair); outline-offset: 2px; }
+
+/* ── How it works：三步描边卡 ─────────────────────────────────────── */
+.yn-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--yn-gap);
+  margin-top: 26px;
+}
+.yn-step {
+  border: 1px solid var(--zx-hair);
+  border-radius: var(--yn-radius-lg);
+  background: var(--zx-paper);
+  padding: 24px 24px 26px;
+  box-shadow: none;
+}
+.yn-step .yn-no {
+  display: block;
+  font: 700 11px var(--zx-mono);
+  letter-spacing: .24em;
+  color: var(--zx-muted);
+  text-transform: uppercase;
+}
+.yn-step h3 { font-size: 17px; font-weight: 700; margin: 14px 0 9px; letter-spacing: -.02em; }
+.yn-step p { font-size: 13.5px; line-height: 1.85; color: var(--zx-body); margin: 0; }
+.yn-step code { font-size: 12.5px; }
+
+/* ── 顶栏「暂停动效」：Yunamo 同款可访问性开关 ─────────────────────── */
+.yn-motion {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 34px; padding: 0 12px;
+  border: 1px solid var(--zx-hair);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--zx-body);
+  font: 600 11.5px var(--zx-mono);
+  letter-spacing: .06em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.yn-motion:hover { border-color: var(--zx-ink); }
+.yn-motion[aria-pressed="true"] { font-weight: 700; }
+
+/* 暂停动效：用户主动开关 + 系统偏好，两条路都生效。
+   刻意不写全局 transform:none —— 历史层有元素用 transform 做定位，
+   一把清掉会把布局弄歪。这里只停 animation / transition。 */
+html[data-motion="paused"] *,
+html[data-motion="paused"] *::before,
+html[data-motion="paused"] *::after,
+html[data-motion="paused"] {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+/* 入场动画被停掉后，rv-reveal 必须保持最终可见状态，不能停在 opacity:0 */
+html[data-motion="paused"] .rv-reveal,
+html[data-motion="paused"] .rv-title em::after {
+  opacity: 1 !important;
+  transform: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html body *, html body *::before, html body *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── 通用组件跟随新圆角 / 等宽（值仍来自既有颜色令牌） ─────────────── */
+html body .card,
+html body .stat-card,
+html body .quick,
+html body .modal-card,
+html body .tablewrap,
+html body input,
+html body select,
+html body textarea {
+  border-radius: var(--yn-radius) !important;
+}
+html body .card { box-shadow: none !important; }
+html body .rv-frame { border-radius: var(--yn-radius-lg) !important; }
+html body .zx-fact { border-radius: var(--yn-radius-lg) !important; }
+
+/* ── 窄屏：三步改单列，动效开关收起，查询条保持两段式 ─────────────── */
+@media (max-width: 780px) {
+  .yn-steps { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  html body.page-home .rv-ask {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  html body.page-home .rv-ask #qName {
+    padding: 14px 14px !important;
+    min-height: 54px;
+    font-size: 15px !important;
+  }
+  html body.page-home .rv-root-wrap { padding: 0 12px !important; min-height: 54px; }
+  html body.page-home .rv-ask-btn { min-height: 52px !important; letter-spacing: .1em !important; }
+  /* shell.css 有 button:not(...) { display:inline-flex !important }，特异性比类选择器高；
+     这里用 id 兜底，保证窄屏真的收起，不改动历史层规则。 */
+  html body #ynMotion { display: none !important; }
+  .yn-try { font-size: 11px; }
+  .yn-try button { padding: 6px 10px; }
+}

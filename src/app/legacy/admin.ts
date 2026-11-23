@@ -290,10 +290,10 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <button class="btn sm" id="bkExpUsers">下载用户 CSV</button>
               <button class="btn sm" id="bkExpSettings">下载站点设置 JSON</button>
               <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:0;cursor:pointer">
-                <input type="checkbox" id="bkSecrets" style="width:15px;height:15px">设置 JSON 包含凭据
+                <input type="checkbox" id="bkMask" style="width:15px;height:15px">生成脱敏副本（隐藏凭据）
               </label>
             </div>
-            <div class="hint" style="margin-top:10px">用户 CSV 含密码哈希，恢复后可原样登录，请加密保存。站点设置默认把 API key / Secret 置空；需完整迁移才勾选「包含凭据」。</div>
+            <div class="hint" style="margin-top:10px">用户 CSV 含密码哈希，恢复后可原样登录；站点设置 JSON 默认包含全部凭据真值，遗失后可原样汇入，请加密保存。仅当要把文件发给别人排查时才勾选「生成脱敏副本」。JSON 里的 <code>emptyKeys</code> 是库中本来就没配置的项，不是导出丢值。</div>
           </div>
 
           <div class="card" style="padding:16px 18px">
@@ -323,7 +323,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               </div>
               <div id="bkResult" class="hint" style="white-space:pre-wrap;line-height:1.8"></div>
             </div>
-            <div class="hint" style="margin-top:10px">安全边界：只认白名单列 / 配置键，所有字段逐个校验；「覆盖」也绝不改动现有用户密码哈希与角色；脱敏的空密钥会被跳过，不会冲掉正在使用的配置；内部统计快照与迁移标记不导出、不汇入。单文件上限 2MB / 20000 行。汇入子域名前请先汇入用户，跨库时按邮箱重新对应归属。</div>
+            <div class="hint" style="margin-top:10px">安全边界：只认白名单列 / 配置键，所有字段逐个校验；「覆盖」也绝不改动现有用户密码哈希与角色；脱敏副本里的空密钥会被跳过，不会冲掉正在使用的配置；内部统计快照与迁移标记不导出、不汇入。单文件上限 2MB / 20000 行。汇入子域名前请先汇入用户，跨库时按邮箱重新对应归属。</div>
           </div>
           <div class="hint">导出是一次性全表读取，属低频手动操作；不要放进轮询或自动化脚本，避免无谓消耗 D1 读取额度。</div>
         </div>
@@ -336,8 +336,8 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
       ['bkFile', 'bkKind', 'bkMode'].forEach((id) => $(id).addEventListener('change', invalidate));
 
       async function backupDownload(kind: string) {
-        const withSecrets = kind === 'settings' && !!$('bkSecrets').checked;
-        const res = await fetch('/api/admin/backup/export/' + kind + (withSecrets ? '?includeSecrets=1' : ''),
+        const masked = kind === 'settings' && !!$('bkMask').checked;
+        const res = await fetch('/api/admin/backup/export/' + kind + (masked ? '?maskSecrets=1' : ''),
           { credentials: 'same-origin' });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
@@ -350,7 +350,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
         a.download = m ? m[1] : ('noxc-' + kind + (kind === 'settings' ? '.json' : '.csv'));
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-        result.textContent = '已导出 ' + a.download + (withSecrets ? '（含凭据，请妥善保管）' : '');
+        result.textContent = '已导出 ' + a.download + (masked ? '（脱敏副本，不能用于完整恢复）' : '（含全部凭据，请加密保存）');
       }
       for (const [id, kind] of [['bkExpSubs', 'subdomains'], ['bkExpUsers', 'users'], ['bkExpSettings', 'settings']] as const) {
         $(id).onclick = async () => {

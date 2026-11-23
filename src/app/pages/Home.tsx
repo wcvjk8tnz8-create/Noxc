@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { mountHome } from '../legacy/home';
 import { refreshRuntime, cleanupPage, readUserCache, authProbe } from '../lib/runtime';
 import { ICON_PATHS, type IconName } from '../lib/icons';
+import { currentLang } from '../lib/i18n';
 
 /**
  * Home · Noxc「Node」设计系统（由主 logo 反推）
@@ -41,12 +42,52 @@ export default function HomePage() {
     document.documentElement.setAttribute('data-skin', 'doc');
     (window as any).MEOY_PUBLIC_PAGE = true;
     let alive = true;
+
+    /* Yunamo 式可访问性：「暂停动效」开关，选择记在 localStorage，零接口请求。
+       系统设置了 prefers-reduced-motion 时由 CSS 自动降级，这里只管手动开关。 */
+    const MOTION_KEY = 'noxc-motion-paused';
+    const syncMotion = () => {
+      const paused = document.documentElement.dataset.motion === 'paused';
+      const btn = document.getElementById('ynMotion');
+      if (btn) {
+        const zh = paused ? '恢复动效' : '暂停动效';
+        const en = paused ? 'Resume motion' : 'Pause motion';
+        btn.textContent = currentLang() === 'en' ? en : zh;
+        btn.setAttribute('data-en', en);
+        btn.setAttribute('aria-pressed', paused ? 'true' : 'false');
+      }
+    };
+    try { if (localStorage.getItem(MOTION_KEY) === '1') document.documentElement.dataset.motion = 'paused'; } catch { /* 隐私模式 */ }
+    syncMotion();
+    const onMotion = () => {
+      const paused = document.documentElement.dataset.motion === 'paused';
+      if (paused) delete document.documentElement.dataset.motion;
+      else document.documentElement.dataset.motion = 'paused';
+      try { localStorage.setItem(MOTION_KEY, paused ? '0' : '1'); } catch { /* 忽略 */ }
+      syncMotion();
+    };
+    const motionBtn = document.getElementById('ynMotion');
+    motionBtn?.addEventListener('click', onMotion);
+
+    /* Try 示例：只把前缀填进输入框并聚焦，不发任何查询请求（省 D1 读取） */
+    const onTry = (e: Event) => {
+      const v = (e.currentTarget as HTMLElement)?.getAttribute('data-yn-try') || '';
+      const q = document.getElementById('qName') as HTMLInputElement | null;
+      if (q) { q.value = v; q.focus(); }
+    };
+    const tryBtns = Array.from(ref.current?.querySelectorAll('[data-yn-try]') || []);
+    tryBtns.forEach((b) => b.addEventListener('click', onTry));
+
     authProbe().then((u) => { if (alive) setAuthed(!!(u && u.id)); });
     (async () => {
       try { await mountHome(ref.current); } catch (e) { console.error('[home] 页面初始化失败', e); }
       if (alive) refreshRuntime();
     })();
-    return () => { alive = false; cleanupPage(); };
+    return () => {
+      alive = false; cleanupPage();
+      motionBtn?.removeEventListener('click', onMotion);
+      tryBtns.forEach((b) => b.removeEventListener('click', onTry));
+    };
   }, []);
 
   return (
@@ -62,8 +103,10 @@ export default function HomePage() {
           </a>
           <nav className="rv-nav" aria-label="主导航">
             <a href="#features">特性</a>
+            <a href="#how" data-en="How it works">如何使用</a>
             <a href="#suffix">后缀</a>
             <a href="#faq">常见问题</a>
+            <button type="button" className="yn-motion" id="ynMotion" aria-pressed="false" data-en="Pause motion">暂停动效</button>
             {authed
               ? <a className="rv-pill line sm rv-login" href="/dashboard">→ 去往控制台</a>
               : <a className="rv-pill line sm rv-login" href="/login">登录</a>}
@@ -132,6 +175,12 @@ export default function HomePage() {
           </div>
           <div className="zx-results rv-results" id="results"></div>
           <p className="rv-hint"><Ico name="info" size={15} /> 输入前缀，查询它在各个后缀下是否可用</p>
+          <div className="yn-try" aria-label="Example prefixes">
+            <span>TRY:</span>
+            <button type="button" data-yn-try="hello-world">hello-world ↗</button>
+            <button type="button" data-yn-try="my-app">my-app ↗</button>
+            <button type="button" data-yn-try="portfolio">portfolio ↗</button>
+          </div>
         </section>
 
         {/* ══ 四张特性卡：对齐 Zerexa Domains 实拍的第二屏 ══ */}
@@ -180,15 +229,39 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ══ 03 使用流程：Yunamo 的 How it works 三步 ══ */}
+        <section className="rv-sec rv-reveal" style={{ '--i': 4 } as CSSProperties} id="how">
+          <p className="rv-sec-no">03 <span>/</span> HOW IT WORKS</p>
+          <h2 className="rv-h2" data-en="Three steps to your domain">三步拥有你的域名</h2>
+          <p className="rv-sec-lede" data-en="From picking a name to live DNS, all in your browser. No credit card needed.">从挑名字到解析生效，全程在浏览器里完成，不需要信用卡。</p>
+          <div className="yn-steps">
+            <article className="yn-step">
+              <span className="yn-no">01 / FIND A NAME</span>
+              <h3 data-en="Find a name that is still free">查一个还没被占用的名字</h3>
+              <p data-en="Enter a prefix above, pick a suffix, then hit Check availability. 3 to 63 characters: letters, digits and hyphens.">在上面的输入框填前缀，选一个喜欢的后缀，点「查询」看是否可用。3 到 63 个字符，字母、数字与连字符都行。</p>
+            </article>
+            <article className="yn-step">
+              <span className="yn-no">02 / CLAIM IT</span>
+              <h3 data-en="Register and claim it">注册并领取</h3>
+              <p data-en="Sign in and submit the name on the registration page. Approval follows the site settings. Every email has a free quota you can check in the console.">登录后在注册页提交，按后台配置走审核或直接开通。每个邮箱都有免费额度，可在控制台查看。</p>
+            </article>
+            <article className="yn-step">
+              <span className="yn-no">03 / POINT ANYWHERE</span>
+              <h3 data-en="Point the name at your host">把域名指向你的主机</h3>
+              <p data-en="Add A, AAAA, CNAME, MX or TXT records on the domain page, or delegate the zone to your own DNS provider with NS records.">在域名详情页添加 A / AAAA / CNAME / MX / TXT 等记录，或用 NS 委托交给自己的 DNS 服务商。</p>
+            </article>
+          </div>
+        </section>
+
         {/* ══ 引用 ══ */}
-        <blockquote className="rv-quote rv-reveal" style={{ '--i': 4 } as CSSProperties}>
+        <blockquote className="rv-quote rv-reveal" style={{ '--i': 5 } as CSSProperties}>
           <p>「感觉不像在操作一套软件，更像把一件小事托付出去，然后它就安静地办好了。」</p>
           <cite>— Noxc, on keeping things quiet</cite>
         </blockquote>
 
         {/* ══ 03 工具 ══ */}
-        <section className="rv-sec rv-reveal" style={{ '--i': 5 } as CSSProperties} id="faq">
-          <p className="rv-sec-no">03 <span>/</span> TOOLS</p>
+        <section className="rv-sec rv-reveal" style={{ '--i': 6 } as CSSProperties} id="faq">
+          <p className="rv-sec-no">04 <span>/</span> TOOLS</p>
           <h2 className="rv-h2">Whois 查询 &amp; <em>DNS 工具</em></h2>
           <p className="rv-sec-lede">公开查询接口，无需登录即可调用</p>
           <div className="rv-tools">
@@ -216,7 +289,7 @@ export default function HomePage() {
         </section>
 
         {/* ══ 片尾 ══ */}
-        <section className="rv-cta rv-reveal" style={{ '--i': 6 } as CSSProperties}>
+        <section className="rv-cta rv-reveal" style={{ '--i': 7 } as CSSProperties}>
           <h2>Begin with <em>one good question.</em></h2>
           <p>先挑一个喜欢的前缀，剩下的交给我们。</p>
           <a className="rv-pill ink lg" href="/register">立即注册 <Ico name="arrow" size={17} /></a>

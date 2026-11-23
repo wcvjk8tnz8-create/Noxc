@@ -33,7 +33,7 @@ export const COLS: Record<'users' | 'subdomains', readonly string[]> = {
   subdomains: SUBDOMAINS_COLS,
 };
 
-/** 站点设置里属于凭据的 key：导出默认置空，需管理员显式勾选才带真值 */
+/** 站点设置里属于凭据的 key：默认完整导出；仅生成脱敏副本时置空 */
 export const SENSITIVE_SETTING_KEYS = new Set([
   'mail_api_key', 'ai_api_key',
   'nodeloc_client_secret', 'github_client_secret',

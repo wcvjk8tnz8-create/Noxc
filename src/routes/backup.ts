@@ -4,7 +4,7 @@
  * 三种导出物：
  *   · /api/admin/backup/export/users       → CSV（含密码哈希，恢复后可原样登录）
  *   · /api/admin/backup/export/subdomains  → CSV（含所属邮箱，用于跨库重建 user_id）
- *   · /api/admin/backup/export/settings    → JSON（凭据类 key 默认脱敏）
+ *   · /api/admin/backup/export/settings    → JSON（默认完整含凭据，可选脱敏副本）
  *
  * 「重新汇入」刻意做成两步：先 dryRun 预览（只算不写），确认后再正式导入。
  * 两档模式：
@@ -84,29 +84,35 @@ app.get('/export/:kind', async (c: any) => {
     return download(c, kind, toCsv(SUBDOMAINS_COLS, (results || []) as any[]), 'text/csv');
   }
 
-  /* settings：默认脱敏；显式 ?includeSecrets=1 才带真值 */
-  const includeSecrets = String(c.req.query('includeSecrets') || '').trim() === '1';
+  /* settings：默认**完整导出**（含凭据真值）—— 备份的目的就是遗失后能原样恢复。
+     只有 ?maskSecrets=1 才生成脱敏副本，用于分享 / 截图 / 发给第三方排查。
+     另外把「库里本来就是空」的 key 单独列出来，避免用户误以为又是导出丢值。 */
+  const maskSecrets = String(c.req.query('maskSecrets') || '').trim() === '1';
   const { results } = await c.env.DB.prepare('SELECT key, value FROM settings ORDER BY key ASC').all();
   const settings: Record<string, string> = {};
   const maskedKeys: string[] = [];
+  const emptyKeys: string[] = [];
   for (const r of (results || []) as any[]) {
     const k = String(r.key);
     if (isInternalSettingKey(k)) continue;          // 内部运行态不算站点设置
+    const raw = String(r.value ?? '');
     const sensitive = SENSITIVE_SETTING_KEYS.has(k);
-    if (sensitive && !includeSecrets) maskedKeys.push(k);
-    settings[k] = sensitive && !includeSecrets ? '' : String(r.value ?? '');
+    if (sensitive && maskSecrets) maskedKeys.push(k);
+    settings[k] = sensitive && maskSecrets ? '' : raw;
+    if (!raw) emptyKeys.push(k);                    // 库中本来未配置，不是导出丢值
   }
   const payload = {
     format: SETTINGS_FORMAT,
     version: SETTINGS_VERSION,
     exportedAt: new Date().toISOString(),
-    includeSecrets,
+    maskSecrets,
     settings,
     maskedKeys,
-    note: 'Noxc 站点设置备份。凭据类 key 默认置空；汇入时空值密钥会被跳过，不会覆盖现有配置。',
+    emptyKeys,
+    note: 'Noxc 站点设置完整备份（默认含凭据，请加密保存）。emptyKeys 是库中本来未配置的项；maskSecrets=1 的脱敏副本仅供分享，汇入时其中的空密钥会被跳过，不会覆盖现有配置。',
   };
   await audit(c, c.get('user').id, 'backup.export', 'settings',
-    `${Object.keys(settings).length} 项${includeSecrets ? '（含凭据）' : `（脱敏 ${maskedKeys.length} 项）`}`);
+    `${Object.keys(settings).length} 项${maskSecrets ? `（脱敏 ${maskedKeys.length} 项）` : '（含凭据）'}${emptyKeys.length ? `，库中空值 ${emptyKeys.length} 项` : ''}`);
   return download(c, kind, JSON.stringify(payload, null, 2), 'application/json');
 });
 

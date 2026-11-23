@@ -62,15 +62,18 @@ for (const p of srcFiles) {
   check(!/\b(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,})\b/.test(t), `${p} 无明文密钥`);
 }
 
-/* 4. 样式层架构：6 层，design-system.css 是唯一视觉源且最后加载。
+/* 4. 样式层架构：5 层，design-system.css 是颜色权威层，形态层最后加载。
       历史 11 层（含 Reverie / 液态玻璃 / 节点 / 收口层）已按原顺序合并进 shell.css，
       颜色全部令牌化；渐变、毛玻璃、阴影在源头删除，不再靠 !important 层层压盖。 */
 const main = read('src/app/main.tsx');
 const imports = [...main.matchAll(/import\s+['"]\.\/styles\/([^'"]+)['"]/g)].map((m) => m[1]);
-const ORDER = ['shell.css', 'captcha.css', 'oauth.css', 'design-system.css'];
-check(imports.length === 4, `样式入口恰好 4 层（实际 ${imports.length}：${imports.join(', ')})`);
-check(imports.join(',') === ORDER.join(','), '4 层加载顺序固定：结构 → 独立组件 → 设计系统');
-check(imports.at(-1) === 'design-system.css', 'design-system.css 最后加载，为唯一视觉源');
+const ORDER = ['shell.css', 'captcha.css', 'oauth.css', 'design-system.css', 'yunamo-skin.css'];
+check(imports.length === 5, `样式入口恰好 5 层（实际 ${imports.length}：${imports.join(', ')})`);
+check(imports.slice(0, 4).join(',') === ORDER.slice(0, 4).join(','),
+  '4 层加载顺序固定：结构 → 独立组件 → 设计系统（形态层另算）');
+check(imports.at(-1) === 'yunamo-skin.css'
+  && imports.indexOf('design-system.css') < imports.indexOf('yunamo-skin.css'),
+  'design-system.css 仍是颜色权威层；形态层 yunamo-skin.css 最后加载且不改颜色');
 check(
   imports.indexOf('captcha.css') < imports.indexOf('design-system.css') &&
   imports.indexOf('oauth.css') < imports.indexOf('design-system.css'),
@@ -252,8 +255,9 @@ check(!/--bl-jade:\s*#2f8f83/.test(bloom), '青瓷绿主色已换成 Noxc 蓝且
 check(/bl-petals/.test(bloom) && /prefers-reduced-motion/.test(bloom), '花瓣呼吸动效且尊重减少动态');
 check(/\.bgswitch button/.test(bloom), '壁纸切换器为圆形缩略点');
 check(/min-width:\s*620px/.test(bloom), '窄屏表格不再竖排断字');
-check(imports.includes('shell.css') && imports.at(-1) === 'design-system.css',
-  'design-system.css 为视觉权威层，结构与组件层都在其之前');
+check(imports.includes('shell.css') && imports.indexOf('design-system.css') === 3
+  && imports.at(-1) === 'yunamo-skin.css',
+  'design-system.css 为颜色权威层，结构 / 组件层在其之前，形态层在其之后');
 
 /* 12. 首屏一次性就绪：不再「一阶段 / 二阶段 / 三阶段慢慢加载出来」 */
 const gate = read('src/app/lib/runtime.ts');
@@ -1848,7 +1852,13 @@ check(/USERS_COLS|SUBDOMAINS_COLS/.test(bkFmt)
   && /SETTINGS_FORMAT = 'noxc-settings-backup'/.test(bkFmt),
   '备份格式层：固定列清单 / CSV 编解码 / JSON format 标记');
 check(/SENSITIVE_SETTING_KEYS/.test(bkFmt) && /isInternalSettingKey/.test(bkFmt),
-  '凭据 key 脱敏、内部运行态 key 排除');
+  '凭据 key 识别、内部运行态 key 排除');
+check(/maskSecrets/.test(read('src/routes/backup.ts'))
+  && !/includeSecrets/.test(read('src/routes/backup.ts'))
+  && /emptyKeys/.test(read('src/routes/backup.ts')),
+  '站点设置 JSON 默认完整导出凭据；只有 maskSecrets=1 才脱敏，并标注 emptyKeys');
+check(/生成脱敏副本/.test(read('src/app/legacy/admin.ts')),
+  '后台导出面板默认不脱敏，脱敏是可选副本');
 check(/app\.route\('\/api\/admin\/backup', backupRoutes\)/.test(bkIdx)
   && /requireAdmin\(c\)/.test(bkRoute),
   '备份路由挂在管理员前缀下，且路由内二次校验身份');
@@ -1871,3 +1881,28 @@ check(/### 14\. 数据备份/.test(read('README.md'))
 check(/backup-regression\.ts/.test(read('.github/workflows/deploy.yml'))
   && /导出 → 清空 → 汇入|round-trip/.test(bkReg),
   '备份专项回归进 CI 且覆盖完整 round-trip');
+
+
+/* ── Yunamo 形态层防回流（颜色保持现在的） ── */
+const ynSkin = read('src/app/styles/yunamo-skin.css');
+const ynMain = read('src/app/main.tsx');
+const ynHome = read('src/app/pages/Home.tsx');
+const ynCode = ynSkin.replace(/\/\*[\s\S]*?\*\//g, '');
+check(!/#[0-9a-fA-F]{3,8}\b/.test(ynCode) && !/\brgba?\(/.test(ynCode) && !/\bhsla?\(/.test(ynCode),
+  '形态层零颜色字面量，明/暗色值仍由 design-system.css 独占');
+check(!/--zx-(paper|ink|blue|body|muted|hair|danger|warn)\s*:/.test(ynCode),
+  '形态层不重定义 --zx-* 颜色令牌');
+const ynImports = [...ynMain.matchAll(/import '([^']+\.css)'/g)].map((m) => m[1]);
+check(ynImports.at(-1) === './styles/yunamo-skin.css', '形态层最后加载，删掉即可回滚');
+check(/--yn-radius/.test(ynSkin) && /--zx-mono:\s*ui-monospace/.test(ynSkin)
+  && /rv-ask[\s\S]{0,400}display: grid !important/.test(ynSkin),
+  '圆角 / 等宽字 / 两段式查询都在形态层');
+check(/id="ynMotion"/.test(ynHome) && /noxc-motion-paused/.test(ynHome)
+  && /id="how"/.test(ynHome) && /data-yn-try=/.test(ynHome),
+  '暂停动效 / How it works / Try 示例都在首页');
+check(/不发任何查询请求/.test(ynHome), 'Try 示例零接口请求，不增加 D1 读取');
+check(/yunamo-skin-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  '皮肤专项回归进 CI');
+check(/### 15\. 界面风格/.test(read('README.md'))
+  && /### Z\.7 界面风格与形态层的常见错误/.test(read('README.md')),
+  'README 正文描述能力、错误按约定收在文末 Z.7');
