@@ -11,6 +11,7 @@
  */
 import { ensureShowcaseReward, showcaseRewardOf } from '../src/lib/showcaseReward.js';
 import { SHOWCASE_REWARD_POINTS } from '../src/lib/pointDefaults.js';
+import { invalidateSettings } from '../src/lib/settingsCache.js';
 
 const ok: string[] = [];
 const bad: string[] = [];
@@ -44,6 +45,11 @@ function makeEnv(S: Store) {
     const s = sql.replace(/\s+/g, ' ').trim();
     const rows: Row[] = [];
     let changes = 0;
+  /* 统一配置层：SELECT key, value FROM settings（真实 D1 同形） */
+  if (/^SELECT key, value FROM settings$/.test(s)) {
+    for (const [key, value] of S.settings) rows.push({ key, value: String(value) });
+    return { rows, changes };
+  }
     const uid = Number(args[0]);
 
     if (/^CREATE TABLE IF NOT EXISTS showcase_rewards/.test(s)) {
@@ -210,6 +216,7 @@ async function main() {
     const S = fresh();
     S.subdomains.push(domain(1));
     S.settings.set('showcase_reward_points', '1234');
+  invalidateSettings();  // 后台保存：统一配置缓存必须失效
     const env = makeEnv(S);
     check((await showcaseRewardOf(env)) === 1234, 'showcaseRewardOf 读取后台配置');
     const got = await ensureShowcaseReward(env, 1);
@@ -219,17 +226,20 @@ async function main() {
     const S = fresh();
     S.subdomains.push(domain(1));
     S.settings.set('showcase_reward_points', '0');
+  invalidateSettings();  // 后台保存：统一配置缓存必须失效
     const env = makeEnv(S);
     const off = await ensureShowcaseReward(env, 1);
     check(off === 0 && rewards(S).length === 0 && S.user_points.length === 0,
       '设 0 = 关闭奖励且不占位');
     S.settings.set('showcase_reward_points', '6000');
+  invalidateSettings();  // 后台保存：统一配置缓存必须失效
     const back = await ensureShowcaseReward(env, 1);
     check(back === 6000, '调回 6000 后仍可领取');
   }
   {
     const S = fresh();
     S.settings.set('showcase_reward_points', 'not-a-number');
+  invalidateSettings();  // 后台保存：统一配置缓存必须失效
     check((await showcaseRewardOf(makeEnv(S))) === 6000, '非法配置回落内置默认 6000');
   }
 

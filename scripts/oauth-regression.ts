@@ -35,6 +35,11 @@ function exec(sql: string, args: any[]): { rows: Row[]; lastRowId: number; chang
   lastSql = s; lastArgs = args;
   const rows: Row[] = [];
   let lastRowId = 0, changes = 0;
+  /* 统一配置层：SELECT key, value FROM settings（真实 D1 同形） */
+  if (/^SELECT key, value FROM settings$/.test(s)) {
+    for (const [key, value] of S.settings) rows.push({ key, value: String(value) });
+    return { rows, lastRowId, changes };
+  }
 
   const settingKey = s.match(/^SELECT value FROM settings WHERE key = \?/);
   const settingLit = s.match(/^SELECT value FROM settings WHERE key = '([^']+)'/);

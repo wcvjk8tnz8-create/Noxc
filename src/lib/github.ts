@@ -17,6 +17,7 @@
  * 也支持 Worker Secrets（GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET）注入。
  * Secret 与 access_token 只在 Worker 侧使用，绝不下发浏览器。
  */
+import { readSettingFresh } from './settingsCache.js';
 import { maskSecret } from './nodeloc.js';
 
 export const GITHUB_PROVIDER = 'github';
@@ -47,12 +48,7 @@ export function normalizeStarRepo(v: unknown): string {
 }
 
 async function setting(env: any, key: string): Promise<string | undefined> {
-  try {
-    const row: any = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
-    return row ? String(row.value ?? '') : undefined;
-  } catch {
-    return undefined;
-  }
+  return readSettingFresh(env, key);
 }
 
 function pick(dbVal: string | undefined, envVal: unknown, fallback = ''): string {

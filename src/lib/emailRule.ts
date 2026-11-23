@@ -23,6 +23,7 @@
  * 并对保留 TLD 'local' 开精确豁免（其它 .local / .test 仍拒绝）。
  * ────────────────────────────────────────────────────────────
  */
+import { readSetting } from './settingsCache.js';
 
 export type EmailRule = 'whitelist_edu' | 'whitelist' | 'edu_only' | 'any';
 
@@ -123,10 +124,7 @@ export function allowedDomains(env: any): string[] {
 /** 读取当前生效规则；settings 查询失败（表尚未建）时安全回落 */
 export async function emailRuleOf(env: any): Promise<EmailRule> {
   try {
-    const row: any = await env?.DB?.prepare(
-      "SELECT value FROM settings WHERE key = 'email_rule'"
-    ).first();
-    const v = String(row?.value ?? '').trim();
+    const v = String((await readSetting(env, 'email_rule')) ?? '').trim();
     if (v) return normalizeEmailRule(v);
   } catch { /* 设置表不存在 / D1 暂不可用：用环境变量或默认值 */ }
   return normalizeEmailRule(env?.EMAIL_RULE || DEFAULT_EMAIL_RULE);

@@ -11,6 +11,7 @@ const DAY = 24 * 60 * 60 * 1000;
 
 export const DEFAULT_VALID_DAYS = 365;
 /** 续期窗口占有效期的比例：少于一半即可续期 */
+import { allSettings } from './settingsCache.js';
 export const RENEW_HALF_RATIO = 0.5;
 
 /**
@@ -32,12 +33,10 @@ export function renewalWindowDays(validDays, override) {
 
 /** 读取有效期相关规则（站点设置可改） */
 export async function expiryRules(env) {
-  const get = async (k, d) => {
-    try {
-      const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(k).first();
-      const v = String(row?.value ?? '').trim();
-      return v === '' ? d : Number(v);
-    } catch { return d; }
+  const all = await allSettings(env);
+  const get = (k, d) => {
+    const v = String(all.get(k) ?? '').trim();
+    return v === '' ? d : Number(v);
   };
   const years = Number(await get('domain_valid_days', DEFAULT_VALID_DAYS));
   const validDays = Number.isFinite(years) && years > 0 ? Math.floor(years) : DEFAULT_VALID_DAYS;

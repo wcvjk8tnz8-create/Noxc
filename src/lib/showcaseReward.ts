@@ -16,6 +16,7 @@
  * 绝不 RENAME / DROP 业务表 —— 展示开关曾因重建表被反复清空。
  */
 
+import { readSetting, pickSettings } from './settingsCache.js';
 import { ensurePoints, addPoints, UNLIMITED_POINTS } from './points.js';
 import {
   POINT_DEFAULTS,
@@ -39,10 +40,7 @@ async function ensureRewardTable(db: any): Promise<void> {
 /** 当前生效的奖励积分（后台 settings 优先，非法值回落内置默认） */
 export async function showcaseRewardOf(env: any): Promise<number> {
   try {
-    const r: any = await env.DB.prepare(
-      "SELECT value FROM settings WHERE key = 'showcase_reward_points'"
-    ).first();
-    const n = Number(r?.value);
+    const n = Number(await readSetting(env, 'showcase_reward_points'));
     if (Number.isFinite(n) && n >= 0 && n <= SHOWCASE_REWARD_CAP) return Math.floor(n);
   } catch { /* 老库尚无该 key */ }
   return SHOWCASE_REWARD_POINTS;
@@ -56,15 +54,13 @@ async function rewardConfig(env: any) {
     domainCost: POINT_DEFAULTS.domainCost as number,
   };
   try {
-    const r: any = await env.DB.prepare(
-      "SELECT key, value FROM settings WHERE key IN ('showcase_reward_points','initial_points','domain_cost')"
-    ).all();
-    for (const row of r?.results || []) {
-      const n = Number(row?.value);
+    const s = await pickSettings(env, ['showcase_reward_points','initial_points','domain_cost']);
+    for (const [key, value] of Object.entries(s)) {
+      const n = Number(value);
       if (!Number.isFinite(n) || n < 0) continue;
-      if (row.key === 'showcase_reward_points' && n <= SHOWCASE_REWARD_CAP) cfg.amount = Math.floor(n);
-      else if (row.key === 'initial_points') cfg.initial = Math.floor(n);
-      else if (row.key === 'domain_cost') cfg.domainCost = Math.floor(n);
+      if (key === 'showcase_reward_points' && n <= SHOWCASE_REWARD_CAP) cfg.amount = Math.floor(n);
+      else if (key === 'initial_points') cfg.initial = Math.floor(n);
+      else if (key === 'domain_cost') cfg.domainCost = Math.floor(n);
     }
   } catch { /* 用内置默认 */ }
   return cfg;

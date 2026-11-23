@@ -43,10 +43,12 @@ function parseCookies(header) {
 }
 
 // 解析登录态，把 user 挂到上下文（不强制）
-export async function attachUser(c, next) {
+// 抽成纯函数：bootstrap 中间件只对需要登录态的路径调用它，
+// 静态资源 / SPA HTML / 文档页一律跳过，省掉一次 JOIN 查询。
+export async function loadUser(c): Promise<void> {
   c.set('user', null);
   const token = parseCookies(c.req.header('cookie'))[COOKIE];
-  if (!token) return next();
+  if (!token) return;
   const row = await c.env.DB.prepare(
     `SELECT s.user_id, s.expires_at, u.email, u.role, u.status, u.quota, u.ban_reason
      FROM sessions s JOIN users u ON u.id = s.user_id
@@ -54,7 +56,7 @@ export async function attachUser(c, next) {
   )
     .bind(token)
     .first();
-  if (!row || row.expires_at < now()) return next();
+  if (!row || row.expires_at < now()) return;
   // quota < 0 表示不限量；管理员始终不限量
   const quota = row.role === 'admin' ? UNLIMITED : row.quota;
   c.set('user', {
@@ -67,6 +69,11 @@ export async function attachUser(c, next) {
     ban_reason: row.ban_reason,
     token,
   });
+}
+
+/** 兼容既有挂载点：Hono 中间件形式 */
+export async function attachUser(c, next) {
+  await loadUser(c);
   return next();
 }
 

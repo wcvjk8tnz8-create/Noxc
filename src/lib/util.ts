@@ -4,6 +4,7 @@
  * 这是渐进式迁移的第一块：存量 .js 仍然 import './util.js'，
  * 两者导出同名函数，互不冲突。新代码请 import './util.ts'。
  */
+import { readSetting } from './settingsCache.js';
 import type { Context } from 'hono';
 import type { Env } from '../types.js';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
@@ -99,10 +100,8 @@ function validQuota(raw: unknown): number | null {
 /** 读取生效的默认配额：后台设置 > 环境变量 DEFAULT_QUOTA > 内置 5 */
 export async function defaultQuotaOf(env: any): Promise<number> {
   let raw: unknown;
-  try {
-    const row: any = await env.DB.prepare("SELECT value FROM settings WHERE key = 'default_quota'").first();
-    raw = row?.value;
-  } catch { /* 老库还没跑迁移：回落环境变量 */ }
+  try { raw = await readSetting(env, 'default_quota'); }
+  catch { /* 老库还没跑迁移：回落环境变量 */ }
   const fromDb = validQuota(raw);
   if (fromDb !== null) return fromDb;
   return parseDefaultQuota(env.DEFAULT_QUOTA);

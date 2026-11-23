@@ -152,6 +152,9 @@ jobs:
       - name: D1 读取与第三方域名回归
         run: npx tsx scripts/d1-read-external-domain-regression.ts
 
+      - name: D1 读取第二轮回归（静态资源零 D1 / 配置统一缓存）
+        run: npx tsx scripts/d1-read-phase2-regression.ts
+
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
       - name: 统计展开回归
         run: npx tsx scripts/stats-breakdown-regression.ts

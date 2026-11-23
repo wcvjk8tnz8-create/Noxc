@@ -789,7 +789,10 @@ check(/root_domain\s+TEXT\s+NOT NULL DEFAULT ''/.test(spSchema) &&
 check(/export async function ensureCoreColumns/.test(spLib) &&
       /add\('root_domain'/.test(spLib) && /UPDATE subdomains SET root_domain/.test(spLib),
   '老库缺列改由 Worker 运行时 PRAGMA+ALTER 补齐并回填 root_domain');
-check(/await ensureCoreColumns\(c\.env\)/.test(spIndex), '补列中间件挂在所有请求最前面');
+check(/app\.use\('\*', bootstrap\)/.test(spIndex)
+  && /ensureMigrations\(c\.env\)/.test(read('src/middleware/bootstrap.ts'))
+  && /runtime_migrations_v3/.test(read('src/lib/runtimeMigrations.ts')),
+  '补列收进 bootstrap + settings marker 跨 isolate 幂等（不再每请求跑 PRAGMA/全表回填）');
 check(spReg.length > 1000 && /第 2 次部署/.test(spReg) && /展示开关被重置为 0/.test(spReg),
   'CI 跑真实 SQLite 双次部署回归，防止重建表问题回流');
 check(/python3 scripts\/schema-persistence\.py/.test(read('.github/workflows/deploy.yml')),
@@ -1462,9 +1465,10 @@ const anRoot2 = read('src/html/root-v1.ts');
 const anSchema = read('schema.sql');
 const anReg = read('scripts/announcement-regression.ts');
 const anCI = read('.github/workflows/deploy.yml');
-check(/WHERE key IN \([^)]*'announcement'[^)]*\)/.test(anCfg)
+check(/CONFIG_KEYS[\s\S]{0,900}'announcement'/.test(anCfg)
+  && /pickSettings\(c\.env, CONFIG_KEYS\)/.test(anCfg)
   && /announcement: String\(s\.announcement/.test(anCfg),
-  '/api/config 查询并下发站点公告（历史根因 1：SELECT 清单漏了 key）');
+  '/api/config 配置白名单含 announcement 并下发（统一配置层，历史根因 1）');
 check(/export function mountAnnouncement/.test(anRuntime)
   && /body\.textContent = msg/.test(anRuntime)
   && /data-no-i18n/.test(anRuntime),
@@ -1783,6 +1787,40 @@ check(/外部域名|D1 读取优化/.test(d1DocsZh) && /external domain|D1 read/
   '中英文档与 README 写明外部域名；错误统一放文末');
 check(/D1 读取与第三方域名回归/.test(d1CI)
   && /d1-read-external-domain-regression\.ts/.test(d1RegS), '专项回归进 CI');
+
+/* ── 第二轮 D1 读取优化防回流（2026-11-23，日读取 1.52M/5M 后继续优化） ── */
+const idxSrc = read('src/index.ts');
+const bootSrc = read('src/middleware/bootstrap.ts');
+const scSrc = read('src/lib/settingsCache.ts');
+const phase2 = read('scripts/d1-read-phase2-regression.ts');
+check(/app\.use\('\*', bootstrap\)/.test(idxSrc)
+  && !/app\.use\('\*', attachUser\)/.test(idxSrc)
+  && !/await ensureCoreColumns\(c\.env\)/.test(idxSrc)
+  && !/await ensureOauthTables\(c\.env\)/.test(idxSrc),
+  'index.ts 只挂 bootstrap，旧的逐请求 D1 中间件不再叠层');
+check(/app\.use\('\*', bootstrap\)/.test(idxSrc)
+  && /isStaticAsset\(path\)\) return next\(\)/.test(bootSrc),
+  '静态资源整段跳过数据库上下文（第二轮主要收益）');
+check(/invalidatePublicConfig\(\);[\s\S]{0,600}invalidateSettings\(\);/.test(idxSrc),
+  '写操作同时失效 config 与统一配置缓存，保存即生效不破');
+check(/inflight\.get\(key\)|const pending = fresh/.test(scSrc)
+  && /inflight\.set\(key, task\)/.test(scSrc),
+  '统一配置层有并发 in-flight 去重，Promise.all 不会击穿缓存');
+check(/WeakMap/.test(scSrc) && /readSettingFresh/.test(scSrc),
+  '按 D1 binding 隔离缓存，凭据类读取仍直查不走缓存');
+check(/if \(added\.includes\('root_domain'\)\)[\s\S]{0,300}UPDATE subdomains SET root_domain/.test(read('src/lib/showcase.ts')),
+  '正常库不再每 isolate 跑全表回填 UPDATE');
+check(/runtime_migrations_v3/.test(read('src/lib/runtimeMigrations.ts')),
+  '运行时补列用 settings marker 做跨 isolate 幂等');
+const unified = ['rootStore','emailRule','reserved','captcha','nodeloc','github',
+  'showcaseReward','expiry','util','applyGate','aiReview'];
+for (const m of unified) {
+  check(/settingsCache\.js/.test(read(`src/lib/${m}.ts`)),
+    `${m}.ts 已接入统一配置层，不再逐 key 查 settings`);
+}
+check(/d1-read-phase2-regression\.ts/.test(read('.github/workflows/deploy.yml'))
+  && /静态资源零 D1/.test(phase2),
+  '第二轮专项回归进 CI 且覆盖静态资源零 D1');
 check(/EXTERNAL_DOMAINS_COMING_SOON = true/.test(d1Route)
   && /app\.use\('\*'/.test(d1Route) && /503/.test(d1Route)
   && /即将上线/.test(d1Dash) && /即将上线/.test(read('src/app/pages/Register.tsx'))

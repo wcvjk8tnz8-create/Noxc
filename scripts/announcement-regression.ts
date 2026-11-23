@@ -119,8 +119,9 @@ const rootV1 = read('src/html/root-v1.ts');
 const schema = read('schema.sql');
 const readme = read('README.md');
 
-check(/WHERE key IN \([^)]*'announcement'[^)]*\)/.test(cfgSrc),
-  '/api/config 的 SELECT 清单包含 announcement（历史根因 1）');
+check(/CONFIG_KEYS[\s\S]{0,900}'announcement'/.test(cfgSrc)
+  && /pickSettings\(c\.env, CONFIG_KEYS\)/.test(cfgSrc),
+  '/api/config 的配置白名单包含 announcement（统一配置层，历史根因 1）');
 check(/announcement: String\(s\.announcement \|\| ''\)\.trim\(\)\.slice\(0, 300\)/.test(cfgSrc),
   '下发的是 trim 过的纯文本，不解析 HTML');
 check(/export const DEFAULT_BRAND = \{[^}]*announcement: ''/s.test(runtime),

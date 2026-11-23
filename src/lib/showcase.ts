@@ -21,20 +21,27 @@ export async function ensureCoreColumns(env: any): Promise<void> {
   try {
     const info: any = await env.DB.prepare('PRAGMA table_info(subdomains)').all();
     const have = new Set((info?.results || []).map((r: any) => String(r.name)));
+    const added: string[] = [];
     const add = async (col: string, ddl: string) => {
       if (have.has(col)) return;
       await env.DB.prepare(`ALTER TABLE subdomains ADD COLUMN ${col} ${ddl}`).run();
+      added.push(col);
     };
     await add('root_domain', "TEXT NOT NULL DEFAULT ''");
     await add('showcase', 'INTEGER NOT NULL DEFAULT 0');
     await add('showcase_title', 'TEXT');
     await add('showcase_desc', 'TEXT');
     await add('showcase_emoji', 'TEXT');
-    await env.DB.prepare(
-      `UPDATE subdomains SET root_domain =
-         CASE WHEN instr(fqdn, '.') > 0 THEN substr(fqdn, instr(fqdn, '.') + 1) ELSE '' END
-       WHERE root_domain IS NULL OR root_domain = ''`
-    ).run().catch(() => null);
+    /* 回填是一次全表扫描。只在「老库真的刚补出 root_domain 列」时跑：
+       正常库列早已存在，这里必须 0 次 D1 写入/扫描，否则每个新 isolate
+       冷启动都会白扫一遍全表（第二轮 D1 读取优化）。 */
+    if (added.includes('root_domain')) {
+      await env.DB.prepare(
+        `UPDATE subdomains SET root_domain =
+           CASE WHEN instr(fqdn, '.') > 0 THEN substr(fqdn, instr(fqdn, '.') + 1) ELSE '' END
+         WHERE root_domain IS NULL OR root_domain = ''`
+      ).run().catch(() => null);
+    }
     colsChecked = true;
   } catch { /* 表不存在 / D1 抖动：公开页降级为空列表，不影响站点 */ }
 }

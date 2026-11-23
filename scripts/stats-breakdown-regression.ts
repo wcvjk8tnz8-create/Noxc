@@ -55,7 +55,8 @@ function makeDb() {
       }
       return [...map.entries()].map(([d, v]) => ({ d, n: v.n, u: v.u.size }));
     }
-    if (/^SELECT key, value FROM settings WHERE key IN/.test(q)) {
+    if (/^SELECT key, value FROM settings WHERE key IN/.test(q)
+        || /^SELECT key, value FROM settings$/.test(q)) {
       return [...settings.entries()].map(([key, value]) => ({ key, value }));
     }
     if (/^SELECT value FROM settings WHERE key = \?/.test(q)) {

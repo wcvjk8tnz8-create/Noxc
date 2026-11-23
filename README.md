@@ -1071,6 +1071,33 @@ FQDN 再查；输入完整域名仍走外部 WHOIS / RDAP。
 `public_stats_snapshot` 是否存在且 `at` 在有效期内 → 最后看是否有新写的页面
 绕开缓存直连 `/api/config` 或在轮询里反复打接口。
 
+**第二轮（同日，指标仍到 1.52M/5M 时继续）**：第一轮只压住了 `/api/config`
+与统计，漏的是**中间件层**。原来 4 个 `app.use('*')` 对**每一个请求**生效，
+包括 `/assets/*.js`、`/img/*`、`/docs/*`；`mergeRootEnv` 每请求跑 4 次
+`settings` 单点查询，带 Cookie 时 `attachUser` 再跑一次 `sessions JOIN`。
+静态资源恰恰是请求量最大的那一类，一个页面加载十几个资源就是几十次 D1 读取。
+另外 `buildConfigData` 内部散着十几个单点 `SELECT`，`ensureCoreColumns` 每遇到
+新 isolate 冷启动还要跑一次 `PRAGMA` + **全表 `UPDATE` 回填**。
+
+| 层 | 第二轮做法 |
+|---|---|
+| 请求引导 | 4 个中间件收成唯一 `middleware/bootstrap.ts`；`isStaticAsset()` 命中即整段跳过，静态资源 **0 次 D1**；`/api/health`、`/api/config`、`/api/stats`、头像等纯公开接口不查登录态 |
+| 配置读取 | 唯一 `settingsCache.ts`：一次 `SELECT key, value FROM settings` 拿全表，按 D1 binding 做 30 秒 isolate 缓存；11 个模块的逐 key 查询全部改走它。`Promise.all` 并发读取加 in-flight 去重，4 个并发只查 1 次，不击穿 |
+| 写操作 | 全局 middleware 同时失效 config 与 settings 缓存；`?_=` 请求强制 fresh，跨 isolate 也不会卡住「保存即生效」 |
+| 凭据 | OAuth secret / 邮件 key 走 `readSettingFresh` 直查 D1，不受 30 秒缓存影响，管理员改密钥立即生效 |
+| 运行时补列 | `runtimeMigrations.ts` 用 `settings.runtime_migrations_v3` 一行 marker 做**跨 isolate** 幂等；新 isolate 冷启动只读 1 行，不再每 isolate 跑 PRAGMA / CREATE TABLE。`root_domain` 全表回填只在真的补出新列的老库执行，正常库 0 次 |
+
+量化（专项回归 `scripts/d1-read-phase2-regression.ts` 真跑内存 D1 计数）：
+6 个带 Cookie 的静态资源请求 **0 次 D1**（旧写法 ≥24 次）；稳态首个页面请求
+**2 次**（marker 1 行 + 配置全表 1 次），之后 3 个页面请求 **0 次**；
+10 次单点 + 1 次批量读取命中缓存 **0 次**；冷缓存下 4 个并发读取 **1 次**全表。
+
+**第二轮排查顺序**：D1 指标若仍随静态资源加载阶梯上涨 → 查
+`src/middleware/bootstrap.ts` 的 `isStaticAsset()` 是否覆盖了新加的资源前缀 →
+查是否又有模块直接写 `SELECT value FROM settings WHERE key = ?`（应走
+`readSetting`）→ 查写操作后 `invalidateSettings()` 是否被调用 → 最后看
+`runtime_migrations_v3` marker 是否存在（不存在会每次冷启动补列）。
+
 ### Z.2 KV / R2 没有自动绑定
 
 CI 会尝试自动创建并绑定 Workers KV（`KV`）与 R2（`AVATARS`）。绑定成功会写进

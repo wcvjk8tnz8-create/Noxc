@@ -18,6 +18,7 @@
  */
 
 import { parseRootList, parseZoneMap, normalizeDomain, listRoots } from './roots.js';
+import { readSetting as cachedSetting } from './settingsCache.js';
 
 const ROOT_KEY = 'root_domains_extra';
 const ZONE_KEY = 'cf_zone_ids_extra';
@@ -48,12 +49,9 @@ export async function getBackendMap(env) {
 }
 
 async function readSetting(env, key) {
-  try {
-    const r = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
-    return String(r?.value || '').trim();
-  } catch {
-    return '';
-  }
+  /* 统一配置层：4 个 key 不再各查一次 D1，命中 isolate 缓存时 0 次查询 */
+  try { return String((await cachedSetting(env, key)) || '').trim(); }
+  catch { return ''; }
 }
 
 async function writeSetting(env, key, value) {

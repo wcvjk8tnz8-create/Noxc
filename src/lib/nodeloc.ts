@@ -14,6 +14,7 @@
  * 配置优先级：后台「站点设置」 > Worker 环境变量 > 关闭。
  * Client Secret 只在服务端使用，绝不下发到 /api/config 或前端。
  */
+import { readSettingFresh } from './settingsCache.js';
 
 export const NODELOC_PROVIDER = 'nodeloc';
 export const NODELOC_AUTHORIZE = 'https://www.nodeloc.com/oauth-provider/authorize';
@@ -28,14 +29,10 @@ export const NODELOC_STATE_COOKIE = 'td_oauth_state';
 /** 成功绑定 NodeLoc 后一次性奖励的域名配额 */
 export const NODELOC_BIND_QUOTA_BONUS = 5;
 
+/* OAuth 凭据类配置：管理员改密钥要立即生效，走 fresh 直查，不进 30 秒缓存。
+   OAuth 流程本身低频，不占每日读取的大头。 */
 async function setting(env: any, key: string): Promise<string | undefined> {
-  try {
-    const row: any = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
-    return row ? String(row.value ?? '') : undefined;
-  } catch {
-    // settings 表尚未建立（首次部署前）或 D1 抖动：降级到环境变量
-    return undefined;
-  }
+  return readSettingFresh(env, key);
 }
 
 function pick(dbVal: string | undefined, envVal: unknown, fallback = ''): string {

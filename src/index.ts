@@ -1,4 +1,4 @@
-import { mergeRootEnv, effectiveRootList } from './lib/rootStore.js';
+import { effectiveRootList } from './lib/rootStore.js';
 import { DEFAULT_MESSAGE } from './lib/applyGate.js';
 import { loadAiConfig } from './lib/aiReview.js';
 import { parseRootCosts } from './lib/points.js';
@@ -10,17 +10,17 @@ import { DEFAULT_FOOTER_CONTACT_HTML } from './lib/footerContact.js';
 import { reservedLabelsOf } from './lib/reserved.js';
 import { publicStats, invalidatePublicStats } from './lib/publicStats.js';
 import { getConfigCache, setConfigCache, CONFIG_CACHE_CONTROL, invalidatePublicConfig } from './lib/configCache.js';
+import { pickSettings, invalidateSettings } from './lib/settingsCache.js';
 import { parsePausedRoots } from './lib/applyGate.js';
 import { nodelocEnabled } from './lib/nodeloc.js';
 import { githubEnabled } from './lib/github.js';
-import { ensureCoreColumns } from './lib/showcase.js';
 import { showcaseRewardOf } from './lib/showcaseReward.js';
 import { expiryRules } from './lib/expiry.js';
-import { ensureOauthTables } from './lib/oauthStore.js';
 import { rootPageFor } from './html/rootPages.js';
 import { spaFallbackPaths } from './lib/spaRoutes.js';
 import { Hono } from 'hono';
-import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
+import { requireAuth, requireAdmin } from './middleware/auth.js';
+import { bootstrap } from './middleware/bootstrap.js';
 import { ok, fail, defaultQuotaOf } from './lib/util.js';
 import { RECORD_TYPES, TTL_CHOICES, VERIFY_PRESETS, HOSTING_NS_PRESETS, TYPE_NAMES } from './lib/records.js';
 import authRoutes from './routes/auth.js';
@@ -75,14 +75,6 @@ async function docsAsset(c: any, startPath: string): Promise<Response> {
 }
 
 // /api/xxx/ 与 /api/xxx 等价（去掉结尾斜杠后重新分发）
-/* 老库补列：任何请求进来先跑一次（模块级缓存，成功即不再查 PRAGMA）。
-   以前靠 schema.sql 重建表补列，每次部署都会清空用户案例展示开关。 */
-app.use('*', async (c, next) => {
-  await ensureCoreColumns(c.env);
-  await ensureOauthTables(c.env);
-  await next();
-});
-
 app.use('/api/*', async (c, next) => {
   const url = new URL(c.req.url);
   if (url.pathname.length > 1 && url.pathname.endsWith('/') && !c.req.header('x-rewrite')) {
@@ -132,31 +124,10 @@ app.use('*', async (c, next) => {
   return next();
 });
 
-app.use('*', attachUser);
-
-/**
- * 动态根域名：把后台「Spaceship 导入」添加的域名合并进本次请求的 env。
- * 这样 roots.ts（纯函数）与所有既有调用点都不用改，配置保存后下一个请求即生效。
- * 无动态配置时不做任何赋值，零开销。
- */
-app.use('*', async (c, next) => {
-  try {
-    const merged = await mergeRootEnv(c.env);
-    if (merged) {
-      // 关键：Hono 的 c.env 在部分运行时是受控属性，直接替换引用不一定会
-      // 传递到后续路由；后台导入的根域名因此会「有些加载不出来」。
-      // 同时把合并结果写回原对象，保证所有 c.env 读取都拿到完整列表。
-      Object.assign(c.env, {
-        ROOT_DOMAINS: merged.ROOT_DOMAINS,
-        ROOT_DOMAIN: merged.ROOT_DOMAIN,
-        CF_ZONE_ID: merged.CF_ZONE_ID,
-        CF_ZONE_IDS: merged.CF_ZONE_IDS,
-      });
-      try { c.env = merged; } catch {}
-    }
-  } catch { /* settings 表尚未建立等异常：降级走原环境变量，不影响站点 */ }
-  return next();
-});
+/* 请求引导（唯一入口）：静态资源整段跳过 D1、按需加载登录态、
+   合并动态根域名、跨 isolate 幂等补列。详见 middleware/bootstrap.ts。
+   放在 whois 重定向之后 —— 被 302 提前返回的请求一次库都不用查。 */
+app.use('*', bootstrap);
 
 /* 旧链接 /docs/dnshe 回到 VitePress 的 DNSHE 章节。
    不能直接 302 到 /docs/dnshe.html：ASSETS 会把 .html 规范化回 /docs/dnshe，
@@ -214,6 +185,10 @@ app.use('*', async (c, next) => {
   try {
     if (c.req.method === 'GET' || c.res.status >= 400) return;
     invalidatePublicConfig();
+    /* 统一配置层也要失效：后台改了任何 settings（暂停名单 / 根域名 / 公告 /
+       积分规则…），本 isolate 的 30 秒缓存必须立刻作废，否则「保存即生效」会
+       被缓存拖住。跨 isolate 由前端 ?_= 强制 fresh 兜底。 */
+    invalidateSettings();
     const p = new URL(c.req.url).pathname;
     if (/^\/api\/(admin\/)?subdomains/.test(p)
       || /^\/api\/auth\/register/.test(p)
@@ -230,10 +205,10 @@ app.use('/api/stats', publicCors);
 // 前端初始化配置
 // 公开配置（含站点品牌，登录页也要用）
 async function buildConfigData(c: any) {
-  const { results } = await c.env.DB.prepare(
-    "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota','announcement','root_apply_paused')"
-  ).all();
-  const s = Object.fromEntries(results.map((r) => [r.key, r.value]));
+  /* 白名单挑字段：整张 settings 只在 Worker 内存里，绝不下发敏感 key。
+     统一配置层命中缓存时这里是 0 次 D1，未命中也只 1 次全表读。 */
+  const CONFIG_KEYS = ['site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota','announcement','root_apply_paused'] as const;
+  const s = await pickSettings(c.env, CONFIG_KEYS);
   // 显式取「生效列表」：不依赖中间件是否成功替换 c.env 引用，
   // 后台导入 / 移除 / 恢复的根域名都能立即出现在注册页与首页下拉。
   const effectiveRoots = (await effectiveRootList(c.env)).map((r) => r.domain);

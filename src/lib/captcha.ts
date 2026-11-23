@@ -14,6 +14,7 @@
  * 本文件刻意不 import hono / util，纯函数 + Web Crypto，
  * 既能被 Worker 引用，也能被 scripts/captcha-test.mjs 单独 bundle 真跑。
  */
+import { readSetting } from './settingsCache.js';
 
 export const CAPTCHA = {
   w: 320,          // 舞台基准宽（前端按实际 DOM 宽等比缩放）
@@ -98,15 +99,13 @@ async function sweep(env: any): Promise<void> {
 export async function captchaEnabled(env: any): Promise<boolean> {
   if (String(env?.CAPTCHA_ENABLED || '').trim() === '0') return false; // 应急关闭
   try {
-    const row: any = await env.DB.prepare("SELECT value FROM settings WHERE key = 'captcha_enabled'").first();
-    if (row && String(row.value).trim() === '0') return false;
+    if (String((await readSetting(env, 'captcha_enabled')) ?? '').trim() === '0') return false;
   } catch { /* settings 表未建：默认开启 */ }
   return true;
 }
 export async function captchaImages(env: any): Promise<string[]> {
   try {
-    const row: any = await env.DB.prepare("SELECT value FROM settings WHERE key = 'captcha_images'").first();
-    const list = String(row?.value || '').split(',')
+    const list = String((await readSetting(env, 'captcha_images')) || '').split(',')
       .map((s) => s.trim().toLowerCase())
       .filter((s) => (CAPTCHA_IMAGES as readonly string[]).includes(s));
     if (list.length) return list;

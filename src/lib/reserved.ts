@@ -15,6 +15,7 @@
  *
  * 语义：普通用户不可申请；管理员仍可自建（后台是「开通」而非「申请」）。
  */
+import { readSetting } from './settingsCache.js';
 
 /** 站点自身功能 / 基础设施占用；ai / dash / nic 为官方用途预留 */
 export const BASE_RESERVED_LABELS: readonly string[] = [
@@ -58,10 +59,7 @@ export async function reservedLabelsOf(env: any): Promise<Set<string>> {
   const out = new Set<string>(BASE_RESERVED_LABELS);
   for (const l of parseReservedList(env?.RESERVED_LABELS)) out.add(l);
   try {
-    const row: any = await env?.DB
-      ?.prepare("SELECT value FROM settings WHERE key = 'reserved_labels'")
-      ?.first();
-    for (const l of parseReservedList(row?.value)) out.add(l);
+    for (const l of parseReservedList(await readSetting(env, 'reserved_labels'))) out.add(l);
   } catch { /* 表不存在 / 本地 mock：基线仍生效 */ }
   return out;
 }

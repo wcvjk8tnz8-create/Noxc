@@ -46,6 +46,11 @@ function exec(sql: string, args: any[]) {
   const s = sql.replace(/\s+/g, ' ').trim();
   const rows: Row[] = [];
   let lastRowId = 0, changes = 0;
+  /* 统一配置层：SELECT key, value FROM settings（真实 D1 同形） */
+  if (/^SELECT key, value FROM settings$/.test(s)) {
+    for (const [key, value] of S.settings) rows.push({ key, value: String(value) });
+    return { rows, lastRowId, changes };
+  }
 
   if (/^SELECT key, value FROM settings WHERE key IN/.test(s)) {
     for (const [key, value] of S.settings) rows.push({ key, value });

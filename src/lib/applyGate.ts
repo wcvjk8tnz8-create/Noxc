@@ -16,6 +16,7 @@
  *   root_apply_paused     = 逗号分隔的根域名，如 'meoy.top,v-1.top'
  * 环境变量 APPLY_PAUSED / ROOT_APPLY_PAUSED 可强制开启（后台不可关）。
  */
+import { pickSettings } from './settingsCache.js';
 
 const DEFAULT_MESSAGE = '站点已暂停新域名申请，请稍后再试。已注册的域名不受影响。';
 
@@ -52,10 +53,7 @@ export function isRootApplyPaused(gate: { pausedRoots?: string[] }, root: string
 
 export async function applyGate(env) {
   try {
-    const rows = await env.DB.prepare(
-      "SELECT key, value FROM settings WHERE key IN ('apply_paused','apply_paused_message','root_apply_paused')"
-    ).all();
-    const s = Object.fromEntries((rows.results || []).map((r) => [r.key, r.value]));
+    const s = await pickSettings(env, ['apply_paused','apply_paused_message','root_apply_paused']);
     const envPaused = String(env.APPLY_PAUSED || '').trim() === '1';
     const envRoots = parsePausedRoots(env.ROOT_APPLY_PAUSED || '');
     return {

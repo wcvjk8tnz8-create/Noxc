@@ -24,6 +24,7 @@
  *      一提交就失败」。现在成功即写回模型，且正式审核也允许少量候选回退。
  */
 
+import { pickSettings } from './settingsCache.js';
 import { normalizeDomain, parseRootList } from './roots.js';
 
 const KEYS = [
@@ -139,14 +140,9 @@ function envStr(env: any, k: string): string {
 }
 
 export async function loadAiConfig(env: any): Promise<AiConfig> {
-  const m: Record<string, string> = {};
-  try {
-    const rows = await env.DB
-      .prepare(`SELECT key, value FROM settings WHERE key IN (${KEYS.map(() => '?').join(',')})`)
-      .bind(...KEYS)
-      .all();
-    for (const r of rows?.results || []) m[String(r.key)] = String(r.value ?? '').trim();
-  } catch { /* 表尚未建好时静默回落 */ }
+  let m: Record<string, string> = {};
+  try { m = await pickSettings(env, KEYS); }
+  catch { /* 表尚未建好时静默回落 */ }
 
   const base = (m.ai_api_url || envStr(env, 'AI_API_URL') || DEFAULT_AI_BASE).replace(/\/+$/, '');
   const key = m.ai_api_key || envStr(env, 'AI_API_KEY');

@@ -36,7 +36,10 @@ function makeEnv(settings: Record<string, string>) {
         const k = String(bound[0]);
         return Object.prototype.hasOwnProperty.call(settings, k) ? { value: settings[k] } : null;
       },
-      async all() { return { results: [] }; },
+      /* 统一配置层一次读全表；真实 D1 同形 */
+      async all() {
+        return { results: Object.entries(settings).map(([key, value]) => ({ key, value })) };
+      },
       async run() { return { meta: { changes: 0 } }; },
     };
     return self;
