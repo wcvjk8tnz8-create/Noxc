@@ -158,6 +158,7 @@ def main():
         check('999px' in before_radius, '改造前按钮是 999px 胶囊（实测 %s）' % before_radius)
         check('Redaction' in before_font or 'monospace' not in before_font.lower(),
               '改造前输入框不是等宽（实测 %s）' % before_font[:60])
+        pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
         f = PREVIEW / 'yunamo_skin_before_desktop.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
@@ -281,6 +282,7 @@ def main():
         check(not pg.evaluate('()=>document.documentElement.scrollWidth>window.innerWidth'),
               '宽屏无横向溢出')
         pg.fill('#qName', '')   # 对照图展示空态，不留下点击测试填进去的示例值
+        pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
         f = PREVIEW / 'yunamo_skin_after_desktop.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
@@ -293,6 +295,7 @@ def main():
         radius_dark = style(pg, '.rv-pill.ink.lg', 'border-radius')
         check(paper == '#0b0d11' and '14px' in radius_dark,
               '暗色主题色值不变、形态同样生效（paper=%s, radius=%s）' % (paper, radius_dark))
+        pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
         f = PREVIEW / 'yunamo_skin_after_dark.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
@@ -317,6 +320,7 @@ def main():
         check(len(m_cols.split()) == 1 and bool(m_copy and m_panel)
               and m_panel['y'] > m_copy['y'] + m_copy['height'] - 4,
               '手机端两栏改单列，查询卡跟在标题下方（实测 %s）' % m_cols)
+        pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
         f = PREVIEW / 'yunamo_skin_after_mobile.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
@@ -324,6 +328,7 @@ def main():
         pg = browser.new_page(viewport={'width': 390, 'height': 844}, device_scale_factor=2)
         pg.goto('file://' + str(PREVIEW / '_skin_before.html'))
         pg.wait_for_timeout(1700)
+        pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
         f = PREVIEW / 'yunamo_skin_before_mobile.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
