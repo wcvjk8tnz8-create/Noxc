@@ -1834,3 +1834,40 @@ for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);
 if (errors.length) process.exit(1);
+
+
+/* ── 数据备份导出 / 重新汇入防回流 ── */
+const bkFmt = read('src/lib/backupFormat.ts');
+const bkRoute = read('src/routes/backup.ts');
+const bkIdx = read('src/index.ts');
+const bkAdmin = read('src/app/pages/Admin.tsx');
+const bkLegacy = read('src/app/legacy/admin.ts');
+const bkReg = read('scripts/backup-regression.ts');
+check(/USERS_COLS|SUBDOMAINS_COLS/.test(bkFmt)
+  && /csvCell|parseCsv|csvToObjects/.test(bkFmt)
+  && /SETTINGS_FORMAT = 'noxc-settings-backup'/.test(bkFmt),
+  '备份格式层：固定列清单 / CSV 编解码 / JSON format 标记');
+check(/SENSITIVE_SETTING_KEYS/.test(bkFmt) && /isInternalSettingKey/.test(bkFmt),
+  '凭据 key 脱敏、内部运行态 key 排除');
+check(/app\.route\('\/api\/admin\/backup', backupRoutes\)/.test(bkIdx)
+  && /requireAdmin\(c\)/.test(bkRoute),
+  '备份路由挂在管理员前缀下，且路由内二次校验身份');
+check(/dryRun/.test(bkRoute) && /dryRun === true/.test(bkLegacy) && /dryRun: false/.test(bkLegacy),
+  '汇入两步：预览不写库，确认才入库');
+check(/密码哈希与角色永远不动|永不覆盖|不覆盖/.test(bkRoute)
+  && /脱敏的空密钥/.test(bkRoute),
+  'replace 不改密码哈希 / 角色，空密钥不冲掉现有配置');
+check(/owner_email/.test(bkFmt) && /owner_email/.test(bkRoute),
+  '子域名备份带所属邮箱，跨库可重建归属');
+check(/data-tab="backup"/.test(bkAdmin) && /bkExpSubs|bkExpUsers|bkExpSettings/.test(bkLegacy),
+  '后台「数据备份」页签与三个导出按钮都在');
+check(!/[\u{1F300}-\u{1FAFF}]/u.test(bkLegacy.slice(bkLegacy.indexOf('数据备份：导出'), bkLegacy.indexOf("if (tab === 'settings')"))),
+  '备份面板零 emoji');
+check(/backup\\\/import/.test(bkIdx) && /invalidatePublicStats/.test(bkIdx),
+  '汇入用户 / 子域名会失效公开统计快照');
+check(/### 14\. 数据备份/.test(read('README.md'))
+  && /### Z\.6 数据备份/.test(read('README.md')),
+  'README 正文说明能力、注意事项按约定收在文末附录 Z');
+check(/backup-regression\.ts/.test(read('.github/workflows/deploy.yml'))
+  && /导出 → 清空 → 汇入|round-trip/.test(bkReg),
+  '备份专项回归进 CI 且覆盖完整 round-trip');

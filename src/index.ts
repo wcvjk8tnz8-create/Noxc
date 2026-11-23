@@ -43,6 +43,7 @@ import profileRoutes from './routes/profile.js';
 import ticketRoutes from './routes/tickets.js';
 import transferRoutes from './routes/transfer.js';
 import abuseRoutes from './routes/abuse.js';
+import backupRoutes from './routes/backup.js';
 import emailRequestRoutes from './routes/emailRequests.js';
 import showcaseRoutes from './routes/showcase.js';
 
@@ -193,7 +194,9 @@ app.use('*', async (c, next) => {
     if (/^\/api\/(admin\/)?subdomains/.test(p)
       || /^\/api\/auth\/register/.test(p)
       || /^\/oauth\//.test(p)
-      || /^\/api\/admin\/users/.test(p)) {
+      || /^\/api\/admin\/users/.test(p)
+      || /^\/api\/admin\/backup\/import\/(users|subdomains)/.test(p)) {
+      /* 备份汇入会新增用户 / 域名，公开统计快照必须同步失效，否则首页数字滞后 */
       await invalidatePublicStats(c.env);
     }
   } catch { /* 失效失败不能影响写操作本身 */ }
@@ -373,6 +376,8 @@ app.route('/api/subdomains', subdomainRoutes);
 app.route('/api/delegation', delegationRoutes);
 app.route('/api/subdomains', delegationRoutes);
 app.route('/api/admin', adminRoutes);
+/* 数据备份：子域名 / 用户 CSV + 站点设置 JSON，可重新汇入（仅管理员） */
+app.route('/api/admin/backup', backupRoutes);
 app.route('/api/redeem', redeemRoutes);
 app.route('/api/chat', chatRoutes);
 

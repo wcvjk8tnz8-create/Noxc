@@ -26,6 +26,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
     users: ['邮箱', '角色', '状态', '配额', '域名数', '积分', '操作'],
     locks: ['记录名', '类型', '发起人', '锁定时间', '操作'],
     settings: ['站点品牌', '值'],
+    backup: ['数据备份', '导出 / 重新汇入'],
     ips: ['IP', '账号数', '邮箱', '最近注册', '状态', '操作'],
     emailreq: ['邮箱', '理由 / 联系方式', '状态', '时间', '操作'],
     audit: ['时间', '用户', '动作', '对象', '详情'],
@@ -276,6 +277,148 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
       return;
     }
   
+    /* ── 数据备份：导出 CSV / JSON，遗失后可重新汇入 ──
+       刻意两步：先 dryRun 预览（只算不写），管理员确认后才真正入库。 */
+    if (tab === 'backup') {
+      tb.innerHTML = `<tr><td colspan="2">
+        <div style="display:grid;gap:14px;max-width:860px">
+          <div class="card" style="padding:16px 18px">
+            <div style="font-weight:800;font-size:15px;margin-bottom:6px">导出备份</div>
+            <div class="hint" style="margin-bottom:12px">子域名与用户为 CSV 表，站点设置为 JSON。文件可下载保存，遗失时从下方重新汇入。</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <button class="btn sm" id="bkExpSubs">下载子域名 CSV</button>
+              <button class="btn sm" id="bkExpUsers">下载用户 CSV</button>
+              <button class="btn sm" id="bkExpSettings">下载站点设置 JSON</button>
+              <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:0;cursor:pointer">
+                <input type="checkbox" id="bkSecrets" style="width:15px;height:15px">设置 JSON 包含凭据
+              </label>
+            </div>
+            <div class="hint" style="margin-top:10px">用户 CSV 含密码哈希，恢复后可原样登录，请加密保存。站点设置默认把 API key / Secret 置空；需完整迁移才勾选「包含凭据」。</div>
+          </div>
+
+          <div class="card" style="padding:16px 18px">
+            <div style="font-weight:800;font-size:15px;margin-bottom:6px">重新汇入</div>
+            <div class="hint" style="margin-bottom:12px">先选文件点「预览」，确认统计数字后再点「确认汇入」。预览不会写入数据库。</div>
+            <div style="display:grid;gap:10px;max-width:620px">
+              <div class="field" style="margin:0"><label>备份文件</label><input type="file" id="bkFile" accept=".csv,.json,text/csv,application/json"></div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <div class="field" style="margin:0;flex:1;min-width:170px"><label>数据类型</label>
+                  <select id="bkKind">
+                    <option value="auto">自动识别</option>
+                    <option value="users">用户 CSV</option>
+                    <option value="subdomains">子域名 CSV</option>
+                    <option value="settings">站点设置 JSON</option>
+                  </select>
+                </div>
+                <div class="field" style="margin:0;flex:1;min-width:170px"><label>汇入模式</label>
+                  <select id="bkMode">
+                    <option value="merge">只补缺失（推荐）</option>
+                    <option value="replace">覆盖同名记录</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn sm" id="bkPreview">预览</button>
+                <button class="btn sm primary" id="bkConfirm" disabled>确认汇入</button>
+              </div>
+              <div id="bkResult" class="hint" style="white-space:pre-wrap;line-height:1.8"></div>
+            </div>
+            <div class="hint" style="margin-top:10px">安全边界：只认白名单列 / 配置键，所有字段逐个校验；「覆盖」也绝不改动现有用户密码哈希与角色；脱敏的空密钥会被跳过，不会冲掉正在使用的配置；内部统计快照与迁移标记不导出、不汇入。单文件上限 2MB / 20000 行。汇入子域名前请先汇入用户，跨库时按邮箱重新对应归属。</div>
+          </div>
+          <div class="hint">导出是一次性全表读取，属低频手动操作；不要放进轮询或自动化脚本，避免无谓消耗 D1 读取额度。</div>
+        </div>
+      </td></tr>`;
+
+      const $ = (id: string) => document.getElementById(id) as any;
+      const result = $('bkResult');
+      let pending: { kind: string; data: string; mode: string } | null = null;
+      const invalidate = () => { pending = null; $('bkConfirm').disabled = true; };
+      ['bkFile', 'bkKind', 'bkMode'].forEach((id) => $(id).addEventListener('change', invalidate));
+
+      async function backupDownload(kind: string) {
+        const withSecrets = kind === 'settings' && !!$('bkSecrets').checked;
+        const res = await fetch('/api/admin/backup/export/' + kind + (withSecrets ? '?includeSecrets=1' : ''),
+          { credentials: 'same-origin' });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.message || '导出失败');
+        }
+        const blob = await res.blob();
+        const m = (res.headers.get('content-disposition') || '').match(/filename="([^"]+)"/);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = m ? m[1] : ('noxc-' + kind + (kind === 'settings' ? '.json' : '.csv'));
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+        result.textContent = '已导出 ' + a.download + (withSecrets ? '（含凭据，请妥善保管）' : '');
+      }
+      for (const [id, kind] of [['bkExpSubs', 'subdomains'], ['bkExpUsers', 'users'], ['bkExpSettings', 'settings']] as const) {
+        $(id).onclick = async () => {
+          const b = $(id); b.disabled = true;
+          try { await backupDownload(kind); } catch (e) { settingsFeedback((e as Error).message, 'err'); }
+          finally { b.disabled = false; }
+        };
+      }
+
+      function pickKind(name: string, data: string): string {
+        const chosen = $('bkKind').value;
+        if (chosen !== 'auto') return chosen;
+        const n = String(name || '').toLowerCase();
+        if (n.includes('settings') || data.trimStart().startsWith('{')) return 'settings';
+        if (n.includes('subdomain')) return 'subdomains';
+        if (n.includes('user')) return 'users';
+        /* 靠表头兜底：用户表有 password_hash，子域名表有 fqdn */
+        const head = data.replace(/^\uFEFF/, '').split(/\r?\n/)[0] || '';
+        if (head.includes('fqdn')) return 'subdomains';
+        if (head.includes('password_hash') || head.includes('email')) return 'users';
+        return '';
+      }
+      async function readFile(): Promise<{ kind: string; data: string; mode: string }> {
+        const f = $('bkFile').files?.[0];
+        if (!f) throw new Error('请先选择备份文件');
+        if (f.size > 2 * 1024 * 1024) throw new Error('文件超过 2MB 上限');
+        const data = await f.text();
+        const kind = pickKind(f.name, data);
+        if (!kind) throw new Error('无法识别文件类型，请在「数据类型」里手动选择');
+        return { kind, data, mode: $('bkMode').value };
+      }
+      function renderReport(j: any, dry: boolean) {
+        const lines = [
+          (dry ? '预览（未写入）' : '汇入完成') + '：类型 ' + j.kind + ' · 模式 ' + j.mode,
+          '共 ' + j.total + ' 条 → 新增 ' + j.insert + ' / 更新 ' + j.update + ' / 跳过 ' + j.skip,
+        ];
+        for (const s of (j.skipped || []).slice(0, 8)) lines.push('  第 ' + s.row + ' 条：' + s.reason);
+        if ((j.skipped || []).length > 8) lines.push('  … 其余跳过项未逐一列出');
+        for (const w of (j.warnings || [])) lines.push('  ' + w);
+        lines.push(j.hint || '');
+        result.textContent = lines.filter(Boolean).join('\n');
+      }
+      $('bkPreview').onclick = async () => {
+        const b = $('bkPreview'); b.disabled = true; result.textContent = '正在预览…';
+        try {
+          pending = await readFile();
+          const j = await api.post('/api/admin/backup/import/' + pending.kind,
+            { data: pending.data, mode: pending.mode, dryRun: true });
+          renderReport(j, true);
+          $('bkConfirm').disabled = false;
+        } catch (e) { invalidate(); settingsFeedback((e as Error).message, 'err'); result.textContent = ''; }
+        finally { b.disabled = false; }
+      };
+      $('bkConfirm').onclick = async () => {
+        if (!pending) return settingsFeedback('请先预览', 'err');
+        if (!window.confirm('确认把这份备份汇入当前数据库？建议先在测试环境核对预览结果。')) return;
+        const b = $('bkConfirm'); b.disabled = true; result.textContent = '正在汇入…';
+        try {
+          const j = await api.post('/api/admin/backup/import/' + pending.kind,
+            { data: pending.data, mode: pending.mode, dryRun: false });
+          renderReport(j, false);
+          invalidate();
+          settingsFeedback('汇入完成');
+        } catch (e) { b.disabled = false; settingsFeedback((e as Error).message, 'err'); result.textContent = ''; }
+      };
+      return;
+    }
+
     if (tab === 'settings') {
       const d = await api.get('/api/admin/settings');
       const s = d.items;
