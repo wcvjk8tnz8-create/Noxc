@@ -3,222 +3,29 @@ import { mountDashboard } from '../legacy/dashboard';
 import { api, refreshRuntime, cleanupPage, navigate } from '../lib/runtime';
 
 /**
- * 第三方域名接入（外部域名）· 放在「注册域名」卡片下面
+ * 第三方域名接入 · 即将上线
  *
- * 流程：提交域名 → 加 TXT 验证所有权 → 填供应商 API key 连接 → 添加 DNS 记录。
- * 关键提示：TXT 只证明所有权，记录生效还要求域名 NS 指向该供应商，
- * 这一步由用户在注册商完成，UI 里必须写清楚，不能省。
+ * 用户决定先不开放：入口位置仍放在「注册域名」卡片下面，但只展示状态与
+ * 计划流程，不渲染任何表单、不调用 /api/external-domains。
+ * 后端有统一闸门同步返回「即将上线」，前后端状态一致，不会留个能写库的裸接口。
  */
 function ExternalDomains() {
-  const [items, setItems] = useState<any[]>([]);
-  const [domain, setDomain] = useState('');
-  const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
-  const [max, setMax] = useState(5);
-  const [providers] = useState<string[]>(['cloudflare', 'dnshe']);
-  const [recordTypes] = useState<string[]>(['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'NS', 'SRV', 'CAA']);
-  // 每个域名各自的表单状态（key 不进 React 之外的任何持久化存储）
-  const [form, setForm] = useState<Record<number, any>>({});
-  const setField = (id: number, k: string, v: any) =>
-    setForm((f) => ({ ...f, [id]: { ...(f[id] || {}), [k]: v } }));
-
-  const load = () => api.get('/api/external-domains')
-    .then((d: any) => {
-      setItems(d.items || []);
-      if (Number(d.max) > 0) setMax(Number(d.max));
-    })
-    .catch(() => { /* 未登录 / 接口不可用时保持空 */ });
-  useEffect(() => { load(); }, []);
-
-  const add = async () => {
-    if (!domain.trim() || busy) return;
-    setBusy(true); setMsg('');
-    try {
-      const r: any = await api.post('/api/external-domains', {
-        domain: domain.trim(), note: note.trim(),
-      });
-      setDomain(''); setNote('');
-      setMsg('已创建待验证记录。请在你当前的 DNS 服务商添加页面里显示的 TXT，然后点「验证所有权」。');
-      await load();
-      void r;
-    } catch (e: any) { setMsg(e?.message || '提交失败'); }
-    finally { setBusy(false); }
-  };
-
-  const verify = async (id: number) => {
-    setBusy(true); setMsg('');
-    try {
-      const r: any = await api.post(`/api/external-domains/${id}/verify`, {});
-      setMsg(r?.verified ? '所有权验证通过，可以继续连接供应商' : (r?.detail || '尚未查到 TXT'));
-      await load();
-    } catch (e: any) { setMsg(e?.message || '验证失败'); }
-    finally { setBusy(false); }
-  };
-
-  const connect = async (id: number) => {
-    const f = form[id] || {};
-    if (!f.apiKey) { setMsg('请填写供应商 API key（不会保存）'); return; }
-    setBusy(true); setMsg('');
-    try {
-      const r: any = await api.post(`/api/external-domains/${id}/connect`, {
-        provider: f.provider || 'cloudflare', apiKey: f.apiKey,
-      });
-      setField(id, 'apiKey', '');       // 用完立刻从前端状态清掉
-      setMsg(`${r?.note || '已连接供应商'}${r?.ns?.length ? '　官方 NS：' + r.ns.join(' / ') : ''}`);
-      await load();
-    } catch (e: any) { setMsg(e?.message || '连接失败'); }
-    finally { setBusy(false); }
-  };
-
-  const addRec = async (id: number) => {
-    const f = form[id] || {};
-    if (!f.apiKey) { setMsg('添加记录需要重新填一次 API key（本站不保存）'); return; }
-    setBusy(true); setMsg('');
-    try {
-      const r: any = await api.post(`/api/external-domains/${id}/records`, {
-        apiKey: f.apiKey, type: f.type || 'A', name: f.name || '@',
-        content: f.content || '', ttl: Number(f.ttl || 3600),
-      });
-      setField(id, 'apiKey', '');
-      setField(id, 'content', '');
-      setMsg(r?.note || '记录已提交');
-      await load();
-    } catch (e: any) { setMsg(e?.message || '写入失败'); }
-    finally { setBusy(false); }
-  };
-
-  const remove = async (id: number) => {
-    try { await api.del('/api/external-domains/' + id); await load(); }
-    catch (e: any) { setMsg(e?.message || '移除失败'); }
-  };
-
+  const externalLabel = '（外部域名）';
   return (
     <div className="card" id="externalCard">
       <div className="head-row">
         <h3 data-en="Third-party domain access">第三方域名接入</h3>
-        <span className="badge inf" data-en="(External domain)">（外部域名）</span>
+        <span className="badge warn" data-en="Coming soon">即将上线</span>
       </div>
-      <p className="hint">
-        接入你自己拥有的完整域名（如 example.com）。流程：<b>① 提交域名</b> →
-        <b>② 在当前 DNS 服务商添加一条 TXT 验证所有权</b> →
-        <b>③ 填供应商 API key 连接并添加 DNS 记录</b>。
+      <p className="hint" data-en="Bring your own full domain (e.g. example.com). These are marked as (External domain). The feature is being prepared and is not open yet.">
+        接入你自己拥有的完整域名（如 example.com），统一标注「{externalLabel}」。
+        <b>该功能正在准备中，暂未开放。</b>
       </p>
-      <div className="alert a-warn" style={{ marginTop: '10px' }}>
-        <b>TXT 只用来验证所有权，不能让解析生效。</b>添加记录后，还必须到你的域名注册商
-        把 <b>NS 改成供应商分配的两台</b>（连接后下方会显示）。NS 生效前写进去的记录
-        不会被全球 DNS 查询。本站不托管这些域名的 DNS。
+      <div className="alert a-info" style={{ marginTop: '10px' }} data-en="Planned flow: 1) submit domain 2) add a TXT record to prove ownership 3) use your own DNS provider API key to add records. No quota usage, no site-stat impact, no writes to this site's DNS.">
+        计划中的流程：<b>① 提交域名</b> → <b>② 加一条 TXT 验证所有权</b> →
+        <b>③ 填你自己的 DNS 供应商 API key 添加解析记录</b>。
+        <br />不占注册配额、不计入站点统计、不写本站 DNS；开放时间请留意站点公告。
       </div>
-
-      {items.length > 0 && items.map((it) => {
-        const f = form[it.id] || {};
-        return (
-          <div className="card flat" key={it.id} style={{ marginTop: '12px' }}>
-            <div className="row between" style={{ flexWrap: 'wrap', gap: '8px' }}>
-              <div><b className="mono">{it.fqdn}</b> <span className="badge inf">{it.externalLabel}</span></div>
-              <div className="row" style={{ gap: '6px' }}>
-                <span className={`badge ${it.verified ? 'ok' : 'warn'}`}>{it.verified ? '已验证所有权' : '待验证'}</span>
-                {it.connected && <span className="badge ok">已连接 {it.providerKey}</span>}
-                <button className="btn sm danger" onClick={() => remove(it.id)} data-en="Remove">移除</button>
-              </div>
-            </div>
-
-            {!it.verified && (
-              <div style={{ marginTop: '10px' }}>
-                <div className="hint" data-en="Add this TXT record at your current DNS provider:">在你当前的 DNS 服务商添加这条 TXT：</div>
-                <div className="mono" style={{ fontSize: '11.5px', wordBreak: 'break-all', background: 'var(--paper2)', padding: '8px', borderRadius: '6px', marginTop: '5px' }}>
-                  {it.verifyHost}　TXT　{it.verifyValue}
-                </div>
-                <button className="btn sm primary" style={{ marginTop: '8px' }} disabled={busy} onClick={() => verify(it.id)} data-en="Verify ownership">
-                  验证所有权
-                </button>
-              </div>
-            )}
-
-            {it.verified && (
-              <div style={{ marginTop: '10px' }}>
-                <div className="grid2">
-                  <div className="field">
-                    <label data-en="DNS provider">DNS 供应商</label>
-                    <select value={f.provider || 'cloudflare'} onChange={(e) => setField(it.id, 'provider', e.target.value)}>
-                      {providers.map((p) => <option key={p} value={p}>{p === 'cloudflare' ? 'Cloudflare' : 'DNSHE'}</option>)}
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label data-en="Provider API key (never stored)">供应商 API key（不会保存）</label>
-                    <input type="password" value={f.apiKey || ''} onChange={(e) => setField(it.id, 'apiKey', e.target.value)} placeholder="每次操作时填写" autoComplete="off" />
-                  </div>
-                </div>
-                <div className="hint" style={{ marginTop: '4px' }}>
-                  Cloudflare Token 需要 <b>Zone Read + DNS Write</b> 权限；DNSHE 填其 API Token。
-                  key 只用于本次请求，不落库、不回传。
-                </div>
-                <button className="btn sm primary" style={{ marginTop: '8px' }} disabled={busy} onClick={() => connect(it.id)} data-en="Connect provider">
-                  连接供应商
-                </button>
-
-                {(it.ns1 || it.ns2) && (
-                  <div className="alert a-info" style={{ marginTop: '10px' }}>
-                    <b>请到注册商把 NS 改成：</b><span className="mono">{[it.ns1, it.ns2].filter(Boolean).join(' / ')}</span>
-                    <br />NS 生效（Cloudflare 显示 Active）后，下面写的记录才会真正被解析。
-                  </div>
-                )}
-
-                {it.connected && (
-                  <div style={{ marginTop: '12px', borderTop: '1px solid var(--hair)', paddingTop: '10px' }}>
-                    <div className="hint" data-en="Add a DNS record">添加 DNS 记录（写入 {it.providerKey}）</div>
-                    <div className="grid2" style={{ marginTop: '6px' }}>
-                      <div className="field">
-                        <label data-en="Type">类型</label>
-                        <select value={f.type || 'A'} onChange={(e) => setField(it.id, 'type', e.target.value)}>
-                          {recordTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      </div>
-                      <div className="field">
-                        <label data-en="Name">名称（@ = 主域名）</label>
-                        <input value={f.name || ''} onChange={(e) => setField(it.id, 'name', e.target.value)} placeholder="@ 或 www" />
-                      </div>
-                    </div>
-                    <div className="grid2" style={{ marginTop: '6px' }}>
-                      <div className="field">
-                        <label data-en="Value">记录值</label>
-                        <input value={f.content || ''} onChange={(e) => setField(it.id, 'content', e.target.value)} placeholder="1.2.3.4 或目标域名" />
-                      </div>
-                      <div className="field">
-                        <label data-en="TTL">TTL</label>
-                        <input type="number" value={f.ttl || 3600} onChange={(e) => setField(it.id, 'ttl', e.target.value)} min={60} max={86400} />
-                      </div>
-                    </div>
-                    <div className="field" style={{ marginTop: '6px' }}>
-                      <label data-en="Provider API key (again)">供应商 API key（再次填写）</label>
-                      <input type="password" value={f.apiKey || ''} onChange={(e) => setField(it.id, 'apiKey', e.target.value)} placeholder="本站不保存，每次操作需重填" autoComplete="off" />
-                    </div>
-                    <button className="btn sm primary" style={{ marginTop: '8px' }} disabled={busy} onClick={() => addRec(it.id)} data-en="Add record">
-                      添加记录
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      <div className="grid2" style={{ marginTop: '14px' }}>
-        <div className="field">
-          <label data-en="Full domain">完整域名</label>
-          <input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="example.com" maxLength={253} />
-        </div>
-        <div className="field">
-          <label data-en="Note (optional)">备注（选填）</label>
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="这个域名做什么用" maxLength={160} />
-        </div>
-      </div>
-      <div className="row between" style={{ alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        <span className="hint" style={{ margin: 0 }}>{items.length} / {max} <span data-en="external domains">个外部域名</span> · 不占注册配额、不计入站点统计</span>
-        <button className="btn primary sm" onClick={add} disabled={busy || !domain.trim()} data-en="Add domain">{busy ? '处理中…' : '提交域名'}</button>
-      </div>
-      {msg && <p className="hint" style={{ marginTop: '8px' }}>{msg}</p>}
     </div>
   );
 }

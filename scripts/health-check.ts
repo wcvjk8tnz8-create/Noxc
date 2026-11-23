@@ -1783,6 +1783,14 @@ check(/外部域名|D1 读取优化/.test(d1DocsZh) && /external domain|D1 read/
   '中英文档与 README 写明外部域名；错误统一放文末');
 check(/D1 读取与第三方域名回归/.test(d1CI)
   && /d1-read-external-domain-regression\.ts/.test(d1RegS), '专项回归进 CI');
+check(/EXTERNAL_DOMAINS_COMING_SOON = true/.test(d1Route)
+  && /app\.use\('\*'/.test(d1Route) && /503/.test(d1Route)
+  && /即将上线/.test(d1Dash) && /即将上线/.test(read('src/app/pages/Register.tsx'))
+  && /即将上线/.test(d1Readme),
+  '第三方域名接入标「即将上线」：前后端统一闸门，接口不可用');
+check(!/dashboard#externalCard/.test(read('src/app/pages/Register.tsx'))
+  && !/api\.(post|del)\(/.test(d1Dash.slice(d1Dash.indexOf('function ExternalDomains'), d1Dash.indexOf('/** Dashboard'))),
+  '注册页不给跳转、控制台卡片不含表单提交');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);

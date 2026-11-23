@@ -28,6 +28,23 @@ const PROVIDERS = ['cloudflare', 'dnshe'];
 /** 统一标签：前端所有出现该域名的地方都用这一份文案，不各写各的 */
 export const EXTERNAL_LABEL = '（外部域名）';
 
+/* ───────── 功能状态：即将上线 ─────────
+   用户决定先不开放第三方域名接入。实现代码完整保留（TXT 验证 / 供应商 API
+   写记录 / 三步流程），但统一闸门让 /api/external-domains 的所有接口都返回
+   「即将上线」，避免前端收起表单后接口仍可裸奔写入。
+   以后要开放：把 EXTERNAL_DOMAINS_COMING_SOON 改成 false，并把控制台卡片
+   换回完整组件即可，无需重写后端。 */
+export const EXTERNAL_DOMAINS_COMING_SOON = true;
+export const COMING_SOON_MESSAGE = '第三方域名接入即将上线，敬请期待';
+
+app.use('*', async (c, next) => {
+  if (!EXTERNAL_DOMAINS_COMING_SOON) return next();
+  return fail(c, COMING_SOON_MESSAGE, 503, {
+    comingSoon: true,
+    label: EXTERNAL_LABEL,
+  });
+});
+
 function normalize(raw: unknown): string {
   return String(raw ?? '').trim().toLowerCase()
     .replace(/^https?:\/\//i, '')

@@ -30,7 +30,14 @@ Under "Site settings → Pause applications per suffix", tick a root domain to *
 
 This is separate from per-suffix registration limits: one controls *whether* you can apply, the other *how many times*.
 
-## Third-party domain access (external domain)
+## Third-party domain access (external domain) · Coming soon
+
+> **Current status: coming soon, not open yet.** The UI shows only the status and
+> the planned flow; `/api/external-domains` returns a uniform "coming soon" (503)
+> response and writes nothing. The full implementation is kept behind the
+> `EXTERNAL_DOMAINS_COMING_SOON` flag in `src/routes/externalDomains.ts`.
+> Everything below describes the flow **after** it is enabled.
+
 
 The entry sits directly under the console's **Register domain** card (the registration page also links to it). The list and WHOIS results are consistently marked **(External domain)**.
 

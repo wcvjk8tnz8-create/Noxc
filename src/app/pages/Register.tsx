@@ -281,11 +281,11 @@ export default function RegisterPage() {
           </div>
         </section>
 
-        {/* 第三方域名接入入口：主流程在控制台「注册域名」卡片下面 */}
+        {/* 第三方域名接入：按用户要求改为「即将上线」，只展示状态、不提供跳转 */}
         <div className="card reg-faq" style={{marginBottom:"14px"}}>
-          <div className="head-row"><h3 style={{fontSize:"16px"}} data-en="Third-party domain access">第三方域名接入</h3><a className="btn sm" href="/dashboard#externalCard" data-en="Go to access">前往接入 →</a></div>
-          <p className="dim" style={{fontSize:12.5,lineHeight:1.8,margin:"8px 0 0"}} data-en="Already own a full domain? Add a TXT record to prove ownership, then provide your DNS provider API key to add DNS records. These domains are marked (External domain).">
-            已经有自己的完整域名？先加一条 TXT 验证所有权，再填供应商 API key 就能添加 DNS 记录。接入的域名统一标注「（外部域名）」，不占注册配额。
+          <div className="head-row"><h3 style={{fontSize:"16px"}} data-en="Third-party domain access">第三方域名接入</h3><span className="badge warn" data-en="Coming soon">即将上线</span></div>
+          <p className="dim" style={{fontSize:12.5,lineHeight:1.8,margin:"8px 0 0"}} data-en="Bring your own full domain, marked (External domain). Coming soon — not open yet.">
+            接入自己的完整域名，统一标注「（外部域名）」。该功能即将上线，暂未开放；上线后可加 TXT 验证所有权，再填供应商 API key 添加 DNS 记录，不占注册配额。
           </p>
         </div>
 

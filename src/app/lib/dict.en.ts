@@ -10,6 +10,7 @@
  * 长句整译优先；短词用于 translateText 的全匹配与「全中文可消费」判定。
  */
 export const EXTRA_DICT: Record<string, string> = {
+  '即将上线': 'Coming soon',
   '第三方域名接入': 'Third-party domain access',
   '前往接入': 'Go to access',
   '已验证所有权': 'Ownership verified',
