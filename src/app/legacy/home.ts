@@ -6,6 +6,7 @@ import { api, esc, loadBranding, applyBranding } from '../lib/runtime';
 import { svgIcon } from '../lib/icons';
 import { startI18n } from '../lib/i18n';
 import { expiryTipText } from '../../lib/expiry';
+import { configureApplyPause, isApplyPausedFor, sortPreferred } from '../lib/applyPause';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -17,9 +18,9 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
   
   let ROOTS = [];
   let RT = [];
-  /* 首推 noxc.uk：无论 /api/config 返回的顺序，都把它排到第一位 */
-  const preferNoxc = (list) => [...list].sort((a, b) =>
-    (String(b).toLowerCase() === 'noxc.uk' ? 1 : 0) - (String(a).toLowerCase() === 'noxc.uk' ? 1 : 0));
+  /* 首推 noxc.uk：无论 /api/config 返回的顺序，都把它排到第一位。
+     同时把「被暂停申请的根域名」整个剔除 —— 首页不再显示它，也点不到。 */
+  const preferNoxc = (list) => sortPreferred(list);
   
   /* ---------- 可选后缀卡片 ----------
      有效期与续期窗口来自 /api/config，不再写死 365 / 180：
@@ -74,7 +75,8 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
   function renderBreakdown(list, fmt) {
     const rows = document.getElementById('statBreakdownRows');
     if (!rows) return;
-    const items = Array.isArray(list) ? list : [];
+    const items = (Array.isArray(list) ? list : [])
+      .filter((r) => !isApplyPausedFor(r.domain));   // 暂停后缀不在首页展示
     if (!items.length) {
       rows.innerHTML = '<div class="rv-bd-empty" data-en="No suffix data yet">暂无后缀数据</div>';
       return;
@@ -117,9 +119,19 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
   (async () => {
     try {
       const cfg = await api.get('/api/config');
+      /* 与注册页 / WHOIS 同一份暂停判定，先配置再算可用后缀 */
+      configureApplyPause({
+        applyPaused: !!cfg.applyPaused,
+        applyPausedMessage: cfg.applyPausedMessage,
+        pausedRoots: cfg.pausedRoots,
+      });
+      PAUSED_ROOTS = Array.isArray(cfg.pausedRoots)
+        ? cfg.pausedRoots.map((d) => String(d).trim().toLowerCase()) : [];
       ROOTS = Array.isArray(cfg.rootDomains) && cfg.rootDomains.length
         ? cfg.rootDomains
         : (cfg.rootDomain ? [cfg.rootDomain] : []);
+      /* preferNoxc 会剔除暂停后缀并把主推域名排到第一位：
+         首页后缀卡片、查询下拉、HOT 标记都只会看到开放后缀。 */
       ROOTS = preferNoxc(ROOTS);
       RT = Array.isArray(cfg.recordTypes) ? cfg.recordTypes : [];
       /* qRoot 现在是下拉框：列出全部已配置根域名，可切换查询其它后缀 */
@@ -128,7 +140,15 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
         sel.innerHTML = ROOTS.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('')
           || '<option value="">—</option>';
         const want = new URLSearchParams(location.search).get('root');
-        if (want && ROOTS.indexOf(want) >= 0) sel.value = want;
+        if (want && ROOTS.indexOf(String(want).toLowerCase()) >= 0) sel.value = String(want).toLowerCase();
+        else if (want && ROOTS.length) {
+          // 带暂停后缀进首页：自动落到主推域名，顺手把 URL 改掉避免刷新又跳回
+          try {
+            const u = new URL(location.href);
+            u.searchParams.set('root', ROOTS[0]);
+            history.replaceState({}, '', u.toString());
+          } catch {}
+        }
       }
       /* 站点公开数据：与 /api/config 同一次请求返回，不新增首屏往返，
          也不会出现「先 0 后补数」的分阶段加载。 */
@@ -137,12 +157,11 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
         const v = Number(n);
         return Number.isFinite(v) ? v.toLocaleString('zh-CN') : '—';
       };
-      PAUSED_ROOTS = Array.isArray(cfg.pausedRoots)
-        ? cfg.pausedRoots.map((d) => String(d).trim().toLowerCase()) : [];
       if (st && typeof st === 'object') {
         document.querySelectorAll('[data-stat-users]').forEach((el) => { el.textContent = fmt(st.users); });
         document.querySelectorAll('[data-stat-domains]').forEach((el) => { el.textContent = fmt(st.domains); });
         HOTTEST = String(st.hottest || '').trim().toLowerCase();
+        if (isApplyPausedFor(HOTTEST)) HOTTEST = '';   // 暂停后缀不出现在首页任何位置
         renderBreakdown(st.roots, fmt);
         renderHottest(HOTTEST);
       }
@@ -179,6 +198,7 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
   
     const sel = document.getElementById('qRoot') as HTMLSelectElement | null;
     const picked = (sel && sel.value && ROOTS.indexOf(sel.value) >= 0) ? sel.value : ROOTS[0];
+    if (!picked) { box.innerHTML = '<div class="nk-res-empty" data-en="No suffix available">当前没有可申请的后缀</div>'; return; }
     const jobs = (picked ? [picked] : ROOTS).map((root) =>
       api.get('/api/whois?name=' + encodeURIComponent(label + '.' + root))
         .then((d) => ({ root, data: d.result || d, err: null }))

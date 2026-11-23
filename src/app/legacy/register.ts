@@ -10,7 +10,7 @@ import type { LegacyCtx } from '../lib/types';
 import { currentLang, startI18n } from '../lib/i18n';
 import {
   configureApplyPause, applyPauseLock, isApplyPausedFor,
-  lockApplyButton, unlockApplyButton,
+  lockApplyButton, unlockApplyButton, sortPreferred,
 } from '../lib/applyPause';
 
 export async function mountRegister(_root: HTMLElement | null): Promise<void> {
@@ -57,6 +57,26 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   }
   // 供 React 注册页（滑块弹窗回调）复用同一份判定
   (window as any).__TD_APPLY_LOCKED__ = function(){ return applyLockNow(); };
+
+  /* 主推域名 = sortPreferred() 后的第一个（noxc.uk 优先，与首页「首推」一致）。
+     被暂停的根域名根本不进 ROOTS，所以用户点不到、也不会卡死在暂停后缀上。 */
+  function primaryRoot(){ return ROOTS[0] || ''; }
+  function syncUrlRoot(d){
+    try {
+      var u = new URL(location.href);
+      u.searchParams.set('root', d);
+      history.replaceState({}, '', u.toString());
+    } catch {}
+  }
+  /* 当前选中后缀被暂停（URL 带进来 / 后台中途改设置）→ 自动切到主推域名，
+     而不是把后缀选择器也锁死。全部后缀都暂停时没有可切目标，返回 false 保持硬锁。 */
+  function autoSwitchToPrimary(){
+    var p = primaryRoot();
+    if (!p) return false;
+    syncUrlRoot(p);
+    selectRoot(p);
+    return true;
+  }
   // 与 /api/config、后端注册接口同一份判定；config 未回来前按「需要验证」处理
   var CAPTCHA_ENABLED = true;
   
@@ -81,7 +101,9 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     /* 按用户要求：暂停后「一定无法点击提交注册」，前端不区分管理员。
        管理员自建仍由后端豁免，只是这里不给任何人留可点的提交入口。 */
     APPLY_PAUSED = true;
-    ['label','note','agreeUse','rootPickerBtn'].forEach(function(id){
+    /* 后缀选择器永远可点：以前连它一起 disabled，用户切到暂停后缀后就再切不回来。
+       现在暂停后缀压根不在菜单里，选择器留着只会指向开放后缀。 */
+    ['label','note','agreeUse'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) (el as HTMLButtonElement).disabled = true;
     });
@@ -101,7 +123,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     if (lk.paused) { setApplyPaused(lk.message); return; }   // 兜底：绝不在暂停态解锁
     var tip = document.getElementById('applyTip');
     if (tip) { tip.style.display = 'none'; tip.innerHTML = ''; }
-    ['label','note','agreeUse','rootPickerBtn'].forEach(function(id){
+    ['label','note','agreeUse'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) (el as HTMLButtonElement).disabled = false;
     });
@@ -112,6 +134,11 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   /* 全局暂停 ∪ 当前后缀暂停。切换后缀、配置回来、检查接口回来都走这里。 */
   function syncApplyPause(){
     var lk = applyLockNow();
+    if (lk.paused && !GLOBAL_PAUSED) {
+      var cur = String(currentRoot() || '').toLowerCase().replace(/\.+$/, '');
+      // 当前选中后缀被单独暂停 → 自动切到主推域名，绝不留一个锁死的选择器
+      if (cur && isApplyPausedFor(cur) && autoSwitchToPrimary()) return;
+    }
     if (lk.paused) { setApplyPaused(lk.message); return; }
     clearApplyPaused();
   }
@@ -136,6 +163,15 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   }
   function selectRoot(d){
     if (!d) return;
+    d = String(d).toLowerCase().replace(/\.+$/, '');
+    /* 被暂停的根域名不能被点击：即使旧缓存的菜单还残留这一项，
+       点它也只会跳到主推域名，不会把页面锁死。 */
+    if (isApplyPausedFor(d)) {
+      var p = primaryRoot();
+      if (!p || p === d) return;
+      d = p;
+      syncUrlRoot(d);
+    }
     var btn = document.getElementById('rootPickerBtn');
     var span = document.getElementById('rootDomain');
     if (span) span.textContent = d;
@@ -147,6 +183,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     });
     closeRootMenu();
     updateRootTip(d);
+    syncUrlRoot(d);
     syncApplyPause();
     try { window.dispatchEvent(new CustomEvent('terradata:root', { detail: d })); } catch {}
     var v = (document.getElementById('label') as HTMLInputElement)?.value.trim();
@@ -170,6 +207,9 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       var list = Array.isArray(cfg.rootDomains) && cfg.rootDomains.length
         ? cfg.rootDomains
         : (cfg.rootDomain ? [cfg.rootDomain] : []);
+      /* 被暂停申请的根域名直接从可选列表剔除，并把主推域名排到第一位。
+         这样首页/注册页都不会再出现它，用户也点不到、切不进去。 */
+      list = sortPreferred(list);
       ROOTS = list;
       AI_ROOTS = Array.isArray(cfg.aiReviewRoots) ? cfg.aiReviewRoots : [];
       DNS_UNLIMITED = Array.isArray(cfg.dnsUnlimitedRoots) ? cfg.dnsUnlimitedRoots : [];
@@ -240,10 +280,13 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       }
 
       menu.innerHTML = list.map(function(d, i){
+        var paused = isApplyPausedFor(d);
         return '<button type="button" class="root-opt' + (i === 0 ? ' on' : '') + '" role="option"'
-          + ' data-root="' + esc(d) + '" aria-selected="' + (i === 0 ? 'true' : 'false') + '">'
+          + ' data-root="' + esc(d) + '" data-paused="' + (paused ? '1' : '0') + '"'
+          + (paused ? ' disabled aria-disabled="true"' : '')
+          + ' aria-selected="' + (i === 0 ? 'true' : 'false') + '">'
           + '<span class="root-opt-name">.' + esc(d.toUpperCase()) + '</span>'
-          + (isApplyPausedFor(d)
+          + (paused
               ? '<span class="root-opt-free" data-en="PAUSED" style="opacity:.75">暂停</span>'
               : '<span class="root-opt-free">' + esc(costLabel(d)) + '</span>')
           + '</button>';
@@ -256,7 +299,11 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       // /register?label=foo&root=v-1.top：从 WHOIS / 落地页带后缀跳进来时保持选中
       try {
         var want = new URLSearchParams(location.search).get('root');
-        if (want && list.indexOf(want) >= 0) selectRoot(want);
+        if (want) {
+          var w = String(want).toLowerCase().replace(/\.+$/, '');
+          if (list.indexOf(w) >= 0) selectRoot(w);
+          else if (first) syncUrlRoot(first);   // 暂停 / 不存在的后缀：自动改为主推域名
+        }
       } catch {}
       syncApplyPause();
       try { window.dispatchEvent(new CustomEvent('terradata:root', { detail: first })); } catch {}

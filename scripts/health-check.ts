@@ -1691,6 +1691,42 @@ check(/无法点击提交注册/.test(apDocsZh) && /cannot be clicked/i.test(apD
 check(/提交注册硬锁回归/.test(apCI) && /apply-pause-lock-regression\.ts/.test(apRegS),
   '专项回归进 CI');
 
+/* 被暂停根域名：不可见 / 不可点 / 自动切主推。
+   旧版把后缀选择器一起 disabled，切到暂停后缀就再也切不回来。 */
+const pvLib = read('src/app/lib/applyPause.ts');
+const pvReg = read('src/app/legacy/register.ts');
+const pvHome = read('src/app/legacy/home.ts');
+const pvWhois = read('src/app/legacy/whois.ts');
+const pvTpl = read('src/html/root-meoy.ts');
+const pvHtml = read('../root-pages/noxc.uk.html');
+const pvCss = read('src/app/styles/design-system.css');
+const pvDocsZh = read('docs-src/settings.md');
+const pvDocsEn = read('docs-src/en/settings.md');
+const pvReadme = read('README.md');
+const pvCI = read('.github/workflows/deploy.yml');
+const pvRegS = read('scripts/paused-root-visibility-regression.ts');
+check(/export function availableRoots/.test(pvLib) && /export function sortPreferred/.test(pvLib)
+  && /PRIMARY_ROOT = 'noxc.uk'/.test(pvLib) && /paused\.has\(d\)/.test(pvLib),
+  '可用后缀过滤与主推判定收敛在唯一共享模块');
+check(/list = sortPreferred\(list\)/.test(pvReg) && /function autoSwitchToPrimary/.test(pvReg)
+  && /history\.replaceState/.test(pvReg),
+  '注册页过滤暂停后缀、自动切主推并改写 URL');
+check(/if \(isApplyPausedFor\(d\)\)/.test(pvReg) && !/rootPickerBtn/.test(
+  pvReg.slice(pvReg.indexOf('function setApplyPaused'), pvReg.indexOf('function clearApplyPaused'))),
+  '选择器永不锁死，旧缓存点到暂停项也跳主推');
+check(/const preferNoxc = \(list\) => sortPreferred\(list\)/.test(pvHome)
+  && /isApplyPausedFor\(HOTTEST\)/.test(pvHome)
+  && /\.filter\(\(r\) => !isApplyPausedFor\(r\.domain\)\)/.test(pvHome),
+  '首页卡片 / 统计明细 / HOT 都不显示暂停后缀');
+check(/sortPreferred\(/.test(pvWhois) && /__NOXC_PRIMARY_ROOT__/.test(pvTpl)
+  && /__NOXC_PRIMARY_ROOT__/.test(pvHtml),
+  'WHOIS 与根域名落地页同样过滤并回落主推');
+check(/\.root-opt\[data-paused="1"\]/.test(pvCss), 'CSS 点击兜底存在');
+check(/自动切换|主推域名/.test(pvDocsZh) && /automatically|primary suffix/i.test(pvDocsEn)
+  && /主推域名/.test(pvReadme), '中英文档与 README 写明自动切换口径');
+check(/暂停后缀可见性回归/.test(pvCI) && /paused-root-visibility-regression\.ts/.test(pvRegS),
+  '专项回归进 CI');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

@@ -30,6 +30,17 @@ Under "Site settings → Pause applications per suffix", tick a root domain to *
 
 This is separate from per-suffix registration limits: one controls *whether* you can apply, the other *how many times*.
 
+## Automatically switch to the primary suffix
+
+A paused root domain is **removed from every selectable list**: the registration suffix menu, home page suffix cards and lookup dropdown, WHOIS dropdown and root-domain landing page dropdown do not show it at all, so it **cannot be clicked**.
+
+- The primary suffix is `noxc.uk` (marked "Featured" on the home page); if it is paused too, the next open suffix is used automatically
+- Arriving via `/register?root=paused-suffix` or an old home / WHOIS / landing-page link **automatically switches to the primary suffix** and rewrites the URL, so a refresh does not jump back
+- If the currently selected suffix is paused while the page is open, the registration page switches to the primary suffix immediately instead of locking the picker (the old version got stuck after switching)
+- The suffix picker stays **clickable** while paused; it simply contains only open suffixes
+- The expanded statistics breakdown and the "Most active suffix HOT" label hide paused suffixes; the totals still reflect the whole site
+- If every suffix is paused there is nothing to switch to, so the submit button stays hard-locked
+
 ## Submit button cannot be clicked while paused
 
 When a suffix is paused, the "Submit registration" button is **hard-locked**, not merely rejected by the API:

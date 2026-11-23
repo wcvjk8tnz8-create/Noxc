@@ -55,6 +55,43 @@ export function isApplyPausedFor(root: unknown): boolean {
   return !!d && pausedRoots.includes(d);
 }
 
+/** 站点主推后缀：首页 i===0 标「首推」的那个（preferNoxc 的口径） */
+export const PRIMARY_ROOT = 'noxc.uk';
+
+/**
+ * 可展示 / 可选择的后缀：归一化、去重、**剔除被暂停申请的根域名**。
+ * 不传 pausedRoots 时用 configureApplyPause 里的同一份状态（前后端同口径）。
+ * 用户要求：被暂停的根域名不能被点击、首页不显示 —— 从源头就不进列表。
+ */
+export function availableRoots(list: unknown, pausedRootsOverride?: unknown): string[] {
+  const paused = new Set(
+    pausedRootsOverride === undefined ? pausedRoots : parseRoots(pausedRootsOverride)
+  );
+  const parts = Array.isArray(list) ? list : String(list ?? '').split(',');
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const p of parts) {
+    const d = normalizeRoot(p);
+    if (!d || seen.has(d) || paused.has(d)) continue;
+    seen.add(d);
+    out.push(d);
+  }
+  return out;
+}
+
+/** 主推域名：优先 PRIMARY_ROOT（若仍在开放列表），否则第一个开放后缀；全暂停返回 '' */
+export function preferredRoot(list: unknown, pausedRootsOverride?: unknown): string {
+  const open = availableRoots(list, pausedRootsOverride);
+  return open.find((d) => d === PRIMARY_ROOT) || open[0] || '';
+}
+
+/** 主推优先排序：过滤暂停项后把 PRIMARY_ROOT 放到第一位（首页「首推」徽标据此） */
+export function sortPreferred(list: unknown, pausedRootsOverride?: unknown): string[] {
+  const open = availableRoots(list, pausedRootsOverride);
+  return [...open].sort((a, b) =>
+    (b === PRIMARY_ROOT ? 1 : 0) - (a === PRIMARY_ROOT ? 1 : 0));
+}
+
 export function applyPausedMessageFor(root: unknown, lang: 'zh' | 'en' = 'zh'): string {
   if (!isApplyPausedFor(root)) return '';
   const d = normalizeRoot(root);

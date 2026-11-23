@@ -3,7 +3,7 @@
  * 外部符号由 runtime 提供；DOM 查询作用于当前挂载的页面。
  */
 import { api, esc, fmtTime, toast, loadBranding, applyBranding, mountShell } from '../lib/runtime';
-import { configureApplyPause, isApplyPausedFor, applyPausedMessageFor } from '../lib/applyPause';
+import { configureApplyPause, isApplyPausedFor, applyPausedMessageFor, sortPreferred } from '../lib/applyPause';
 
 import type { LegacyCtx } from '../lib/types';
 
@@ -223,14 +223,25 @@ export async function mountWhois(_root: HTMLElement | null): Promise<void> {
         pausedRoots: cfg.pausedRoots,
       });
       rootDomain = cfg.rootDomain || '';
-      const list = Array.isArray(cfg.rootDomains) && cfg.rootDomains.length
-        ? cfg.rootDomains : (rootDomain ? [rootDomain] : []);
+      /* 与首页 / 注册页同一份口径：暂停后缀不出现在可选列表，主推域名排第一 */
+      const list = sortPreferred(Array.isArray(cfg.rootDomains) && cfg.rootDomains.length
+        ? cfg.rootDomains : (rootDomain ? [rootDomain] : []));
+      if (list.length) rootDomain = list[0];
       const sel = document.getElementById('whoisRootSel') as HTMLSelectElement | null;
       if (sel) {
         sel.innerHTML = list.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('')
           || '<option value="">—</option>';
         const want = new URLSearchParams(location.search).get('root');
-        if (want && list.indexOf(want) >= 0) sel.value = want;
+        const w = String(want || '').trim().toLowerCase();
+        if (w && list.indexOf(w) >= 0) sel.value = w;
+        else if (w && list.length) {
+          // 带暂停后缀进 WHOIS：自动落到主推域名
+          try {
+            const u = new URL(location.href);
+            u.searchParams.set('root', list[0]);
+            history.replaceState({}, '', u.toString());
+          } catch {}
+        }
         sel.onchange = () => { if (document.getElementById('q').value.trim()) doQuery(); };
       }
       const suffix = document.getElementById('rootSuffix');

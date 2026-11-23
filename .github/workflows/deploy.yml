@@ -144,6 +144,10 @@ jobs:
       - name: 提交注册硬锁回归
         run: npx tsx scripts/apply-pause-lock-regression.ts
 
+      # 暂停后缀不可见 / 不可点 / 自动切主推（含反向对照）
+      - name: 暂停后缀可见性回归
+        run: npx tsx scripts/paused-root-visibility-regression.ts
+
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
       - name: 统计展开回归
         run: npx tsx scripts/stats-breakdown-regression.ts

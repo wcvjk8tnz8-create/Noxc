@@ -363,7 +363,8 @@ document.getElementById("checker").addEventListener("submit", function(e){
   var label = document.getElementById("prefix").value.trim().replace(/^https?:\/\//i,"").replace(/\..*$/,"");
   var root = document.getElementById("root").value;
   if (!label) { document.getElementById("prefix").focus(); return; }
-  if (window.__NOXC_ROOT_PAUSED__) return;   // 该后缀暂停申请：不给跳注册
+  /* 真正的跳转在下面第二个 submit listener；这里只做前缀校验。
+     被暂停后缀不会出现在下拉里（fill 已过滤），所以 root 只会是开放后缀。 */
 });
 
 /* 根域名下拉：优先从控制台 /api/config 拉取全部生效后缀，
@@ -377,13 +378,18 @@ function loadRoots(){
   function fill(list){
     list = (list && list.length) ? list.slice() : fallback.slice();
     if (list.indexOf(ROOT) < 0) list.unshift(ROOT);
+    /* 被暂停申请的根域名不进下拉：不能被点击，也不会显示在列表里。 */
+    var paused = window.__NOXC_PAUSED_ROOTS__ || [];
     var seen = {}, out = [];
     list.forEach(function(d){
       d = String(d).trim().toLowerCase().replace(/^\.+|\.+$/g,"");
-      if (d && !seen[d]) { seen[d] = 1; out.push(d); }
+      if (d && !seen[d] && paused.indexOf(d) < 0) { seen[d] = 1; out.push(d); }
     });
     sel.innerHTML = out.map(function(d){ return '<option value="'+d+'">.'+d+'</option>'; }).join("");
-    sel.value = ROOT;
+    /* 当前落地页后缀被暂停时自动落到主推域名（noxc.uk 优先），
+       不让用户停在一个已经不能申请的后缀上。 */
+    var primary = out.indexOf("noxc.uk") >= 0 ? "noxc.uk" : (out[0] || "");
+    sel.value = out.indexOf(ROOT) >= 0 ? ROOT : (primary || ROOT);
   }
   fill(fallback);
   try {
@@ -395,14 +401,23 @@ function loadRoots(){
           ? d.rootDomains
           : (Array.isArray(d.roots) && d.roots.length ? d.roots
             : (d.rootDomain ? [d.rootDomain] : []));
+        /* 按后缀暂停申请：先存名单再重绘下拉，保证 fill() 直接过滤掉它们。
+           名单与 /api/config、注册页、首页同源。 */
+        var pausedList = Array.isArray(d.pausedRoots)
+          ? d.pausedRoots.map(function(x){ return String(x).trim().toLowerCase().replace(/\.+$/,''); })
+          : [];
+        window.__NOXC_PAUSED_ROOTS__ = pausedList;
+        window.__NOXC_PRIMARY_ROOT__ = (function(){
+          var open = (Array.isArray(d.rootDomains) ? d.rootDomains : [])
+            .map(function(x){ return String(x).trim().toLowerCase().replace(/^\.+|\.+$/g,""); })
+            .filter(function(x){ return x && pausedList.indexOf(x) < 0; });
+          return open.indexOf("noxc.uk") >= 0 ? "noxc.uk" : (open[0] || "");
+        })();
         /* 服务端确实给了清单才覆盖；空清单不覆盖，避免「有些域名没加载出来」 */
         if (list.length) fill(list);
         /* 按后缀暂停申请：当前落地页根域名被暂停时，注册入口直接禁用。
            所有入口最终都落到 /register，那里还有按钮硬锁；这里提前一步，
            不让用户白点一次。 */
-        var pausedList = Array.isArray(d.pausedRoots)
-          ? d.pausedRoots.map(function(x){ return String(x).trim().toLowerCase().replace(/\.+$/,''); })
-          : [];
         var rootPaused = !!d.applyPaused || pausedList.indexOf(String(ROOT).trim().toLowerCase()) >= 0;
         window.__NOXC_ROOT_PAUSED__ = rootPaused;
         document.querySelectorAll('[data-go="/register"]').forEach(function(a){
@@ -669,6 +684,12 @@ document.querySelectorAll("[data-lang]").forEach(function(b){
     var label = document.getElementById("prefix").value.trim().replace(/^https?:\/\//i,"").replace(/\..*$/,"");
     var root = document.getElementById("root").value;
     if (!label) { document.getElementById("prefix").focus(); return; }
+    /* 本页后缀被暂停时自动切到主推域名：不带一个不能申请的后缀去 WHOIS */
+    if (window.__NOXC_ROOT_PAUSED__) {
+      var alt = window.__NOXC_PRIMARY_ROOT__;
+      if (!alt) return;                    // 全部后缀都暂停：没有可切目标
+      root = alt;
+    }
     go(PANEL.replace(/\/$/,"") + "/whois?name=" + encodeURIComponent(label + "." + root) + "&root=" + encodeURIComponent(root));
   }, true);
   /* 浏览器后退回来时把残留的过渡收掉 */

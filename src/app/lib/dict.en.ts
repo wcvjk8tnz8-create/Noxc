@@ -10,6 +10,9 @@
  * 长句整译优先；短词用于 translateText 的全匹配与「全中文可消费」判定。
  */
 export const EXTRA_DICT: Record<string, string> = {
+  '当前没有可申请的后缀': 'No suffix is currently available',
+  '暂停': 'Paused',
+  '主推': 'Featured',
   '申请已暂停': 'Applications paused',
   '该后缀已暂停新申请：': 'Applications paused for this suffix: ',
   '切换域名': 'Switch domain',
@@ -180,7 +183,6 @@ export const EXTRA_DICT: Record<string, string> = {
   '解封 IP': 'Unban IP', '发件人邮箱': 'Sender email', '根域名管理': 'Root domains',
   '初始化失败': 'Initialization failed', '请填写标题': 'Enter a title',
   '请填写内容': 'Enter content', '今日已签到': 'Already checked in today',
-  '申请已暂停': 'Requests paused', '管理员特权': 'Admin privileges',
   '申请子域名': 'Request a subdomain', '管理员调整': 'Admin adjustment',
   '管理员设置': 'Admin setting', '已取消托管': 'Delegation cancelled',
   '即将解锁。': 'Unlocking shortly.', '未添加记录': 'No record added',
