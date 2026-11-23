@@ -30,6 +30,19 @@ Under "Site settings → Pause applications per suffix", tick a root domain to *
 
 This is separate from per-suffix registration limits: one controls *whether* you can apply, the other *how many times*.
 
+## Third-party domain access (external domain)
+
+The bottom of the console's Domain Management page lets you register a full domain you already own (e.g. `example.com`). The list and WHOIS results are consistently marked **(External domain)**.
+
+- Stored in a separate `external_domains` table with a per-user index; it does **not** consume your registration quota, does **not** enter site statistics, and does **not** write DNS in this site's zone
+- Names under this site's active suffixes (including the roots themselves) cannot be registered here — use the registration page instead
+- Up to 5 per account; an optional DNSHE API Token creates a zone and returns the official nameservers. The token is used for that single request only and is **never stored or returned**
+- DNS stays with your registrar / DNSHE; use the existing NS delegation feature if you need this site to manage resolution
+
+## D1 read optimisation
+
+The free D1 tier allows 5M rows read per day. Public statistics now live in a single JSON snapshot row in `settings` (recomputed every 10 minutes, read costs 1 row); `/api/config` caches the whole response for 30 seconds with a browser `Cache-Control`; frontend background refresh is throttled to 60 seconds; the registration input uses a 600ms debounce plus a 15-second result cache. A global middleware invalidates caches after every write. See README appendix Z.1.
+
 ## Automatically switch to the primary suffix
 
 A paused root domain is **removed from every selectable list**: the registration suffix menu, home page suffix cards and lookup dropdown, WHOIS dropdown and root-domain landing page dropdown do not show it at all, so it **cannot be clicked**.

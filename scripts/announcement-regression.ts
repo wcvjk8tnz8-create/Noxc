@@ -17,6 +17,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import app from '../src/index.js';
+/* /api/config 现在有 30 秒整响应缓存；回归里每次换内存数据等价于后台写操作，
+   必须同步失效，否则后几次会拿到第一次的缓存值。 */
+import { invalidatePublicConfig } from '../src/lib/configCache.js';
 import { meoyTopHtml } from '../src/html/root-meoy.js';
 import { v1TopHtml } from '../src/html/root-v1.js';
 
@@ -69,6 +72,7 @@ function makeEnv(settings: Record<string, string>) {
 
 const CTX: any = { waitUntil() {}, passThroughOnException() {} };
 async function getConfig(announcement?: string) {
+  invalidatePublicConfig();   // 内存库换值 = 后台保存，整响应缓存必须失效
   const settings: Record<string, string> = {
     site_name: 'Noxc',
     logo_url: '/img/logo.jpg',

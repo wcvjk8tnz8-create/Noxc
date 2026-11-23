@@ -148,6 +148,10 @@ jobs:
       - name: 暂停后缀可见性回归
         run: npx tsx scripts/paused-root-visibility-regression.ts
 
+      # D1 读取额度优化 + 第三方域名接入（快照 1 行 / Token 不落库 / 反向对照）
+      - name: D1 读取与第三方域名回归
+        run: npx tsx scripts/d1-read-external-domain-regression.ts
+
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
       - name: 统计展开回归
         run: npx tsx scripts/stats-breakdown-regression.ts

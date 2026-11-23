@@ -1,3 +1,4 @@
+import { EXTERNAL_LABEL } from './externalDomains.js';
 import { Hono } from 'hono';
 import { ok, fail } from '../lib/util.js';
 import { lookupLabel } from './subdomains.js';
@@ -122,6 +123,7 @@ async function externalWhois(c, domain, root) {
   if (hit) {
     return ok(c, {
       external: true,
+      externalLabel: EXTERNAL_LABEL,
       source: hit.source || (dnshe ? 'dnshe' : 'rdap'),
       query: domain,
       domain,
@@ -137,6 +139,7 @@ async function externalWhois(c, domain, root) {
     const stale = await getCachedAny(c.env.DB, cacheKey);
     return ok(c, {
       external: true,
+      externalLabel: EXTERNAL_LABEL,
       source: r.source,
       query: domain,
       domain,
@@ -167,6 +170,7 @@ async function externalWhois(c, domain, root) {
   await setCached(c.env.DB, cacheKey, enriched);
   return ok(c, {
     external: true,
+    externalLabel: EXTERNAL_LABEL,
     source: r.source,
     query: domain,
     domain,

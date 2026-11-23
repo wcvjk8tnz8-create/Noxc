@@ -27,6 +27,11 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     shortLen: POINT_DEFAULTS.shortLen,
   };
   var checkTimer = 0;
+  /* D1 读取节流：注册页每敲一个字都会查一次可用性，旧版 350ms debounce
+     仍会在连续输入时打出十几个 /api/subdomains/check（每次内部多点查库）。
+     现在：600ms 防抖 + 同值 15 秒结果缓存 + 过期响应序号丢弃。 */
+  var checkSeq = 0;
+  var checkCache = Object.create(null);
 
   /* 当前后缀的规则提示：AI 自动审核 / DNS 记录不限 */
   function updateRootTip(d){
@@ -319,8 +324,21 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     var tip = document.getElementById('checkTip');
     var costBox = document.getElementById('costBox');
     if (!v) { tip.innerHTML = '输入前缀后自动检查是否可用，仅支持字母、数字与连字符。'; costBox.style.display = 'none'; return; }
-    try {
-      var r = await api.get('/api/subdomains/check?label=' + encodeURIComponent(v) + rootQuery());
+    var seq = ++checkSeq;
+    var key = String(currentRoot() || '') + '|' + v;
+    var hit = checkCache[key];
+    var r;
+    if (hit && Date.now() - hit.at < 15_000) r = hit.data;   // 命中缓存：一个请求都不发
+    else {
+      try {
+        r = await api.get('/api/subdomains/check?label=' + encodeURIComponent(v) + rootQuery());
+        checkCache[key] = { at: Date.now(), data: r };
+      } catch (e) {
+        if (seq !== checkSeq) return;
+        tip.innerHTML = '检查失败，请稍后重试'; costBox.style.display = 'none'; return;
+      }
+    }
+    if (seq !== checkSeq) return;   // 输入已变化：旧响应不许覆盖新结果
       if (r.applyPaused) setApplyPaused(r.applyPausedMessage);   // 页面打开后才暂停也能即时提示
       else syncApplyPause();                                    // 任何检查结果都再核一次当前后缀
       var link =' <a href="/whois?name=' + encodeURIComponent(v) + '" target="_blank" style="font-size:11.5px">whois 详情</a>';
@@ -343,7 +361,6 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       } else {
         costBox.style.display = 'none';
       }
-    } catch (e) { tip.innerHTML = '检查失败，请稍后重试'; costBox.style.display = 'none'; }
   }
   
   /* 待审核申请：同一时间只能有一个 */
@@ -387,7 +404,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       document.getElementById('costBox').style.display = 'none';
       return;
     }
-    checkTimer = setTimeout(function(){ runCheck(v); }, 350);
+    checkTimer = setTimeout(function(){ runCheck(v); }, 600);
   });
   
   /* 真正的注册提交：弹窗验证通过后由回调调用，票据从持久对象读取 */

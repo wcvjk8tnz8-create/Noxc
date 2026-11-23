@@ -8,7 +8,8 @@ import { emailRuleHint, emailRuleOf } from './lib/emailRule.js';
 import { DEFAULT_FOOTER_ICP_HTML } from './lib/footerIcp.js';
 import { DEFAULT_FOOTER_CONTACT_HTML } from './lib/footerContact.js';
 import { reservedLabelsOf } from './lib/reserved.js';
-import { publicStats } from './lib/publicStats.js';
+import { publicStats, invalidatePublicStats } from './lib/publicStats.js';
+import { getConfigCache, setConfigCache, CONFIG_CACHE_CONTROL, invalidatePublicConfig } from './lib/configCache.js';
 import { parsePausedRoots } from './lib/applyGate.js';
 import { nodelocEnabled } from './lib/nodeloc.js';
 import { githubEnabled } from './lib/github.js';
@@ -23,6 +24,7 @@ import { attachUser, requireAuth, requireAdmin } from './middleware/auth.js';
 import { ok, fail, defaultQuotaOf } from './lib/util.js';
 import { RECORD_TYPES, TTL_CHOICES, VERIFY_PRESETS, HOSTING_NS_PRESETS, TYPE_NAMES } from './lib/records.js';
 import authRoutes from './routes/auth.js';
+import externalDomainRoutes from './routes/externalDomains.js';
 import nodelocRoutes from './routes/nodeloc.js';
 import githubRoutes from './routes/github.js';
 import termsRoutes from './routes/terms.js';
@@ -203,12 +205,31 @@ const publicCors = async (c, next) => {
   await next();
   try { for (const [k, v] of Object.entries(hdrs)) c.res.headers.set(k, v); } catch { /* 响应不可写时忽略 */ }
 };
+/* 任何写操作成功后立即让 /api/config 的整响应缓存失效。
+   一处覆盖全部写路径（设置 / 根域名 / 暂停名单 / 审核 / 登录绑定…），
+   不用在十几个路由里逐个加，也不会漏。统计快照只在会影响
+   subdomains / users 的写路径失效，其余写操作只清内存缓存。 */
+app.use('*', async (c, next) => {
+  await next();
+  try {
+    if (c.req.method === 'GET' || c.res.status >= 400) return;
+    invalidatePublicConfig();
+    const p = new URL(c.req.url).pathname;
+    if (/^\/api\/(admin\/)?subdomains/.test(p)
+      || /^\/api\/auth\/register/.test(p)
+      || /^\/oauth\//.test(p)
+      || /^\/api\/admin\/users/.test(p)) {
+      await invalidatePublicStats(c.env);
+    }
+  } catch { /* 失效失败不能影响写操作本身 */ }
+});
+
 app.use('/api/config', publicCors);
 app.use('/api/stats', publicCors);
 
 // 前端初始化配置
 // 公开配置（含站点品牌，登录页也要用）
-app.get('/api/config', async (c) => {
+async function buildConfigData(c: any) {
   const { results } = await c.env.DB.prepare(
     "SELECT key, value FROM settings WHERE key IN ('site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota','announcement','root_apply_paused')"
   ).all();
@@ -224,7 +245,7 @@ app.get('/api/config', async (c) => {
   // AI 状态只给标志位，绝不下发地址与密钥
   const ai = await loadAiConfig(c.env).catch(() => null);
   const emailRule = await emailRuleOf(c.env);
-  return ok(c, {
+  return {
     signupEmailRule: emailRule,
     signupEmailHint: emailRuleHint(emailRule),
     rootDomain: effectiveRoots[0] || c.env.ROOT_DOMAIN,
@@ -301,11 +322,30 @@ app.get('/api/config', async (c) => {
     mailOk,
     mailVerifyRequired: verifyRequired,
     verifyRequired: verifyRequired && mailOk,
-  });
+  };
+}
+
+/* 公开配置：整响应缓存 30 秒 + 浏览器私有缓存 30 秒。
+   所有字段都是公开配置，不含登录态数据，可安全跨请求复用。 */
+app.get('/api/config', async (c) => {
+  /* 后台保存后前端会带 ?_=<ts> 强制刷新：必须绕过 isolate 缓存，
+     否则落到旧 isolate 会返回 30 秒内的旧配置，破坏「保存即生效」。 */
+  const bypass = !!c.req.query('_');
+  const hit = bypass ? null : getConfigCache();
+  const data = hit ?? await buildConfigData(c);
+  if (!hit) setConfigCache(data);
+  const res = ok(c, data);
+  res.headers.set('Cache-Control', CONFIG_CACHE_CONTROL);
+  return res;
 });
 
+
 // 公开统计（与 /api/config 同源同口径，便于根域名静态页 / 第三方读取）
-app.get('/api/stats', async (c) => ok(c, await publicStats(c.env)));
+app.get('/api/stats', async (c) => {
+  const res = ok(c, await publicStats(c.env));
+  res.headers.set('Cache-Control', 'public, max-age=60');
+  return res;
+});
 
 // 认证
 /* NodeLoc OAuth 必须先于 /api/auth 挂载：Hono 按注册顺序匹配，
@@ -318,6 +358,8 @@ app.route('/oauth/nodeloc', nodelocRoutes);
 app.route('/api/auth/github', githubRoutes);
 app.route('/oauth/github', githubRoutes);
 app.route('/api/auth', authRoutes);
+/* 第三方域名接入（外部域名）：独立表，不参与公开统计聚合 */
+app.route('/api/external-domains', externalDomainRoutes);
 // 第三方邮箱注册申请：公开，不需要登录（管理员审批接口在 /api/admin 下）
 app.route('/api', emailRequestRoutes);
 app.route('/api/notifications', notificationRoutes);

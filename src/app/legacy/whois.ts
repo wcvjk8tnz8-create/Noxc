@@ -88,7 +88,7 @@ export async function mountWhois(_root: HTMLElement | null): Promise<void> {
       box.innerHTML = `
         <div class="row between" style="margin-bottom:10px">
           <span class="fqdn">${esc(d)}</span>
-          <span class="badge warn">查询失败</span>
+          <div><span class="badge inf">${esc(r.externalLabel || '（外部域名）')}</span> <span class="badge warn">查询失败</span></div>
         </div>
         <div class="alert danger" style="margin:0">${esc(r.error)}</div>
         ${r.stale ? `<div class="hint" style="margin-top:10px">以下是 ${fmtTime(r.stale.cachedAt)} 的缓存结果：</div>${extBody(r.stale, d, srcName)}` : ''}
@@ -179,7 +179,7 @@ export async function mountWhois(_root: HTMLElement | null): Promise<void> {
     return `
       <div class="row between" style="margin-bottom:12px">
         <span class="fqdn">${esc(d)}</span>
-        <div>${badge} <span class="badge inf">${esc(srcName)}</span></div>
+        <div><span class="badge inf">${esc(r.externalLabel || '（外部域名）')}</span> ${badge} <span class="badge inf">${esc(srcName)}</span></div>
       </div>
       <div class="kv">
         <div class="k">查询名称</div><div class="mono">${esc(r.query || d)}</div>

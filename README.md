@@ -17,9 +17,10 @@
 | 最近新增的能力 | 速览 · 近期新增 |
 | 功能全貌 | 一、核心特性 |
 | 从零部署 / Token 权限 | 三、部署步骤 |
-| KV / R2 没自动绑上 | 速览 → 3，附录 → 自定义头像上传 |
-| 接口 / 安全 / 限制 | 五 ~ 七 |
+| 接口 / 安全 | 五、接口一览 · 六、安全设计 |
 | 单项功能实现细节与沿革 | 附录 · 功能与实现细节 |
+| **错误 / 故障 / 限制 / 排查**（统一在文末） | **附录 Z · 故障排查与已知错误** |
+| KV / R2 没自动绑上、D1 读取超限 | 附录 Z.2 / Z.1 |
 
 ---
 
@@ -55,27 +56,15 @@
 只影响设置之后的新申请，**已注册用户手里的域名一个都不动**。管理员自建不受限。
 也可用环境变量 `ROOT_REG_LIMITS` 配置（后台设置优先）。
 
-### 3. KV / R2 自动绑定排查
+### 3. D1 读取优化 / 第三方域名接入 / 暂停后缀自动切主推
 
-CI 会尝试自动创建并绑定 Workers KV（`KV`）与 R2（`AVATARS`）。绑定成功会写进 **Job Summary**，站点 `/api/config` 的 `kvBound` / `avatarUpload` 也能查。
+- **D1 读取优化**：`/api/config` 整响应缓存、公开统计持久化快照、后台刷新节流、
+  注册页打字节流，避免免费版 5M rows read/天 被打满导致站点 500。详见文末「故障排查」。
+- **第三方域名接入**：控制台可登记自己的完整域名，列表与 WHOIS 统一标「（外部域名）」；
+  独立表、不占配额、不计入公开统计、不写本站 DNS。
+- **暂停后缀自动切主推**：被暂停的根域名从所有可选列表剔除，旧链接自动切到主推域名。
 
-若 Summary 显示「未自动绑定」、或这两个布尔值都是 `false`，原因基本都是 **API Token 对这两个资源没有权限**：Cloudflare 对「token 有效但越权」也返回 `Authentication error (code 10000)`，所以部署与 D1 仍然成功，只有 KV / R2 的接口被拒。脚本为保证部署不中断会移除绑定并降级 —— **步骤是绿的，但绑定确实没挂上**，这也是最容易误判的地方。
-
-推荐修法（一次配置，之后全自动；新部署直接用「三、部署步骤 → 1」的
-**一键创建**链接，7 项权限已预填，不必逐条勾）：
-
-1. Cloudflare Dashboard → My Profile → API Tokens → 编辑部署用的 Token；
-2. Permissions 增加两项：`Account → Workers KV Storage → Edit`、`Account → R2 → Edit`（保留原有的 Workers Scripts / D1 / DNS 权限）；
-3. 重新跑一次 Actions，脚本会自动创建 `noxc-kv` namespace 与 `meoy-avatars` 桶并写入绑定。
-
-不想动 Token，也可以在控制台手动创建后填仓库 Variables 绕过 API：
-
-| 资源 | 控制台操作 | Variables |
-|---|---|---|
-| KV | 建 namespace `noxc-kv`，复制 id | `KV_NAMESPACE_ID=<id>`（脚本直接写绑定，不调 API） |
-| R2 | 建桶 `meoy-avatars` | `R2_BUCKET_NAME=meoy-avatars` + `R2_ASSUME_EXISTS=1`（跳过 API 校验直写绑定；桶不存在时部署会明确报错） |
-
-> CI 对 `wrangler.toml` 的绑定修改只在本次部署生效，**不会提交回仓库**。请以 Job Summary 和 `/api/config` 为准，不要只看仓库里的 `wrangler.toml`。
+> 错误、故障、限制与排查步骤**统一写在文末「附录 Z」**，正文不再散落排错内容。
 
 ### 4. 其它已上线能力（速查）
 
@@ -390,6 +379,13 @@ CNAME 探测走 DoH（cloudflare-dns.com → dns.google 双端点降级），5 �
 
 想换成本地图：把图片放进仓库的 `public/img/`，推一次，再把地址填进后台即可。
 
+### 13. 第三方域名接入（外部域名）
+
+控制台「域名管理」底部可登记自己的完整域名，列表与 WHOIS 统一标「（外部域名）」。
+独立表、按用户索引、不占配额、不计入公开统计、不写本站 DNS；可选 DNSHE API Token
+自动创建解析区域，Token 只在本次请求中使用且不落库。每账号最多 5 个。
+错误与限制统一见文末「附录 Z」。
+
 ### 12. 域名有效期与续期
 
 新域名默认有效期 **365 天**（后台「站点设置 → 域名有效期」可设 1–3650 天）。
@@ -607,16 +603,6 @@ npm run dev
 - 单子域名最多 50 条记录，用户配额、保留字、标签格式均在前后端双重校验
 - 关键操作（注册/登录/建删记录/审核/封禁/解锁）全部写入 `audit_log`
 - 密码 PBKDF2-SHA256 60000 轮 + 16 字节随机盐
-
----
-
-## 七、已知限制
-
-- **SOA**：Cloudflare 不允许通过 API 增删改区域 SOA，页面只提供查看；如需自定义需走 Cloudflare 工单
-- **PTR**：只有在 Cloudflare 托管反向区域（in-addr.arpa）时才真正生效，正向域中创建仅作占位
-- **NS**：Cloudflare 区域的根域 NS 不可修改，但子域委派（如 `sub.xxx.meoy.top` 的 NS）可以正常添加
-- TXT 单条最长 2048 字符（Cloudflare 限制），超出需分段
-
 
 ---
 
@@ -1029,3 +1015,95 @@ FQDN 再查；输入完整域名仍走外部 WHOIS / RDAP。
 延迟与具体失败点（不回传密钥）。`/api/config` 增加 `aiStatus`（只给标志位）；
 申请结果增加 `aiSkip`，用于区分「管理员免审核」「全局免审核」「AI 不可用」。
 管理员账号本身免审核，**不会触发 AI**，这是设计行为，后台自检按钮可用于验证配置
+
+---
+
+## 附录 Z · 故障排查与已知错误（固定放在文末）
+
+> **编排约定**：本 README 的所有错误、故障复盘、限制与排查步骤**只写在这一章**。
+> 正文各章节只描述能力与配置；以后新增故障记录一律追加到文末，不要插回中间，
+> 避免同一问题在「速览 / 部署 / 核心特性」里出现互相矛盾的多个版本。
+
+### Z.1 D1 读取额度被打满导致站点 500（2026-11-23）
+
+**现象**：Cloudflare D1 免费版每日 **5M rows read** 被打满，站点一段时间内返回
+内部服务器错误；在后台看指标时「读取的列」仍在持续上涨（连续输入时一次涨几千）。
+
+**根因（多个放大器叠在一起）**
+
+1. `/api/config` 是**每个页面挂载、每次切页**都要请求的公开接口；`loadBranding()`
+   又是 stale-while-revalidate，缓存命中仍在后台再发一次。
+2. 一次 `/api/config` 内部要跑十几个 `settings` 单点 `SELECT`，外加
+   `publicStats()` 的 `SELECT COUNT(*) FROM users`、`COUNT(*) FROM subdomains`、
+   以及按根域名拆分的 `GROUP BY` —— 后者**全表扫描 subdomains**，
+   N 个已开通域名就是 N rows read。
+3. `publicStats()` 旧版只有 **30 秒 isolate 内缓存**：Cloudflare 每次请求可能落到
+   不同 isolate，每个 isolate 过期后都各自扫一次全表；几千域名时每几十秒就吃掉
+   几千读取。注册页输入框 350ms 防抖也会在连续打字时打出十几次
+   `/api/subdomains/check`（每次内部多点查库），是另一个放大器。
+
+**已上线的修复**
+
+| 层 | 做法 |
+|---|---|
+| 公开统计 | 聚合结果写进 `settings` 表一行 JSON 快照，**读取只花 1 row read**；10 分钟才重算一次，多个 isolate 共享同一行；域名开通 / 审核 / 删除 / 新用户注册由全局 middleware 主动失效 |
+| `/api/config` | 整响应 isolate 缓存 30 秒 + `Cache-Control: private, max-age=30` 浏览器缓存；后台保存后前端带 `?_=<ts>` 绕过两层缓存，保证「保存即生效」 |
+| 前端 SWR | `loadBranding()` 后台刷新节流到 60 秒一次，切页不再重复打接口 |
+| 注册页输入 | 600ms 防抖 + 同值 15 秒结果缓存 + 过期响应序号丢弃，连续打字最多一两次请求 |
+| 写操作 | 全局 middleware 在任何非 GET 成功后统一失效 config 缓存，一处覆盖全部写路径 |
+| `/api/external-domains` | GET / POST / DELETE：我的外部域名，列表标（外部域名） |
+| `/api/stats` | 加 `Cache-Control: public, max-age=60`，第三方页面拉取不再重复打库 |
+
+**可调参数**：`PUBLIC_STATS_TTL`（秒，默认 600，最小 30）。调大更省读取，
+数字刷新更慢；写路径会主动失效，正常开通 / 审核仍是即时的。
+
+**排查顺序**：先看 Cloudflare D1 指标里「读取的列」曲线是否随页面切动阶梯上涨 →
+检查 `/api/config` 响应是否带 `Cache-Control: private` → 查 `settings` 表里
+`public_stats_snapshot` 是否存在且 `at` 在有效期内 → 最后看是否有新写的页面
+绕开缓存直连 `/api/config` 或在轮询里反复打接口。
+
+### Z.2 KV / R2 没有自动绑定
+
+CI 会尝试自动创建并绑定 Workers KV（`KV`）与 R2（`AVATARS`）。绑定成功会写进
+**Job Summary**，站点 `/api/config` 的 `kvBound` / `avatarUpload` 也能查。
+
+若 Summary 显示「未自动绑定」、或这两个布尔值都是 `false`，原因基本都是
+**API Token 对这两个资源没有权限**：Cloudflare 对「token 有效但越权」也返回
+`Authentication error (code 10000)`，所以部署与 D1 仍然成功，只有 KV / R2 的
+接口被拒。脚本为保证部署不中断会移除绑定并降级 —— **步骤是绿的，但绑定确实没挂上**，
+这也是最容易误判的地方。
+
+推荐修法（一次配置，之后全自动；新部署直接用「三、部署步骤 → 1」的
+**一键创建**链接，7 项权限已预填，不必逐条勾）：
+
+1. Cloudflare Dashboard → My Profile → API Tokens → 编辑部署用的 Token；
+2. Permissions 增加两项：`Account → Workers KV Storage → Edit`、`Account → R2 → Edit`
+   （保留原有的 Workers Scripts / D1 / DNS 权限）；
+3. 重新跑一次 Actions，脚本会自动创建 `noxc-kv` namespace 与 `meoy-avatars` 桶。
+
+不想动 Token，也可以在控制台手动创建后填仓库 Variables 绕过 API：
+
+| 资源 | 控制台操作 | Variables |
+|---|---|---|
+| KV | 建 namespace `noxc-kv`，复制 id | `KV_NAMESPACE_ID=<id>`（脚本直接写绑定，不调 API） |
+| R2 | 建桶 `meoy-avatars` | `R2_BUCKET_NAME=meoy-avatars` + `R2_ASSUME_EXISTS=1` |
+
+> CI 对 `wrangler.toml` 的绑定修改只在本次部署生效，**不会提交回仓库**。
+> 请以 Job Summary 和 `/api/config` 为准。
+
+### Z.3 Safari 报「太多重新导向」
+
+`/docs` 曾被改写成 `/docs/index.html`，ASSETS 规范化又 301 回 `/docs/`，
+形成自指循环。现在 Worker 内部跟随这些 3xx，只把最终 200/404 交给浏览器，
+并带自指检测。旧书签 `/docs/dnshe` 零重定向直达。
+
+### Z.4 已知限制
+
+- **SOA**：Cloudflare 不允许通过 API 增删改区域 SOA，页面只提供查看；如需自定义需走 Cloudflare 工单
+- **PTR**：只有在 Cloudflare 托管反向区域（in-addr.arpa）时才真正生效，正向域中创建仅作占位
+- **NS**：Cloudflare 区域的根域 NS 不可修改，但子域委派（如 `sub.xxx.meoy.top` 的 NS）可以正常添加
+- TXT 单条最长 2048 字符（Cloudflare 限制），超出需分段
+- **外部域名**：只登记与展示，DNS 由域名注册商 / DNSHE 管理，本站不写入解析；
+  每个账号最多 5 个，DNSHE API Token 只在创建解析区域那一次请求中使用，不落库
+- Redaction 35 等外部字体异步加载，访问环境拉不到时回退系统字体
+

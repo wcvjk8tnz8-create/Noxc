@@ -324,6 +324,17 @@ export let brandPromise = null;
    以前每个页面都 await 一次 /api/config，接口一慢整页就卡在骨架上。 */
 let brandValue = null;
 let brandRefreshing = false;
+/* D1 读取节流：stale-while-revalidate 的后台刷新至少隔 60 秒一次。
+   旧版每次切页 / 每个页面 mount 都再打一次 /api/config，一次请求内部
+   十几个单点 SELECT，是 5M rows read 被打满的主要放大器。 */
+let brandAt = 0;
+/* 后台保存后第一次拉取带 cache-buster，绕过浏览器与 isolate 两层缓存 */
+let brandForceFresh = false;
+function configPath() {
+  const q = brandForceFresh ? '/api/config?_=' + Date.now() : '/api/config';
+  brandForceFresh = false;
+  return q;
+}
 
 function normalizeBrand(d) {
   return {
@@ -351,11 +362,12 @@ export function applyDefaultQuota(n) {
 
 export function loadBranding() {
   if (brandValue) {
-    if (!brandRefreshing) {
+    if (!brandRefreshing && Date.now() - brandAt > 60_000) {
       brandRefreshing = true;
-      api.get('/api/config')
+      api.get(configPath())
         .then((d) => {
           brandValue = normalizeBrand(d);
+          brandAt = Date.now();
           try { applyDefaultQuota(brandValue.defaultQuota); } catch {}
         })
         .catch(() => { /* 保留旧值，不打断渲染 */ })
@@ -365,9 +377,10 @@ export function loadBranding() {
   }
   if (!brandPromise) {
     brandPromise = api
-      .get('/api/config')
+      .get(configPath())
       .then((d) => {
         brandValue = normalizeBrand(d);
+        brandAt = Date.now();
         try { applyDefaultQuota(brandValue.defaultQuota); } catch {}
         return brandValue;
       })
@@ -388,6 +401,8 @@ export function loadBranding() {
 export function resetBranding() {
   brandPromise = null;
   brandValue = null;
+  brandAt = 0;
+  brandForceFresh = true;   // 保存即生效：下一次强制绕过两层缓存
 }
 
 /** 应用站点名与 favicon */

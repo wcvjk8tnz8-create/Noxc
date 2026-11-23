@@ -651,6 +651,26 @@ INSERT OR IGNORE INTO settings(key, value) VALUES ('root_reg_limits', '');
 INSERT OR IGNORE INTO settings(key, value) VALUES ('showcase_reward_points', '6000');
 
 -- ============================================================
+--  第三方域名接入（外部域名）
+--  独立表，不并入 subdomains：不参与公开统计的全表聚合、不占注册配额、
+--  不写 Cloudflare DNS（本站 zone 里没有这些域名）。
+--  列表与 WHOIS 一律标「（外部域名）」，解析由域名注册商 / DNSHE 管理。
+-- ============================================================
+CREATE TABLE IF NOT EXISTS external_domains (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  fqdn        TEXT    NOT NULL UNIQUE,
+  user_id     INTEGER NOT NULL,
+  note        TEXT    NOT NULL DEFAULT '',
+  provider    TEXT    NOT NULL DEFAULT 'dnshe',
+  ns1         TEXT    NOT NULL DEFAULT '',
+  ns2         TEXT    NOT NULL DEFAULT '',
+  zone_id     TEXT    NOT NULL DEFAULT '',
+  created_at  INTEGER NOT NULL
+);
+-- 按用户查列表走索引，一次只扫描本人几行，不增加公开读取压力
+CREATE INDEX IF NOT EXISTS idx_external_user ON external_domains(user_id);
+
+-- ============================================================
 --  用户案例展示列：旧库由 src/lib/showcase.ts 的 PRAGMA + ALTER 补齐，
 --  这里不写 ALTER（SQLite 无 IF NOT EXISTS，重复部署会直接报错）。
 -- ============================================================

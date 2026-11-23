@@ -10,6 +10,9 @@
  * 长句整译优先；短词用于 translateText 的全匹配与「全中文可消费」判定。
  */
 export const EXTRA_DICT: Record<string, string> = {
+  '外部域名': 'External domains',
+  '（外部域名）': '(External domain)',
+  '第三方域名接入': 'Third-party domain access',
   '当前没有可申请的后缀': 'No suffix is currently available',
   '暂停': 'Paused',
   '主推': 'Featured',

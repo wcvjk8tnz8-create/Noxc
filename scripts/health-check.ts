@@ -1731,6 +1731,47 @@ check(/自动切换|主推域名/.test(pvDocsZh) && /automatically|primary suffi
 check(/暂停后缀可见性回归/.test(pvCI) && /paused-root-visibility-regression\.ts/.test(pvRegS),
   '专项回归进 CI');
 
+/* D1 读取优化 + 第三方域名接入：5M rows read 事故防回流 */
+const d1Stats = read('src/lib/publicStats.ts');
+const d1Cache = read('src/lib/configCache.ts');
+const d1Idx = read('src/index.ts');
+const d1Runtime = read('src/app/lib/runtime.ts');
+const d1Reg = read('src/app/legacy/register.ts');
+const d1Schema = read('schema.sql');
+const d1Route = read('src/routes/externalDomains.ts');
+const d1Dash = read('src/app/pages/Dashboard.tsx');
+const d1Whois = read('src/routes/whois.ts');
+const d1DocsZh = read('docs-src/settings.md');
+const d1DocsEn = read('docs-src/en/settings.md');
+const d1Readme = read('README.md');
+const d1CI = read('.github/workflows/deploy.yml');
+const d1RegS = read('scripts/d1-read-external-domain-regression.ts');
+check(/public_stats_snapshot/.test(d1Stats) && /snapshotTtl/.test(d1Stats)
+  && /invalidatePublicStats/.test(d1Stats),
+  '公开统计：settings 表一行 JSON 快照 + 写路径主动失效');
+check(/getConfigCache\(\)/.test(d1Idx) && /c\.req\.query\('_'\)/.test(d1Idx)
+  && /invalidatePublicConfig\(\)/.test(d1Idx) && /CONFIG_CACHE_CONTROL/.test(d1Idx),
+  'config 整响应缓存 + cache-buster + 全局写后失效');
+check(/Date\.now\(\) - brandAt > 60_000/.test(d1Runtime)
+  && /600\);/.test(d1Reg) && /15_000/.test(d1Reg) && /checkSeq/.test(d1Reg),
+  '前端 SWR 60 秒节流 + 注册页打字节流');
+check(/CREATE TABLE IF NOT EXISTS external_domains/.test(d1Schema)
+  && /idx_external_user/.test(d1Schema)
+  && !/external_domains/.test(d1Stats),
+  '外部域名独立表 + 用户索引，不参与公开统计全表扫描');
+check(/EXTERNAL_LABEL = '（外部域名）'/.test(d1Route)
+  && /externalLabel: EXTERNAL_LABEL/.test(d1Whois)
+  && /id="externalCard"/.test(d1Dash),
+  '列表 / WHOIS / 控制台统一标（外部域名）');
+check(/dnsheToken/.test(d1Route) && !/dnsheToken/.test(d1Schema),
+  'DNSHE Token 只在请求中使用，不落库');
+check(/外部域名|D1 读取优化/.test(d1DocsZh) && /external domain|D1 read/i.test(d1DocsEn)
+  && /附录 Z · 故障排查与已知错误（固定放在文末）/.test(d1Readme)
+  && d1Readme.lastIndexOf('## 附录 Z') > d1Readme.lastIndexOf('## 附录 ·'),
+  '中英文档与 README 写明外部域名；错误统一放文末');
+check(/D1 读取与第三方域名回归/.test(d1CI)
+  && /d1-read-external-domain-regression\.ts/.test(d1RegS), '专项回归进 CI');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);
