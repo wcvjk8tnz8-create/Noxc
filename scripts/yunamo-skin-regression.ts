@@ -87,6 +87,10 @@ const readme = read('README.md');
     '主按钮全宽 + 大写等宽字');
   check(/\.yn-try \{/.test(skin) && /\.yn-steps \{/.test(skin) && /\.yn-motion \{/.test(skin),
     'Try chips / How it works 三步 / 暂停动效开关样式齐全');
+  check(/\.yn-hero-grid \{[\s\S]{0,320}grid-template-columns: minmax\(0, 1\.04fr\)/.test(skin)
+    && /\.yn-panel \{[\s\S]{0,400}border: 1px solid var\(--zx-hair\)/.test(skin)
+    && /\.yn-motion-float \{[\s\S]{0,320}position: absolute !important/.test(skin),
+    '形态层实现两栏 Hero、描边查询卡、悬浮开关（颜色仍用 --zx-*）');
   check(/html\[data-motion="paused"\]/.test(skin) && /prefers-reduced-motion/.test(skin),
     '手动开关与系统偏好两条路都停动效');
   check(!/html\[data-motion="paused"\] \*[\s\S]{0,220}transform: none !important/.test(skin),
@@ -95,8 +99,17 @@ const readme = read('README.md');
     '入场动画停掉后 rv-reveal 仍保持可见');
 
   check(/id="ynMotion"/.test(home) && /aria-pressed/.test(home), '首页有暂停动效按钮且带 aria-pressed');
+  check(/yn-motion-float/.test(home) && /yn-hero-grid/.test(home) && /yn-hero-panel/.test(home),
+    'Hero 改为左右分栏 + 右侧查询卡，暂停动效移到顶栏右下悬浮');
+  check(/yn-sample[\s\S]{0,400}yn-rule[\s\S]{0,300}yn-panel-label[\s\S]{0,500}id="searchForm"[\s\S]{0,900}yn-try/.test(home),
+    '卡片内顺序：示例域名 → 分隔线 → 查询可用性 → 输入表单 → Try 示例');
+  check(/id="ynSampleRoot"/.test(home) && /MutationObserver/.test(home),
+    '示例域名后缀随后台根域名动态同步，零接口请求');
+  check(/id="results"/.test(home) && /className="yn-panel"/.test(home),
+    '查询结果区也收进同一张卡片');
+  check(!/rv-landscape|rv-frame/.test(home), '旧的单列横跨查询区已移除');
   check(/noxc-motion-paused/.test(home) && /localStorage/.test(home), '暂停选择记在 localStorage');
-  check((home.match(/data-yn-try=/g) || []).length === 3, '三个 Try 示例前缀');
+  check((home.match(/data-yn-try=/g) || []).length >= 3, 'Try 示例前缀 + 卡片示例域名都可点');
   check(/只把前缀填进输入框|不发任何查询请求/.test(home)
     && !/data-yn-try[\s\S]{0,300}fetch\(/.test(home),
     '示例 chips 只填输入框，零接口请求（不增加 D1 读取）');

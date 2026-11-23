@@ -56,33 +56,46 @@ def page_html(with_skin: bool, dark: bool = False) -> str:
     <a class="rv-brand" href="/"><span><b>Noxc</b><i>Free subdomains</i></span></a>
     <nav class="rv-nav">
       <a href="#features">特性</a><a href="#how">如何使用</a><a href="#suffix">后缀</a><a href="#faq">常见问题</a>
-      <button type="button" class="yn-motion" id="ynMotion" aria-pressed="false">暂停动效</button>
       <a class="rv-pill ink sm" href="/register">立即注册</a>
     </nav>
-  </div></header>
+  </div>
+  <button type="button" class="yn-motion yn-motion-float" id="ynMotion" aria-pressed="false">暂停动效</button>
+  </header>
   <main class="rv-main">
-    <section class="rv-hero rv-reveal" style="--i:0">
-      <p class="rv-eyebrow">OPEN REGISTRATION · 5 FREE DOMAINS PER EMAIL</p>
-      <h1 class="rv-title">属于你的<em>专属</em>子域名<span class="rv-fullstop">.</span></h1>
-      <p class="rv-lede">免费注册子域名，通过 NS 委托掌控解析。每个邮箱都有免费额度。</p>
-      <div class="rv-actions"><a class="rv-pill ink lg" href="/register">开始注册</a><a class="rv-pill line lg" href="/dashboard">管理控制台</a></div>
-      <div class="rv-stats"><div class="rv-stat"><b>128</b><span>注册人数</span></div></div>
-    </section>
-    <section class="rv-landscape rv-reveal" style="--i:1" id="check">
-      <div class="rv-frame">
-        <form class="rv-ask" id="searchForm">
-          <span class="rv-ask-ico"></span>
-          <input id="qName" placeholder="输入你想要的前缀" aria-label="域名前缀">
-          <div class="rv-root-wrap"><select id="qRoot" aria-label="选择根域名"><option>.noxc.uk</option></select></div>
-          <button type="submit" class="rv-pill ink rv-ask-btn" id="askBtn">查询 →</button>
-        </form>
-      </div>
-      <div class="zx-results rv-results" id="results"></div>
-      <p class="rv-hint">输入前缀，查询它在各个后缀下是否可用</p>
-      <div class="yn-try" aria-label="示例前缀"><span>TRY:</span>
-        <button type="button" data-yn-try="hello-world">hello-world ↗</button>
-        <button type="button" data-yn-try="my-app">my-app ↗</button>
-        <button type="button" data-yn-try="portfolio">portfolio ↗</button>
+    <section class="rv-hero rv-reveal yn-hero" style="--i:0">
+      <div class="yn-hero-grid">
+        <div class="yn-hero-copy">
+          <p class="rv-eyebrow yn-eyebrow">OPEN REGISTRATION · 5 FREE DOMAINS PER EMAIL</p>
+          <h1 class="rv-title yn-title"><span class="yn-line">属于你的</span><span class="yn-line"><em>专属子域名</em><span class="rv-fullstop">.</span></span></h1>
+          <p class="rv-lede">免费注册子域名，通过 NS 委托掌控解析。每个邮箱都有免费额度，超出后可随时在控制台购买额外配额。</p>
+          <div class="rv-actions"><a class="rv-pill ink lg" href="/register">开始注册</a><a class="rv-pill line lg" href="/dashboard">管理控制台</a></div>
+          <div class="rv-stats"><div class="rv-stat"><b>260</b><span>注册人数</span></div><i class="rv-stat-rule"></i><div class="rv-stat"><b>280</b><span>已开通域名</span></div></div>
+        </div>
+        <div class="yn-hero-panel">
+          <div class="yn-panel">
+            <p class="yn-panel-cap">给下一个灵感 · 留一个位置</p>
+            <button type="button" class="yn-sample" data-yn-try="hello-world" aria-label="Fill in example name hello-world">
+              <span class="yn-sample-name">hello-world<span id="ynSampleRoot">.noxc.uk</span></span>
+              <span class="yn-sample-arrow" aria-hidden="true">↗</span>
+            </button>
+            <p class="yn-sample-hint">示例域名 · 点击试试</p>
+            <div class="yn-rule" aria-hidden="true"></div>
+            <p class="yn-panel-label">查询可用性</p>
+            <form class="rv-ask" id="searchForm">
+              <span class="rv-ask-ico"></span>
+              <input id="qName" placeholder="输入你想要的前缀" aria-label="域名前缀">
+              <div class="rv-root-wrap"><select id="qRoot" aria-label="选择根域名"><option>.noxc.uk</option></select></div>
+              <button type="submit" class="rv-pill ink rv-ask-btn" id="askBtn">查询可用性 →</button>
+            </form>
+            <div class="zx-results rv-results" id="results"></div>
+            <div class="yn-try" aria-label="Example prefixes"><span>试试：</span>
+              <button type="button" data-yn-try="hello-world">hello-world ↗</button>
+              <button type="button" data-yn-try="my-app">my-app ↗</button>
+              <button type="button" data-yn-try="portfolio">portfolio ↗</button>
+            </div>
+          </div>
+          <p class="rv-hint yn-panel-foot">输入前缀，查询它在各个后缀下是否可用</p>
+        </div>
       </div>
     </section>
     <section class="rv-sec rv-reveal" style="--i:2" id="features">
@@ -139,7 +152,7 @@ def main():
         # ── 改造前 ──
         pg = browser.new_page(viewport={'width': 1240, 'height': 900}, device_scale_factor=2)
         pg.goto('file://' + str(PREVIEW / '_skin_before.html'))
-        pg.wait_for_timeout(900)
+        pg.wait_for_timeout(1700)
         before_radius = style(pg, '.rv-pill.ink.lg', 'border-radius')
         before_font = style(pg, '#qName', 'font-family')
         check('999px' in before_radius, '改造前按钮是 999px 胶囊（实测 %s）' % before_radius)
@@ -152,7 +165,7 @@ def main():
         # ── 改造后 ──
         pg = browser.new_page(viewport={'width': 1240, 'height': 900}, device_scale_factor=2)
         pg.goto('file://' + str(PREVIEW / '_skin_after.html'))
-        pg.wait_for_timeout(900)
+        pg.wait_for_timeout(1700)
 
         radius = style(pg, '.rv-pill.ink.lg', 'border-radius')
         check('14px' in radius, '按钮改为 14px 圆角矩形（实测 %s）' % radius)
@@ -173,8 +186,9 @@ def main():
 
         ask_box = pg.locator('#searchForm').bounding_box()
         btn_box = pg.locator('#askBtn').bounding_box()
-        check(bool(ask_box and btn_box) and btn_box['width'] >= ask_box['width'] - 4,
-              '主按钮全宽（按钮 %d / 容器 %d）' % (
+        check(bool(ask_box and btn_box) and btn_box['width'] >= ask_box['width'] - 4
+              and btn_box['width'] < 700,
+              '主按钮填满查询卡内的表单（按钮 %d / 表单 %d，不再是横跨整页）' % (
                   round(btn_box['width'] if btn_box else 0),
                   round(ask_box['width'] if ask_box else 0)))
         inp_box = pg.locator('#qName').bounding_box()
@@ -206,8 +220,51 @@ def main():
         weight = style(pg, '.rv-title', 'font-weight')
         check(weight == '700', '标题字重收敛为 700（实测 %s）' % weight)
 
+        # ── 结构：左右分栏 + 右侧查询卡 ──
+        grid_display = style(pg, '.yn-hero-grid', 'display')
+        grid_cols = style(pg, '.yn-hero-grid', 'grid-template-columns')
+        copy_box = pg.locator('.yn-hero-copy').bounding_box()
+        panel_box = pg.locator('.yn-hero-panel').bounding_box()
+        check('grid' in grid_display and len(grid_cols.split()) == 2,
+              'Hero 是两栏 grid（display=%s, cols=%s）' % (grid_display, grid_cols))
+        check(bool(copy_box and panel_box) and copy_box['x'] + copy_box['width'] <= panel_box['x'] + 2,
+              '标题在左、查询卡在右，两栏不重叠')
+        title_box = pg.locator('.yn-title').bounding_box()
+        check(bool(title_box and panel_box) and title_box['x'] < panel_box['x'],
+              '大标题落在左半区，不在整页正中')
+
+        # 卡内自上而下的顺序（Yunamo 结构核心）
+        ys = {}
+        for sel in ['.yn-sample', '.yn-rule', '.yn-panel-label', '#searchForm', '.yn-try']:
+            box = pg.locator(sel).bounding_box()
+            ys[sel] = box['y'] if box else -1
+        order_ok = (ys['.yn-sample'] < ys['.yn-rule'] < ys['.yn-panel-label']
+                    < ys['#searchForm'] < ys['.yn-try'])
+        check(order_ok, '卡片内顺序：示例域名 → 分隔线 → 查询可用性 → 输入表单 → Try 示例')
+        inside = pg.evaluate("""() => {
+          const p=document.querySelector('.yn-panel');
+          return ['.yn-sample','.yn-rule','.yn-panel-label','#searchForm','#results','.yn-try']
+            .every(s=>p.contains(document.querySelector(s)));
+        }""")
+        check(inside, '示例 / 分隔线 / 小标 / 表单 / 结果 / Try 全在同一张查询卡内')
+
+        panel_bg = style(pg, '.yn-panel', 'background-color')
+        panel_border = style(pg, '.yn-panel', 'border-top-width')
+        check('255, 255, 255' in panel_bg or 'rgb(255' in panel_bg,
+              '查询卡是白底描边（实测 %s），没有抄 yunamo 的深色星空' % panel_bg)
+        check(panel_border == '1px', '查询卡 1px 发丝线（实测 %s）' % panel_border)
+
+        motion_pos = style(pg, '#ynMotion', 'position')
+        head_bottom = (pg.locator('.rv-head').bounding_box() or {})
+        motion_y = (pg.locator('#ynMotion').bounding_box() or {}).get('y', 0)
+        check(motion_pos == 'absolute'
+              and motion_y >= head_bottom.get('y', 0) + head_bottom.get('height', 0) - 4,
+              '暂停动效悬浮在顶栏右下方，不占导航位置（position=%s）' % motion_pos)
+
         requests = []
         pg.on('request', lambda r: requests.append(r.url) if not r.url.startswith('file:') else None)
+        pg.click('.yn-sample')
+        check(pg.input_value('#qName') == 'hello-world', '点卡片里的示例域名也把前缀填进输入框')
         pg.click('[data-yn-try="my-app"]')
         check(pg.input_value('#qName') == 'my-app', '点 Try 示例把前缀填进输入框')
         check(len(requests) == 0, '点 Try 示例零网络请求（实测 %d）' % len(requests))
@@ -223,6 +280,7 @@ def main():
 
         check(not pg.evaluate('()=>document.documentElement.scrollWidth>window.innerWidth'),
               '宽屏无横向溢出')
+        pg.fill('#qName', '')   # 对照图展示空态，不留下点击测试填进去的示例值
         f = PREVIEW / 'yunamo_skin_after_desktop.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
@@ -230,7 +288,7 @@ def main():
         # ── 暗色 ──
         pg = browser.new_page(viewport={'width': 1240, 'height': 900}, device_scale_factor=2)
         pg.goto('file://' + str(PREVIEW / '_skin_after_dark.html'))
-        pg.wait_for_timeout(900)
+        pg.wait_for_timeout(1700)
         paper = pg.evaluate("()=>getComputedStyle(document.documentElement).getPropertyValue('--zx-paper').trim()")
         radius_dark = style(pg, '.rv-pill.ink.lg', 'border-radius')
         check(paper == '#0b0d11' and '14px' in radius_dark,
@@ -242,23 +300,30 @@ def main():
         # ── 手机 ──
         pg = browser.new_page(viewport={'width': 390, 'height': 844}, device_scale_factor=2)
         pg.goto('file://' + str(PREVIEW / '_skin_after.html'))
-        pg.wait_for_timeout(900)
+        pg.wait_for_timeout(1700)
         overflow = pg.evaluate('()=>document.documentElement.scrollWidth>window.innerWidth')
         steps = style(pg, '.yn-steps', 'grid-template-columns')
         motion = style(pg, '#ynMotion', 'display')
         iy = (pg.locator('#qName').bounding_box() or {}).get('y', 0)
         by = (pg.locator('#askBtn').bounding_box() or {}).get('y', 0)
         check(not overflow, '手机端无横向溢出')
+        pg.fill('#qName', '')
         check(by > iy, '手机端仍是输入条在上、全宽按钮在下')
         check(motion == 'none', '窄屏收起暂停动效按钮（系统偏好仍自动生效）')
         check(len(steps.split()) == 1, '三步卡在手机端改单列（实测 %s）' % steps)
+        m_cols = style(pg, '.yn-hero-grid', 'grid-template-columns')
+        m_copy = pg.locator('.yn-hero-copy').bounding_box()
+        m_panel = pg.locator('.yn-hero-panel').bounding_box()
+        check(len(m_cols.split()) == 1 and bool(m_copy and m_panel)
+              and m_panel['y'] > m_copy['y'] + m_copy['height'] - 4,
+              '手机端两栏改单列，查询卡跟在标题下方（实测 %s）' % m_cols)
         f = PREVIEW / 'yunamo_skin_after_mobile.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
 
         pg = browser.new_page(viewport={'width': 390, 'height': 844}, device_scale_factor=2)
         pg.goto('file://' + str(PREVIEW / '_skin_before.html'))
-        pg.wait_for_timeout(900)
+        pg.wait_for_timeout(1700)
         f = PREVIEW / 'yunamo_skin_before_mobile.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()

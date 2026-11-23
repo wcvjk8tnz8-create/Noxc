@@ -266,3 +266,181 @@ html body .zx-fact { border-radius: var(--yn-radius-lg) !important; }
   .yn-try { font-size: 11px; }
   .yn-try button { padding: 6px 10px; }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   结构层：照 yunamo.com 的 Hero 重排（颜色仍全部引用 --zx-* 令牌）
+   ──────────────────────────────────────────────────────────────────
+   旧结构是「单列大标题 → 下方横跨整宽的查询条」；现在是「左标题 /
+   右查询卡」两栏，卡片自上而下完整复刻示例域名、分隔线、小标、输入、
+   全宽按钮、Try 示例。所有 id 与 data-* 契约保持不动，legacy 控制器照常工作。
+   ══════════════════════════════════════════════════════════════════ */
+
+html body.page-home .yn-hero {
+  min-height: 0 !important;
+  padding: clamp(38px, 6vh, 72px) 0 clamp(42px, 6vh, 80px) !important;
+  text-align: left;
+}
+.yn-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, .96fr);
+  gap: clamp(28px, 4.6vw, 64px);
+  align-items: center;
+  min-height: clamp(420px, 56vh, 580px);
+}
+.yn-hero-copy { min-width: 0; }
+.yn-hero-panel { min-width: 0; }
+
+/* 左栏：小圆点 eyebrow + 两行标题 + 说明 + 站点数据 */
+html body.page-home .yn-eyebrow {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0;
+  margin: 0 0 22px;
+  font-size: 11px;
+  letter-spacing: .2em;
+  color: var(--zx-body);
+}
+html body.page-home .yn-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  background: var(--zx-ink);
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+html body.page-home .yn-title {
+  font-size: clamp(38px, 4.5vw, 62px) !important;
+  line-height: 1.14 !important;
+  letter-spacing: -.04em !important;
+}
+html body.page-home .yn-title .yn-line { display: block; }
+html body.page-home .yn-title em { font-style: normal; }
+html body.page-home .rv-lede {
+  max-width: 34em;
+  margin-top: 22px;
+  font-size: 15px;
+  line-height: 1.9;
+}
+html body.page-home .rv-stats { margin-top: 30px; padding-top: 20px; }
+html body.page-home .rv-stat b { font-size: 26px; }
+
+/* ── 右栏查询卡：1px 发丝线 + 20px 圆角 + 零阴影 ── */
+.yn-panel {
+  position: relative;
+  border: 1px solid var(--zx-hair);
+  border-radius: var(--yn-radius-lg);
+  background: var(--zx-paper);
+  box-shadow: none;
+  padding: clamp(22px, 3vw, 32px);
+  overflow: hidden;
+}
+html[data-theme="dark"] .yn-panel { background: var(--zx-paper); }
+
+.yn-panel-cap {
+  margin: 0 0 20px;
+  font: 500 12px var(--zx-mono);
+  letter-spacing: .04em;
+  color: var(--zx-muted);
+}
+.yn-sample {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--zx-ink) !important;
+  text-align: left;
+  cursor: pointer;
+  font: 700 clamp(18px, 2.2vw, 25px) var(--zx-mono) !important;
+  letter-spacing: -.02em;
+}
+.yn-sample:hover .yn-sample-arrow { transform: translate(2px, -2px); }
+.yn-sample-arrow {
+  color: var(--zx-muted);
+  font-size: 18px;
+  transition: transform .18s var(--yn-ease);
+}
+.yn-sample-hint {
+  margin: 8px 0 0;
+  font: 400 11.5px var(--zx-mono);
+  letter-spacing: .04em;
+  color: var(--zx-muted);
+}
+.yn-rule {
+  height: 1px;
+  background: var(--zx-hair);
+  margin: 24px 0 20px;
+}
+.yn-panel-label {
+  margin: 0 0 12px;
+  font: 700 11.5px var(--zx-mono);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--zx-body);
+}
+
+/* 卡片内的查询表单：沿用两段式 grid，但宽度改为填满卡片 */
+html body.page-home .yn-panel .rv-ask {
+  max-width: none !important;
+  width: 100% !important;
+  gap: 10px;
+}
+html body.page-home .yn-panel .rv-ask #qName {
+  min-height: 54px;
+  padding: 14px 16px !important;
+  font-size: 15px !important;
+}
+html body.page-home .yn-panel .rv-root-wrap {
+  min-height: 54px;
+  padding: 0 14px !important;
+}
+html body.page-home .yn-panel .rv-ask-btn {
+  min-height: 54px !important;
+  font-size: 14px !important;
+  letter-spacing: .12em !important;
+}
+html body.page-home .yn-panel .rv-results { margin-top: 16px; }
+html body.page-home .yn-panel .yn-try { margin-top: 18px; }
+html body.page-home .yn-panel-foot {
+  display: block !important;
+  justify-content: flex-start !important;
+  margin: 12px 2px 0;
+  text-align: left !important;
+}
+
+/* ── 顶栏右下悬浮：不占导航，位置对齐查询卡右边缘 ── */
+.yn-motion-float {
+  position: absolute !important;
+  top: calc(100% + 14px) !important;
+  right: max(24px, calc((100vw - 1000px) / 2));
+  z-index: 6;
+  border-radius: 999px !important;
+  padding: 0 16px !important;
+  min-height: 36px;
+}
+
+/* ── 窄屏：两栏改单列，卡片跟在标题后面 ── */
+@media (max-width: 900px) {
+  .yn-hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+    min-height: 0;
+  }
+  html body.page-home .yn-title { font-size: clamp(34px, 7vw, 54px) !important; }
+  html body.page-home .rv-lede { max-width: none; }
+  .yn-panel { max-width: 620px; }
+}
+@media (max-width: 640px) {
+  html body.page-home .yn-hero { padding: 30px 0 38px !important; }
+  html body.page-home .yn-title { font-size: clamp(34px, 9vw, 46px) !important; }
+  .yn-panel { padding: 20px 18px; }
+  .yn-rule { margin: 20px 0 16px; }
+  html body.page-home .yn-panel .rv-ask { gap: 9px; }
+  html body.page-home .yn-panel .rv-ask #qName { padding: 13px 13px !important; }
+  html body.page-home .yn-panel .rv-root-wrap { padding: 0 10px !important; }
+}
+

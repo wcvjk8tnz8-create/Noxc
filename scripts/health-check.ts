@@ -395,10 +395,16 @@ check(/@keyframes rvDots/.test(rv), 'Uiverse 三点 loader 用于查询中');
 check(/rvUnderline/.test(rv), 'Aceternity Hero Highlight 克制版细线扫光');
 check(/:not\(\.side-toggle\)/.test(shellCss), '汉堡按钮仍被排除，桌面顶栏不出现空灰块');
 
-/* 首页结构：Reverie 类名 + legacy 契约一个不能少 */
-for (const cls of ['rv-head', 'rv-hero', 'rv-landscape', 'rv-frame', 'rv-ask', 'rv-sec', 'rv-quote', 'rv-cta', 'rv-foot']) {
+/* 首页结构：Reverie 骨架 + Yunamo 两栏查询卡 + legacy 契约一个不能少 */
+for (const cls of ['rv-head', 'rv-hero', 'rv-ask', 'rv-sec', 'rv-quote', 'rv-cta', 'rv-foot']) {
   check(rvHome.includes(cls), `首页含 ${cls} 结构`);
 }
+for (const cls of ['yn-hero-grid', 'yn-hero-copy', 'yn-hero-panel', 'yn-panel', 'yn-sample', 'yn-rule', 'yn-panel-label', 'yn-try', 'yn-motion-float']) {
+  check(rvHome.includes(cls), `首页含 Yunamo 结构 ${cls}`);
+}
+check(!/rv-landscape|rv-frame/.test(rvHome), '旧的单列横跨查询区已收进右侧卡片');
+check(/yn-sample[\s\S]{0,400}yn-rule[\s\S]{0,300}yn-panel-label[\s\S]{0,500}id="searchForm"[\s\S]{0,900}yn-try/.test(rvHome),
+  '查询卡内顺序：示例域名 → 分隔线 → 查询可用性 → 输入表单 → Try 示例');
 for (const id of ['searchForm', 'qName', 'qRoot', 'results', 'suffixGrid', 'rtTags', 'rtMore', 'apiHost', 'yr', 'toast']) {
   check(new RegExp(`id="${id}"`).test(rvHome), `首页保留 legacy id #${id}`);
 }

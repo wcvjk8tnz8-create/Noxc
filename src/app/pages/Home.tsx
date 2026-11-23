@@ -79,14 +79,32 @@ export default function HomePage() {
     tryBtns.forEach((b) => b.addEventListener('click', onTry));
 
     authProbe().then((u) => { if (alive) setAuthed(!!(u && u.id)); });
+    /* 卡片里的示例域名跟着当前后缀走：mountHome 会异步填充 qRoot，
+       用 MutationObserver 等它落地，用户切换后缀时也同步，不发任何请求。 */
+    const syncSample = () => {
+      const sel = document.getElementById('qRoot') as HTMLSelectElement | null;
+      const el = document.getElementById('ynSampleRoot');
+      if (!sel || !el) return;
+      const opt = sel.selectedOptions?.[0];
+      const root = String(opt?.textContent || sel.value || '').trim().replace(/^\./, '');
+      if (root) el.textContent = '.' + root;
+    };
+    const rootObserver = new MutationObserver(syncSample);
+    const qRootEl = document.getElementById('qRoot');
+    if (qRootEl) rootObserver.observe(qRootEl, { childList: true, subtree: true, characterData: true });
+    qRootEl?.addEventListener('change', syncSample);
+
     (async () => {
       try { await mountHome(ref.current); } catch (e) { console.error('[home] 页面初始化失败', e); }
+      syncSample();
       if (alive) refreshRuntime();
     })();
     return () => {
       alive = false; cleanupPage();
       motionBtn?.removeEventListener('click', onMotion);
       tryBtns.forEach((b) => b.removeEventListener('click', onTry));
+      rootObserver.disconnect();
+      qRootEl?.removeEventListener('change', syncSample);
     };
   }, []);
 
@@ -106,7 +124,6 @@ export default function HomePage() {
             <a href="#how" data-en="How it works">如何使用</a>
             <a href="#suffix">后缀</a>
             <a href="#faq">常见问题</a>
-            <button type="button" className="yn-motion" id="ynMotion" aria-pressed="false" data-en="Pause motion">暂停动效</button>
             {authed
               ? <a className="rv-pill line sm rv-login" href="/dashboard">→ 去往控制台</a>
               : <a className="rv-pill line sm rv-login" href="/login">登录</a>}
@@ -116,70 +133,90 @@ export default function HomePage() {
             ? <a className="rv-pill ink sm rv-mobile-cta zx-nav-cta" href="/dashboard">→ 控制台</a>
             : <a className="rv-pill ink sm rv-mobile-cta zx-nav-cta" href="/register">注册 <Ico name="arrowUp" size={14} /></a>}
         </div>
+        {/* 悬浮在顶栏右下：不占导航位置，对齐查询卡右上角（Yunamo 同款可访问性开关） */}
+        <button type="button" className="yn-motion yn-motion-float" id="ynMotion" aria-pressed="false" data-en="Pause motion">暂停动效</button>
       </header>
 
       <main className="rv-main">
-        {/* ══ Hero：超大无衬线黑体，强调只灰一档（Zerexa Domains 实拍口径） ══ */}
-        <section className="rv-hero rv-reveal" style={{ '--i': 0 } as CSSProperties}>
-          <p className="rv-eyebrow">OPEN REGISTRATION <span>·</span> <span data-default-quota data-no-i18n>5</span> FREE DOMAINS PER EMAIL</p>
-          <h1 className="rv-title" data-en="Your own subdomain.">属于你的<em>专属</em>子域名<span className="rv-fullstop">.</span></h1>
-          <p className="rv-lede">免费注册子域名，通过 NS 委托掌控解析。每个邮箱都有免费额度，超出后可随时在控制台购买额外配额。</p>
-          <div className="rv-actions">
-            <a className="rv-pill ink lg" href="/register">开始注册 <Ico name="arrow" size={17} /></a>
-            <a className="rv-pill line lg" href="/dashboard">管理控制台 <Ico name="arrowUp" size={15} /></a>
-          </div>
-          {/* 站点公开数据：随 /api/config 一次返回，首屏同一帧填好。
-              「已开通域名」可展开看每个根域名分别有多少，最热的那个标 HOT。 */}
-          <div className="rv-stats" id="siteStats" aria-label="站点数据">
-            <div className="rv-stat"><b data-stat-users>—</b><span>注册人数</span></div>
-            <i className="rv-stat-rule" aria-hidden="true"></i>
-            <button
-              type="button"
-              className="rv-stat rv-stat-toggle"
-              id="statDomainsToggle"
-              aria-expanded="false"
-              aria-controls="statBreakdown"
-            >
-              <b data-stat-domains>—</b>
-              <span>已开通域名<i className="rv-stat-caret" aria-hidden="true"></i></span>
-            </button>
-          </div>
-          {/* 最热后缀：不用展开也能在首页看到 HOT */}
-          <div className="rv-hottest" id="statHottest" hidden></div>
-          <div className="rv-breakdown" id="statBreakdown" hidden>
-            <div className="rv-bd-head">
-              <span data-en="SUFFIX">后缀</span>
-              <span data-en="DOMAINS">域名数</span>
-              <span data-en="USERS">注册人数</span>
-            </div>
-            <div id="statBreakdownRows"></div>
-          </div>
-          <p className="rv-hero-foot">Kept open all day by small studios and long-form writers</p>
-        </section>
+        {/* ══ Hero：左右分栏 —— 左标题与站点数据，右侧一张查询卡
+             结构对齐 yunamo.com：卡内依次是「示例域名 → 分隔线 → 查询可用性
+             → 输入框+后缀 → 全宽按钮 → 结果 → Try 示例」。颜色仍用现行色板。 ══ */}
+        <section className="rv-hero rv-reveal yn-hero" style={{ '--i': 0 } as CSSProperties}>
+          <div className="yn-hero-grid">
 
-        {/* ══ 节点面板：输入框浮在淡化的 N 图形与点阵之上 ══ */}
-        <section className="rv-landscape rv-reveal" style={{ '--i': 1 } as CSSProperties} id="check">
-          <div className="rv-frame">
-            <div className="rv-art" aria-hidden="true"></div>
-            <div className="rv-art-veil" aria-hidden="true"></div>
-            <span className="rv-art-cap">NODES · NOXC</span>
-            <form className="rv-ask" id="searchForm">
-              <Ico name="search" size={19} className="rv-ask-ico" />
-              <input id="qName" placeholder="输入你想要的前缀" autoComplete="off" spellCheck={false} aria-label="域名前缀" />
-              <div className="rv-root-wrap" data-no-i18n>
-                <select id="qRoot" aria-label="选择根域名"></select>
-                <Ico name="chevron" size={16} />
+            <div className="yn-hero-copy">
+              <p className="rv-eyebrow yn-eyebrow">OPEN REGISTRATION <span>·</span> <span data-default-quota data-no-i18n>5</span> FREE DOMAINS PER EMAIL</p>
+              <h1 className="rv-title yn-title">
+                <span className="yn-line" data-en="Your own subdomain.">属于你的</span>
+                <span className="yn-line" data-en="Starts with a name."><em>专属子域名</em><span className="rv-fullstop">.</span></span>
+              </h1>
+              <p className="rv-lede">免费注册子域名，通过 NS 委托掌控解析。每个邮箱都有免费额度，超出后可随时在控制台购买额外配额。</p>
+              <div className="rv-actions">
+                <a className="rv-pill ink lg" href="/register">开始注册 <Ico name="arrow" size={17} /></a>
+                <a className="rv-pill line lg" href="/dashboard">管理控制台 <Ico name="arrowUp" size={15} /></a>
               </div>
-              <button type="submit" className="rv-pill ink rv-ask-btn">查询 <Ico name="arrow" size={15} /></button>
-            </form>
-          </div>
-          <div className="zx-results rv-results" id="results"></div>
-          <p className="rv-hint"><Ico name="info" size={15} /> 输入前缀，查询它在各个后缀下是否可用</p>
-          <div className="yn-try" aria-label="Example prefixes">
-            <span>TRY:</span>
-            <button type="button" data-yn-try="hello-world">hello-world ↗</button>
-            <button type="button" data-yn-try="my-app">my-app ↗</button>
-            <button type="button" data-yn-try="portfolio">portfolio ↗</button>
+              {/* 站点公开数据：随 /api/config 一次返回，首屏同一帧填好。 */}
+              <div className="rv-stats" id="siteStats" aria-label="站点数据">
+                <div className="rv-stat"><b data-stat-users>—</b><span>注册人数</span></div>
+                <i className="rv-stat-rule" aria-hidden="true"></i>
+                <button
+                  type="button"
+                  className="rv-stat rv-stat-toggle"
+                  id="statDomainsToggle"
+                  aria-expanded="false"
+                  aria-controls="statBreakdown"
+                >
+                  <b data-stat-domains>—</b>
+                  <span>已开通域名<i className="rv-stat-caret" aria-hidden="true"></i></span>
+                </button>
+              </div>
+              <div className="rv-hottest" id="statHottest" hidden></div>
+              <div className="rv-breakdown" id="statBreakdown" hidden>
+                <div className="rv-bd-head">
+                  <span data-en="SUFFIX">后缀</span>
+                  <span data-en="DOMAINS">域名数</span>
+                  <span data-en="USERS">注册人数</span>
+                </div>
+                <div id="statBreakdownRows"></div>
+              </div>
+            </div>
+
+            <div className="yn-hero-panel">
+              <div className="yn-panel">
+                <p className="yn-panel-cap" data-en="Make room for your next idea">给下一个灵感 · 留一个位置</p>
+
+                <button type="button" className="yn-sample" data-yn-try="hello-world" aria-label="Fill in example name hello-world">
+                  <span className="yn-sample-name">hello-world<span id="ynSampleRoot">.noxc.uk</span></span>
+                  <span className="yn-sample-arrow" aria-hidden="true">↗</span>
+                </button>
+                <p className="yn-sample-hint" data-en="Example name · click to try">示例域名 · 点击试试</p>
+
+                <div className="yn-rule" aria-hidden="true"></div>
+
+                <p className="yn-panel-label" data-en="Check availability">查询可用性</p>
+
+                <form className="rv-ask" id="searchForm">
+                  <span className="rv-ask-ico" aria-hidden="true"></span>
+                  <input id="qName" placeholder="输入你想要的前缀" autoComplete="off" spellCheck={false} aria-label="域名前缀" />
+                  <div className="rv-root-wrap" data-no-i18n>
+                    <select id="qRoot" aria-label="选择根域名"></select>
+                    <Ico name="chevron" size={16} />
+                  </div>
+                  <button type="submit" className="rv-pill ink rv-ask-btn" data-en="Check availability →">查询可用性 →</button>
+                </form>
+
+                <div className="zx-results rv-results" id="results"></div>
+
+                <div className="yn-try" aria-label="Example prefixes">
+                  <span data-en="TRY:">试试：</span>
+                  <button type="button" data-yn-try="hello-world">hello-world ↗</button>
+                  <button type="button" data-yn-try="my-app">my-app ↗</button>
+                  <button type="button" data-yn-try="portfolio">portfolio ↗</button>
+                </div>
+              </div>
+              <p className="rv-hint yn-panel-foot" data-en="Enter a prefix to check availability across every suffix.">输入前缀，查询它在各个后缀下是否可用</p>
+            </div>
+
           </div>
         </section>
 
