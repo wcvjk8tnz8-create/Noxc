@@ -1,0 +1,13 @@
+# 静态资源长缓存（Workers Assets 读取 dist/client/_headers）
+# Vite 产物文件名带内容 hash，可安全 immutable；重复访问不再回源。
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/img/*
+  Cache-Control: public, max-age=604800
+
+/favicon.ico
+  Cache-Control: public, max-age=604800
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=86400

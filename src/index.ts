@@ -212,39 +212,53 @@ async function buildConfigData(c: any) {
      统一配置层命中缓存时这里是 0 次 D1，未命中也只 1 次全表读。 */
   const CONFIG_KEYS = ['site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota','announcement','root_apply_paused'] as const;
   const s = await pickSettings(c.env, CONFIG_KEYS);
-  // 显式取「生效列表」：不依赖中间件是否成功替换 c.env 引用，
-  // 后台导入 / 移除 / 恢复的根域名都能立即出现在注册页与首页下拉。
-  const effectiveRoots = (await effectiveRootList(c.env)).map((r) => r.domain);
   // 注册是否需要邮箱验证码（后台开启且邮件服务已配置时才真正启用）
   const mailOk = !!(String(s.mail_provider || c.env.MAIL_PROVIDER || '').trim()
     && String(c.env.MAIL_API_KEY || '').trim());
   const verifyRequired =
     String(c.env.MAIL_VERIFY_REQUIRED || s.mail_verify_required || '0').trim() === '1';
-  // AI 状态只给标志位，绝不下发地址与密钥
-  const ai = await loadAiConfig(c.env).catch(() => null);
-  const emailRule = await emailRuleOf(c.env);
+
+  /* 性能优化：以下子项彼此独立，旧版逐个 await 串行累加延迟（GitHub / NodeLoc
+     开关各要读若干配置、公开统计要查两张表）。现在一次性并发发起，冷缓存时
+     /api/config 的耗时从「若干次往返相加」压到「最慢的那一次」。
+     各函数内部仍走 settingsCache，命中缓存时 0 次 D1，并发不会放大读取量。 */
+  const [effectiveRoots, ai, emailRule, reserved, captcha, nodeloc, github,
+    showcasePts, expiry, quota, stats] = await Promise.all([
+    effectiveRootList(c.env).then((r) => r.map((x) => x.domain)),
+    loadAiConfig(c.env).catch(() => null),
+    emailRuleOf(c.env),
+    reservedLabelsOf(c.env).then((r) => [...r]),
+    captchaEnabled(c.env),
+    nodelocEnabled(c.env),
+    githubEnabled(c.env),
+    showcaseRewardOf(c.env),
+    expiryRules(c.env),
+    defaultQuotaOf(c.env),
+    publicStats(c.env),
+  ]);
+
   return {
     signupEmailRule: emailRule,
     signupEmailHint: emailRuleHint(emailRule),
     rootDomain: effectiveRoots[0] || c.env.ROOT_DOMAIN,
     rootDomains: effectiveRoots,
     // 系统保留名称：公开名单，注册页 / WHOIS 可即时提示；管理员仍可自建
-    reservedLabels: [...(await reservedLabelsOf(c.env))],
+    reservedLabels: reserved,
     // 注册滑块验证：前端据此决定是否渲染，后端注册接口用同一份判定
-    captchaEnabled: await captchaEnabled(c.env),
+    captchaEnabled: captcha,
     // NodeLoc 第三方登录：只有后台开启且凭据齐备才显示按钮，不下发任何密钥
-    nodelocEnabled: await nodelocEnabled(c.env),
+    nodelocEnabled: nodeloc,
     // GitHub 第三方登录 / 绑定：同样只下发布尔值，Secret 与 access_token 绝不出 Worker
-    githubEnabled: await githubEnabled(c.env),
+    githubEnabled: github,
     // 存储绑定状态：只给布尔值，方便一眼确认 KV / R2 是否已自动挂上
     kvBound: !!c.env.KV,
     avatarUpload: !!c.env.AVATARS,
     // 注册页后缀菜单据此显示每个后缀的积分（0 = Free，未配置 = 按全局规则）
     rootPointCosts: parseRootCosts(s.root_point_costs),
     // 用户案例展示奖励：前端提示「开启展示可得 X 积分」，随后台设置变
-    showcaseRewardPoints: await showcaseRewardOf(c.env),
+    showcaseRewardPoints: showcasePts,
     // 域名有效期 / 续期窗口（窗口留空时按有效期一半自动推算）：首页与注册须知据此渲染
-    expiry: await expiryRules(c.env),
+    expiry,
     // 与后台「积分规则」同一份生效值；页面说明据此实时渲染，不再写死数字
     pointRules: {
       checkin: Number(s.checkin_points ?? POINT_DEFAULTS.checkin) || 0,
@@ -278,9 +292,9 @@ async function buildConfigData(c: any) {
     fontBody: s.font_body || 'system',
     fontDisplay: s.font_display || 'system',
     // 首页展示的额度跟着后台「站点设置」走，与注册同一逐级回落口径
-    defaultQuota: await defaultQuotaOf(c.env),
+    defaultQuota: quota,
     // 首页「注册人数 / 已开通域名」：随 /api/config 一次返回，不新增首屏请求
-    publicStats: await publicStats(c.env),
+    publicStats: stats,
     // 页脚备案链接：首次部署即显示（审核要求），后台可覆盖；管理员主动清空则隐藏
     footerIcpHtml: s.footer_icp_html === undefined ? DEFAULT_FOOTER_ICP_HTML : String(s.footer_icp_html),
     // 页脚联系方式：首次部署即显示（Telegram 邀请链接），后台可覆盖；管理员主动清空则隐藏

@@ -25,19 +25,32 @@ export default function RewardsPage() {
       
         <div className="page-head">
           <h1 className="page-title">奖励中心</h1>
-          <p className="page-sub">用兑换码兑换域名永久化与配额</p>
+          <p className="page-sub" data-en="Complete tasks and redeem codes for domains, quota and points">完成任务、用兑换码兑换域名永久化、配额与积分</p>
         </div>
       
+        {/* 组合任务：绑定 NodeLoc + Star 项目，两项都完成才发 3000 积分 */}
+        <div className="card" id="comboCard">
+          <h2 data-en="Task reward · 3000 points">任务奖励 · 3000 积分</h2>
+          <div className="hint" style={{margin: "-4px 0 12px"}}
+               data-en="Complete BOTH tasks below to receive 3000 points once per account.">
+            完成以下<b>两项</b>任务，即可一次性获得 3000 积分；只完成一项不发，每个账号仅一次。
+          </div>
+          <div id="comboStatus" className="tablewrap"><div className="empty">加载中…</div></div>
+          <div className="row end" style={{marginTop: "12px"}}>
+            <button className="btn primary" id="btnComboCheck" data-en="Check & claim">检查并领取</button>
+          </div>
+        </div>
+
         <div className="card">
           <h2>兑换</h2>
           <div className="row" style={{alignItems: "flex-end", gap: "9px"}}>
             <div style={{flex: "1", minWidth: "200px"}}>
               <label>兑换码</label>
-              <input id="code" placeholder="V-A1B2C3 或 PE-XXXXXXX" autocomplete="off" style={{textTransform: "uppercase"}} />
+              <input id="code" placeholder="V-A1B2C3 / PE-XXXXXXX / DC-XXXXXX" autocomplete="off" style={{textTransform: "uppercase"}} />
             </div>
             <button className="btn" id="btnPreview" style={{flex: "0 0 auto"}}>识别</button>
           </div>
-          <div className="hint" id="previewTip">输入兑换码后点「识别」，可先确认它是什么类型。</div>
+          <div className="hint" id="previewTip" data-en="Enter a code and tap Identify. DC codes are meant to be filled in on the register page to offset points.">输入兑换码后点「识别」，可先确认它是什么类型。DC 码也可以留到注册域名时填写抵扣。</div>
       
           <div id="permRow" style={{display: "none", marginTop: "12px"}}>
             <label>要永久化的域名（V 码需要）</label>
@@ -57,8 +70,10 @@ export default function RewardsPage() {
       
         <div className="card" id="adminBox" style={{display: "none"}}>
           <h2>管理员 · 派发券</h2>
-          <div className="hint" style={{margin: "-4px 0 12px"}}>
+          <div className="hint" style={{margin: "-4px 0 12px"}}
+               data-en="One code per coupon, usable once per account, with a total use limit (default 10000). DC codes offset points when registering a domain; they can also be redeemed here for points balance.">
             一张券 = 一个码，所有人都能领，<b>每个账号限用 1 次</b>，券本身有总使用量（默认 10000）。
+            <b>DC 码</b>主要用于<b>注册域名时抵扣积分</b>，也可在本页直接兑换成等额积分余额。
           </div>
           <div className="grid2">
             <div>
@@ -66,6 +81,7 @@ export default function RewardsPage() {
               <select id="gType">
                 <option value="permanent">V 码 · 域名永久化</option>
                 <option value="quota">PE 码 · 配额</option>
+                <option value="points">DC 码 · 积分</option>
               </select>
             </div>
             <div>
@@ -73,9 +89,9 @@ export default function RewardsPage() {
               <input id="gCount" type="number" min="1" max="200" value="1" />
             </div>
             <div id="gValueWrap" style={{display: "none"}}>
-              <label>配额数量</label>
-              <input id="gValue" type="number" min="1" max="999" value="1" />
-              <div className="hint">填 -1 可派发「无限配额」</div>
+              <label id="gValueLabel">配额数量</label>
+              <input id="gValue" type="number" min="1" max="100000" value="1" />
+              <div className="hint" id="gValueHint" data-en="PE = quota amount; DC = points to offset at registration (max 100000).">配额码填增加的数量；积分码（DC）填注册域名时可抵扣的积分数（最多 100000）。</div>
             </div>
             <div>
               <label>券总使用量</label>

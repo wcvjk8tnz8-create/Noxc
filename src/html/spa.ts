@@ -16,12 +16,9 @@ export const spaShellHtml = String.raw`<!doctype html>
   <link rel="manifest" href="/manifest.webmanifest">
   <meta property="og:title" content="Noxc · Free Subdomains">
   <meta property="og:image" content="/img/og-image.png">
-  <!-- 切页过渡 / 控制台壁纸：首屏就开始拉，切页时只走内存缓存。
-       字体 stylesheet 走 media=print 异步，不阻塞首屏渲染。 -->
-  <link rel="preload" as="image" href="/img/transition/miku-pop.png">
+  <!-- 首屏带宽收紧：过渡层已移除，不再预载 Miku；浅/深壁纸交给 CSS 按需加载，
+       只提前拉一张氛围底纹。字体 stylesheet 走 media=print 异步，不阻塞首屏渲染。 -->
   <link rel="preload" as="image" href="/img/wallpaper/miku-bouquet-haze.webp">
-  <link rel="preload" as="image" href="/img/wallpaper/miku-bouquet.webp" media="(prefers-color-scheme: light)">
-  <link rel="preload" as="image" href="/img/wallpaper/miku-bouquet-dark.webp" media="(prefers-color-scheme: dark)">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Redaction+35:ital,wght@0,400;0,700;1,400&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=LXGW+WenKai+TC:wght@400&display=swap">

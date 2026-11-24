@@ -200,9 +200,9 @@ check(/GROUP BY d/.test(lib) && /COUNT\(DISTINCT user_id\)/.test(lib)
   '统计 SQL 按 root_domain（空则回落到 fqdn）、域名数与去重用户数真分组');
 check(/hottest/.test(lib) && /effectiveRootList/.test(lib),
   '最热后缀由同一份数据算出，0 值后缀用生效列表补齐');
-check(/publicStats: await publicStats\(c\.env\)/.test(idx)
+check(/publicStats: stats/.test(idx) && /publicStats\(c\.env\),/.test(idx)
   && /app\.get\('\/api\/stats'/.test(idx),
-  '/api/config 与 /api/stats 同源同口径下发');
+  '/api/config 与 /api/stats 同源同口径下发（统计并入并发取值）');
 check(/id="statDomainsToggle"/.test(home) && /aria-expanded/.test(home)
   && /id="statBreakdown"/.test(home) && /id="statHottest"/.test(home),
   '首页「已开通域名」可展开，且有不展开也能看到的最热提示');

@@ -92,6 +92,8 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     return ROOTS[0] || '';
   }
   function rootQuery(){ var r = currentRoot(); return r ? '&root=' + encodeURIComponent(r) : ''; }
+  function dcValue(){ return ((document.getElementById('discountCode') as HTMLInputElement)?.value || '').trim(); }
+  function dcQuery(){ var d = dcValue(); return d ? '&discountCode=' + encodeURIComponent(d) : ''; }
   
   /* 后台暂停新申请：普通用户锁定整个表单，管理员仍可自建 */
   function setApplyPaused(msg){
@@ -320,18 +322,18 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     } catch (e) {}
   }
   
-  async function runCheck(v){
+  async function runCheck(v, force){
     var tip = document.getElementById('checkTip');
     var costBox = document.getElementById('costBox');
     if (!v) { tip.innerHTML = '输入前缀后自动检查是否可用，仅支持字母、数字与连字符。'; costBox.style.display = 'none'; return; }
     var seq = ++checkSeq;
-    var key = String(currentRoot() || '') + '|' + v;
+    var key = String(currentRoot() || '') + '|' + v + '|' + dcValue();
     var hit = checkCache[key];
     var r;
-    if (hit && Date.now() - hit.at < 15_000) r = hit.data;   // 命中缓存：一个请求都不发
+    if (!force && hit && Date.now() - hit.at < 15_000) r = hit.data;   // 命中缓存：一个请求都不发
     else {
       try {
-        r = await api.get('/api/subdomains/check?label=' + encodeURIComponent(v) + rootQuery());
+        r = await api.get('/api/subdomains/check?label=' + encodeURIComponent(v) + rootQuery() + dcQuery());
         checkCache[key] = { at: Date.now(), data: r };
       } catch (e) {
         if (seq !== checkSeq) return;
@@ -346,17 +348,34 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
         ? '<span style="color:var(--ok)">' + esc(r.fqdn) + ' 可以注册</span>'
         : '<span style="color:var(--danger)">' + esc(r.message) + '</span>') + link;
   
+      /* DC 码预览：把「原价 / 抵扣 / 实付」一次性写清，并缓存实付值供确认页显示。
+         券不可用时只显示原因，不把「域名可注册」判成失败。 */
+      var pay = Number(r.pay ?? r.cost ?? 0);
+      costBox.setAttribute('data-pay', String(pay));
+      var dcTip = document.getElementById('discountTip');
+      var dcLine = '';
+      if (dcValue()) {
+        dcLine = Number(r.discount || 0) > 0
+          ? '<br><span data-en="Discount applied">已用优惠码抵扣</span> <b>' + r.discount + '</b> 分 · '
+            + '<span data-en="Points to pay">本次实付</span> <b>' + pay + '</b> 分'
+          : '<br><span style="color:var(--warn)">' + esc(r.discountReason || '该优惠码本次未生效') + '</span>';
+      }
+      if (dcTip) dcTip.textContent = dcValue()
+        ? (r.discountValid ? '优惠码可用：本次最多抵扣 ' + (r.discount || 0) + ' 分' : (r.discountReason || '优惠码不可用'))
+        : '';
       if (r.available && r.cost > 0) {
         costBox.style.display = '';
         costBox.innerHTML = '<div class="alert ' + (r.enough ? 'a-info' : 'a-red') + '" style="margin-top:14px">'
           + (r.short && !r.rootOverride ? '<b>单字域名</b> · ' : '')
           + '本次消耗 <b>' + r.cost + '</b> 分 · 当前余额 <b>' + (r.points ?? 0) + '</b> 分'
+          + dcLine
           + (r.enough ? '' : '<br>积分不足，可前往签到地每日领取')
           + '</div>';
       } else if (r.available) {
         costBox.style.display = '';
         costBox.innerHTML = '<div class="alert a-info" style="margin-top:14px">'
           + (r.isAdmin ? '管理员申请不消耗积分' : (r.rootOverride ? '该后缀已设为 0 分，本次免费' : '本次不消耗积分'))
+          + dcLine
           + '</div>';
       } else {
         costBox.style.display = 'none';
@@ -406,6 +425,16 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
     }
     checkTimer = setTimeout(function(){ runCheck(v); }, 600);
   });
+
+  /* 改优惠码也要重新查一次价：实付金额必须跟着变，且 checkCache 的
+     key 里加上码，避免「换了码却还显示上一张券的抵扣」。 */
+  var dcEl = document.getElementById('discountCode');
+  if (dcEl) dcEl.addEventListener('input', function(){
+    var v = (document.getElementById('label') as HTMLInputElement).value.trim();
+    clearTimeout(checkTimer);
+    if (!v) return;
+    checkTimer = setTimeout(function(){ runCheck(v, true); }, 450);
+  });
   
   /* 真正的注册提交：弹窗验证通过后由回调调用，票据从持久对象读取 */
   async function doSubmit(){
@@ -420,6 +449,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       localStorage.setItem('meoy_agree_use', '1');
       var r = await api.post('/api/subdomains', {
         label: label, note: note, root: currentRoot(),
+        discountCode: dcValue(),
         captchaToken: cap ? cap.get() : ''
       });
       // 票据一次性：提交回来就领新图，避免「再注册一个」复用已消费的票据
@@ -457,6 +487,10 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       }
       document.getElementById('label').value = '';
       document.getElementById('note').value = '';
+      /* 券是消耗品：成功后立刻清空输入框，避免「再注册一个」误带同一张码 */
+      if (dcEl) (dcEl as HTMLInputElement).value = '';
+      var dcTipDone = document.getElementById('discountTip');
+      if (dcTipDone) dcTipDone.textContent = '';
       document.getElementById('checkTip').innerHTML = (r.status === 'pending' && r.aiQueued)
         ? '<span style="color:var(--ok)">已加入 AI 自动审核队列，后台会处理全部待审域名；稍后刷新「我的域名」查看结果。</span>'
         : (r.status === 'pending' && r.aiSkipText)

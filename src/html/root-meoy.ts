@@ -294,9 +294,6 @@ ${ANNOUNCEMENT_BODY}
 ${ANNOUNCEMENT_JS}
 /* ── 部署配置：只改这两行 ── */
 var PANEL = "https://nic.299282.xyz";   /* 官网 / 控制台地址，不带结尾斜杠 */
-/* 过渡角色提前预热：点链接时图片已在缓存，不会等 760ms 才冒出来 */
-var pl = document.createElement("link"); pl.rel = "preload"; pl.as = "image";
-pl.href = PANEL + "/img/transition/miku-pop.png"; document.head.appendChild(pl);
 var ABUSE_EMAIL = "abuse@meoy.top";     /* 举报邮箱，改成你能收信的地址 */
 var ROOT = "meoy.top";                  /* 本页对应的根域名 */
 /* 跨域拉不到官网 /api/config 时的兜底清单；新增根域名时请同步加进来 */
@@ -357,15 +354,20 @@ function apply(lang){
   try { localStorage.setItem("td_root_lang", lang); } catch(e){}
 }
 
-/* 查询框：跳到站内 WHOIS，带完整名称与所选根后缀 */
+/* 查询框：点提交立即跳站内 WHOIS（过渡层已移除，不再延后 300ms） */
 document.getElementById("checker").addEventListener("submit", function(e){
   e.preventDefault();
   var label = document.getElementById("prefix").value.trim().replace(/^https?:\/\//i,"").replace(/\..*$/,"");
   var root = document.getElementById("root").value;
   if (!label) { document.getElementById("prefix").focus(); return; }
-  /* 真正的跳转在下面第二个 submit listener；这里只做前缀校验。
-     被暂停后缀不会出现在下拉里（fill 已过滤），所以 root 只会是开放后缀。 */
-});
+  /* 本页后缀被暂停时自动切到主推域名，不带一个不能申请的后缀去 WHOIS */
+  if (window.__NOXC_ROOT_PAUSED__) {
+    var alt = window.__NOXC_PRIMARY_ROOT__;
+    if (!alt) return;
+    root = alt;
+  }
+  location.href = PANEL.replace(/\/$/,"") + "/whois?name=" + encodeURIComponent(label + "." + root) + "&root=" + encodeURIComponent(root);
+}, true);
 
 /* 根域名下拉：优先从控制台 /api/config 拉取全部生效后缀，
    跨域被拦或接口不可用时回落到内置的两个，保证静态页永远可用。 */
@@ -467,237 +469,7 @@ document.querySelectorAll("[data-lang]").forEach(function(b){
 });
 </script>
 
-<!-- ══ 切页过渡：Miku 冒出来 + 跳转中气泡（与控制台同一套动作） ══ -->
-<style id="td-trans-style">
-.td-trans {
-  position: fixed; inset: 0; z-index: 99999;
-  display: grid; place-items: center;
-  padding: calc(16px + var(--safe-t, 0px)) 16px calc(16px + var(--safe-b, 0px));
-  background: radial-gradient(120% 90% at 50% 78%, rgba(27,36,48,.16), transparent 62%),
-              rgba(238, 246, 241, .58);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
-  backdrop-filter: blur(16px) saturate(1.15);
-  opacity: 0; pointer-events: auto;
-  transition: opacity .28s var(--td-ease, cubic-bezier(.22, 1, .36, 1));
-}
-.td-trans[hidden] { display: none !important; }
-.td-trans.is-in { opacity: 1; }
-.td-trans.is-out { opacity: 0; }
-
-.td-trans-panel {
-  --td-miku: clamp(148px, 42vmin, 196px);
-  width: min(360px, calc(100vw - 36px));
-  display: flex; flex-direction: column; align-items: center;
-  padding: 22px 24px 20px;
-  border-radius: 30px;
-  background: rgba(255, 255, 255, .72);
-  border: 1px solid rgba(27,36,48,.22);
-  box-shadow: 0 18px 54px rgba(17,19,24,.13), inset 0 1px 0 rgba(255, 255, 255, .85);
-  -webkit-backdrop-filter: blur(22px) saturate(1.3);
-  backdrop-filter: blur(22px) saturate(1.3);
-  transform: translateY(10px) scale(.975);
-  opacity: 0;
-  transition: transform .42s var(--td-ease, cubic-bezier(.22, 1, .36, 1)), opacity .3s ease;
-}
-.td-trans.is-in .td-trans-panel { transform: none; opacity: 1; }
-.td-trans.is-out .td-trans-panel { transform: translateY(6px) scale(.985); opacity: 0; }
-
-/* 对话气泡：右上角带小尾巴，指向下面的 Miku */
-.td-trans-bubble {
-  align-self: flex-end;
-  position: relative;
-  display: inline-flex; align-items: center; gap: 9px;
-  margin: 2px 10px -6px 0;
-  padding: 10px 15px;
-  border-radius: 18px 18px 18px 6px;
-  background: rgba(255, 255, 255, .92);
-  border: 1px solid rgba(27,36,48,.2);
-  box-shadow: 0 6px 18px rgba(17,19,24,.08);
-  color: #111318;
-  font-size: 14px; font-weight: 600; letter-spacing: .02em;
-  opacity: 0; transform: translateY(8px) scale(.92);
-  transition: opacity .34s ease .2s, transform .42s var(--td-ease, cubic-bezier(.22, 1, .36, 1)) .2s;
-}
-.td-trans.is-in .td-trans-bubble { opacity: 1; transform: none; }
-.td-trans-bubble::after {
-  content: ''; position: absolute; left: 14px; bottom: -7px;
-  width: 12px; height: 12px;
-  background: inherit; border-right: 1px solid rgba(27,36,48,.2);
-  border-bottom: 1px solid rgba(27,36,48,.2);
-  transform: rotate(45deg); border-radius: 0 0 3px 0;
-}
-.td-bubble-dots { display: inline-flex; gap: 3px; align-items: flex-end; height: 10px; }
-.td-bubble-dots i {
-  width: 4px; height: 4px; border-radius: 50%; background: #1b2430;
-  animation: td-dot 1.05s ease-in-out infinite;
-}
-.td-bubble-dots i:nth-child(2) { animation-delay: .14s; }
-.td-bubble-dots i:nth-child(3) { animation-delay: .28s; }
-@keyframes td-dot { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
-
-/* Miku 从面板底部探出来 */
-.td-miku-stage {
-  position: relative;
-  width: var(--td-miku); height: calc(var(--td-miku) * .79);
-  overflow: hidden;
-}
-.td-miku-rise {
-  position: absolute; inset: 0;
-  display: flex; align-items: flex-end; justify-content: center;
-  transform: translateY(112%);
-  will-change: transform;
-}
-.td-trans.is-in .td-miku-rise {
-  animation: td-miku-rise .68s cubic-bezier(.22, 1.26, .36, 1) .06s forwards;
-}
-.td-trans.is-out .td-miku-rise {
-  animation: td-miku-sink .34s cubic-bezier(.4, 0, .8, .4) forwards;
-}
-.td-miku-media {
-  display: block;
-  width: var(--td-miku); height: var(--td-miku);
-  object-fit: contain; object-position: center bottom;
-  transform-origin: 50% 100%;
-  -webkit-user-drag: none; user-select: none;
-  filter: drop-shadow(0 8px 12px rgba(17,19,24,.14));
-}
-.td-trans.is-in .td-miku-media {
-  animation: td-miku-breathe 2.8s ease-in-out .76s infinite;
-}
-@keyframes td-miku-rise {
-  0%   { transform: translateY(112%); }
-  72%  { transform: translateY(-5%); }
-  100% { transform: translateY(0); }
-}
-@keyframes td-miku-sink { to { transform: translateY(112%); } }
-@keyframes td-miku-breathe {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50%      { transform: translateY(-4px) rotate(1.2deg); }
-}
-
-.td-trans-hint {
-  margin-top: 4px; color: rgba(17,19,24,.62);
-  font-size: 11.5px; letter-spacing: .1em;
-}
-.td-trans-bar {
-  position: relative; width: 62%; height: 2px; margin-top: 14px;
-  border-radius: 2px; background: rgba(27,36,48,.16); overflow: hidden;
-}
-.td-trans-bar span {
-  position: absolute; top: 0; left: 0; width: 42%; height: 100%;
-  border-radius: 2px; background: linear-gradient(90deg, transparent, #1b2430, transparent);
-  animation: td-scan 1.35s ease-in-out infinite;
-}
-@keyframes td-scan { 0% { transform: translateX(-110%); } 100% { transform: translateX(250%); } }
-
-[data-theme="dark"] .td-trans {
-  background: radial-gradient(120% 90% at 50% 78%, rgba(27,36,48,.2), transparent 62%),
-              rgba(6, 18, 14, .62);
-}
-[data-theme="dark"] .td-trans-panel {
-  background: rgba(17,19,24,.78);
-  border-color: rgba(91,147,255,.22);
-  box-shadow: 0 18px 54px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .08);
-}
-[data-theme="dark"] .td-trans-bubble {
-  background: rgba(17,19,24,.94); border-color: rgba(91,147,255,.24);
-  color: #e6ebf5; box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
-}
-[data-theme="dark"] .td-bubble-dots i { background: #5b93ff; }
-[data-theme="dark"] .td-trans-hint { color: rgba(226,235,250,.6); }
-[data-theme="dark"] .td-trans-bar { background: rgba(91,147,255,.18); }
-[data-theme="dark"] .td-trans-bar span { background: linear-gradient(90deg, transparent, #5b93ff, transparent); }
-
-@media (prefers-reduced-motion: reduce) {
-  .td-trans, .td-trans-panel, .td-trans-bubble { transition: opacity .18s linear !important; }
-  .td-trans-panel, .td-trans-bubble { transform: none !important; }
-  .td-miku-rise { transform: none !important; animation: none !important; }
-  .td-miku-media, .td-bubble-dots i, .td-trans-bar span { animation: none !important; }
-  .td-trans.is-out .td-miku-rise { transform: none !important; }
-}
-
-@media (prefers-color-scheme: dark) {
-  .td-trans {
-    background: radial-gradient(120% 90% at 50% 78%, rgba(27,36,48,.2), transparent 62%), rgba(6,18,14,.62);
-  }
-  .td-trans-panel { background: rgba(17,19,24,.78); border-color: rgba(91,147,255,.22);
-    box-shadow: 0 18px 54px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.08); }
-  .td-trans-bubble { background: rgba(17,19,24,.94); border-color: rgba(91,147,255,.24); color: #e6ebf5; }
-  .td-bubble-dots i { background: #5b93ff; }
-  .td-trans-hint { color: rgba(226,235,250,.6); }
-  .td-trans-bar { background: rgba(91,147,255,.18); }
-  .td-trans-bar span { background: linear-gradient(90deg, transparent, #5b93ff, transparent); }
-}
-</style>
-<div id="tdTransition" class="td-trans" hidden role="status" aria-live="polite" data-no-i18n>
-  <div class="td-trans-panel">
-    <div class="td-trans-bubble"><span class="td-bubble-text">Heading over</span>
-      <span class="td-bubble-dots"><i></i><i></i><i></i></span></div>
-    <div class="td-miku-stage"><div class="td-miku-rise">
-      <img class="td-miku-media" id="tdMikuImg" alt="" draggable="false">
-    </div></div>
-    <div class="td-trans-hint">Getting things ready</div>
-    <div class="td-trans-bar"><span></span></div>
-  </div>
-</div>
-<script>
-(function(){
-  var el = document.getElementById("tdTransition");
-  var img = document.getElementById("tdMikuImg");
-  img.src = PANEL.replace(/\/$/,"") + "/img/transition/miku-pop.png";
-  var WORDS = {
-    en: { b:"Heading over", h:"Getting things ready" },
-    zh: { b:"跳转中", h:"正在为你准备页面" }
-  };
-  function words(l){ return WORDS[l === "zh" ? "zh" : "en"]; }
-  function setLang(l){
-    var w = words(l);
-    el.querySelector(".td-bubble-text").textContent = w.b;
-    el.querySelector(".td-trans-hint").textContent = w.h;
-  }
-  /* 语言按钮点下后同步气泡（原 apply() 不改 DOM lang 属性，这里直接挂钩） */
-  document.querySelectorAll("[data-lang]").forEach(function(b){
-    b.addEventListener("click", function(){ setLang(b.getAttribute("data-lang")); });
-  });
-  setLang(document.documentElement.lang.indexOf("zh") === 0 ? "zh" : "en");
-
-  var going = false;
-  function go(url){
-    if (going) return; going = true;
-    el.hidden = false;
-    requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.add("is-in"); }); });
-    /* Miku 起手就跳，不再干等 760ms；控制台首屏会识别 referrer 不重播过渡 */
-    setTimeout(function(){ location.href = url; }, 300);
-  }
-  /* 所有指向控制台的链接都走过渡（含品牌、导航、页脚、举报、条款） */
-  document.addEventListener("click", function(e){
-    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    var a = e.target.closest ? e.target.closest("a[href]") : null;
-    if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
-    var href = a.getAttribute("href") || "";
-    if (href.charAt(0) === "#" || /^(mailto:|tel:)/i.test(href)) return;
-    if (href.indexOf(PANEL.replace(/\/$/,"")) === 0) { e.preventDefault(); go(a.href); }
-  }, true);
-  /* 查询框提交也走过渡 */
-  document.getElementById("checker").addEventListener("submit", function(e){
-    e.preventDefault();
-    var label = document.getElementById("prefix").value.trim().replace(/^https?:\/\//i,"").replace(/\..*$/,"");
-    var root = document.getElementById("root").value;
-    if (!label) { document.getElementById("prefix").focus(); return; }
-    /* 本页后缀被暂停时自动切到主推域名：不带一个不能申请的后缀去 WHOIS */
-    if (window.__NOXC_ROOT_PAUSED__) {
-      var alt = window.__NOXC_PRIMARY_ROOT__;
-      if (!alt) return;                    // 全部后缀都暂停：没有可切目标
-      root = alt;
-    }
-    go(PANEL.replace(/\/$/,"") + "/whois?name=" + encodeURIComponent(label + "." + root) + "&root=" + encodeURIComponent(root));
-  }, true);
-  /* 浏览器后退回来时把残留的过渡收掉 */
-  window.addEventListener("pageshow", function(ev){
-    if (ev.persisted) { el.classList.remove("is-in"); el.hidden = true; going = false; }
-  });
-})();
-</script>
+<!-- 切页过渡（Miku 遮罩 / 气泡 / 300ms 延后跳转）已移除：点链接立即跳，不再预热素材。 -->
 </body>
 </html>
 `;

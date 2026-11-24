@@ -27,4 +27,21 @@ export const POINT_DEFAULTS = {
 export const SHOWCASE_REWARD_POINTS = 6000;
 export const SHOWCASE_REWARD_CAP = 100000;
 
+/**
+ * 组合任务奖励：用户必须**同时**完成
+ *   ① 绑定 NodeLoc 账号（oauth_bindings / provider=nodeloc）
+ *   ② 给项目点 Star 并领取 Star 奖励（oauth_quota_grants / provider=github-star）
+ * 才一次性发放 3000 积分；只完成其中一项不发，两项都完成也只发一次。
+ * 与展示奖励同口径：管理员 / 无限积分账号跳过，设 0 = 关闭，已领不回收。
+ * 后台可用 settings.combo_reward_points 覆盖，上限 COMBO_REWARD_CAP。
+ */
+export const COMBO_REWARD_POINTS = 3000;
+export const COMBO_REWARD_CAP = 100000;
+
+/** 积分兑换码：管理员在「奖励中心」生成，形式 DC-XXXXXX（6 位，去掉易混淆字符）。 */
+export const DC_CODE_PREFIX = 'DC-';
+export const DC_CODE_LEN = 6;
+/** 单张积分码最多发放的积分，防止误填把余额冲到天文数字。 */
+export const DC_POINTS_CAP = 100000;
+
 /** schema.sql 里的旧默认（5 / 10 / 5 / 35）只用于一次性迁移判定，不参与运行期逻辑。 */

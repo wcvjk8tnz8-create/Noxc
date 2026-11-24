@@ -6,7 +6,7 @@
  */
 import type { LegacyCtx } from './types';
 import { startI18n, currentLang, translateText } from './i18n';
-import { takePrefetched, invalidatePrefetch } from './prefetch';
+import { takePrefetched, waitPrefetched, invalidatePrefetch } from './prefetch';
 
 /* SPA 切页清理注册表：document / window 事件与定时器都登记在这里 */
 let cleanups: Array<() => void> = [];
@@ -69,10 +69,11 @@ function pageFetchEnd() {
 }
 function whenPageFetchesIdle(): Promise<void> {
   if (pageFetches === 0) return Promise.resolve();
-  // 某个接口挂死也不能把整页藏住：2.5s 后照常放出，页面自带的失败兜底会显示占位
+  // 某个接口挂死也不能把整页藏住：800ms 后照常放出，页面自带的失败兜底会显示占位。
+  // 过渡层移除后这里从 2500ms 收紧，避免慢接口让用户对着空白页干等。
   return Promise.race([
     new Promise<void>((r) => pageIdleWaiters.push(r)),
-    new Promise<void>((r) => window.setTimeout(r, 2500)),
+    new Promise<void>((r) => window.setTimeout(r, 800)),
   ]);
 }
 export function clearSharedGet() { sharedGet.clear(); }
@@ -170,8 +171,14 @@ export const api = {
     const hit = sharedGet.get(p);
     if (hit && Date.now() - hit.at < SHARED_TTL) return hit.promise;
     const promise = (async () => {
-      const pre = takePrefetched(p);
+      const pre = takePrefetched(p);           // 已完成且成功的预取：直接复用
       if (pre !== null) return pre;
+      const inflight = waitPrefetched(p);      // 仍在飞的预取：等它，不发第二次请求
+      if (inflight) {
+        const data = await inflight;
+        if (data && data.success) return data;
+        return await api.req('GET', p);        // 预取失败 / 非 success：正常兜底重发
+      }
       pageFetchStart();
       try { return await api.req('GET', p); }
       finally { pageFetchEnd(); }

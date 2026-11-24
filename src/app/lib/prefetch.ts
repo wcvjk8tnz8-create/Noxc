@@ -83,7 +83,8 @@ function prefetchOne(path: string): Promise<any> {
     .then((r) => r.json().catch(() => ({})))
     .then((data: any) => {
       const ok = !!(data && data.success);
-      cache.set(path, { at: Date.now(), ok, data, promise });
+      // 已被 api.get 消费（等它落地）就不再写回，避免残留一份没人取的旧缓存
+      if (cache.get(path)) cache.set(path, { at: Date.now(), ok, data, promise });
       return data;
     })
     .catch(() => { cache.delete(path); return {}; });
@@ -102,13 +103,23 @@ export function prefetchRoute(href: string): Promise<void> {
   }
 }
 
-/** api.get 优先消费预取结果；一次性，命中后不重复用旧数据。 */
+/** api.get 优先消费「已完成且成功」的预取；一次性，命中后不重复用旧数据。
+ *  仍在飞或失败的条目**不动**，交给 waitPrefetched，避免把它提前丢掉。 */
 export function takePrefetched(path: string): any | null {
   const e = cache.get(path);
-  if (!e) return null;
+  if (!e || !e.ok) return null;
   cache.delete(path);
-  if (!e.ok || Date.now() - e.at > TTL) return null;
+  if (Date.now() - e.at > TTL) return null;
   return e.data;
+}
+
+/** 消费「仍在飞」的预取 Promise：立即换页后 api.get 等同一条请求，零重复发。 */
+export function waitPrefetched(path: string): Promise<any> | null {
+  const e = cache.get(path);
+  if (!e || e.ok) return null;
+  cache.delete(path);
+  if (Date.now() - e.at > TTL) return null;
+  return e.promise;
 }
 
 /** 页面内写入数据后清掉相关预取，避免下次切回看到旧值。 */

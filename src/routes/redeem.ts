@@ -1,14 +1,18 @@
 // ============================================================
-//  兑换码：V-XXX 域名永久化 / PE-XXXXX 配额
+//  兑换码：V-XXX 域名永久化 / PE-XXXXX 配额 / DC-XXXXXX 积分
 //  - 用户在「奖励中心」兑换
 //  - 管理员派发（生成 / 列表 / 停用）
 // ============================================================
 import { Hono } from 'hono';
 import { ok, fail, now, audit } from '../lib/util.js';
+import { DC_CODE_PREFIX, DC_CODE_LEN, DC_POINTS_CAP } from '../lib/pointDefaults.js';
+import { normCode } from '../lib/discountCode.js';
+import { ensurePoints, addPoints, UNLIMITED_POINTS } from '../lib/points.js';
+import { pointRules } from './points.js';
 
 const app = new Hono();
 
-const TYPE_TEXT = { permanent: '域名永久化', quota: '配额' };
+const TYPE_TEXT = { permanent: '域名永久化', quota: '配额', points: '积分' };
 
 /* 券（coupon）规则：
    一张券 = 一个码，面向所有人发放；
@@ -28,13 +32,13 @@ function rand(n) {
 }
 
 export function makeCode(type) {
-  return type === 'permanent' ? 'V-' + rand(6) : 'PE-' + rand(7);
+  if (type === 'permanent') return 'V-' + rand(6);
+  if (type === 'points') return DC_CODE_PREFIX + rand(DC_CODE_LEN);   // DC-XXXXXX
+  return 'PE-' + rand(7);
 }
 
-/** 校验并规范化兑换码输入（大小写不敏感） */
-function normCode(raw) {
-  return String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
-}
+/* normCode 由 lib/discountCode.ts 统一提供：注册页抵扣与奖励中心兑换
+   必须用同一套大小写 / 空白规范化，否则同一张券在两处会被当成两个码。 */
 
 /* ---------------- 用户端 ---------------- */
 
@@ -82,6 +86,20 @@ app.post('/redeem', async (c) => {
     else if (cur >= 0) next = cur + add;                // 普通累加
     await c.env.DB.prepare('UPDATE users SET quota = ? WHERE id = ?').bind(next, u.id).run();
     result = { type: 'quota', before: cur, after: next, added: add };
+  } else if (row.type === 'points') {
+    // 积分码 DC-XXXXXX：按站点积分规则初始化（老用户按已有域名补偿），再入账并记流水。
+    // DC 码的主要用途是「注册域名时抵扣」（见 routes/subdomains.ts + lib/discountCode.ts）；
+    // 这里保留直接兑换成余额的兼容路径：已经派发出去的券不会因为语义调整而失效。
+    const add = Math.min(Math.max(Number(row.value) || 1, 1), DC_POINTS_CAP);
+    const rules = await pointRules(c.env);
+    const before = u.role === 'admin' ? UNLIMITED_POINTS : await ensurePoints(c.env.DB, u.id, rules);
+    const after = u.role === 'admin'
+      ? UNLIMITED_POINTS
+      : await addPoints(c.env.DB, u.id, add, 'redeem_points', `积分兑换码 ${codeStr}`);
+    result = {
+      type: 'points', before, after, added: after === UNLIMITED_POINTS ? 0 : add,
+      unlimited: after === UNLIMITED_POINTS,
+    };
   } else {
     return fail(c, '未知的兑换码类型');
   }
@@ -145,9 +163,11 @@ app.post('/admin/generate', async (c) => {
   const u = c.get('user');
   const b = await c.req.json().catch(() => ({}));
   const type = String(b.type || '').trim();
-  if (!['permanent', 'quota'].includes(type)) return fail(c, '类型必须是 permanent 或 quota');
+  if (!['permanent', 'quota', 'points'].includes(type)) return fail(c, '类型必须是 permanent、quota 或 points');
   const count = Math.min(Math.max(Number(b.count) || 1, 1), 200);
-  const value = type === 'quota' ? Math.min(Math.max(Number(b.value) || 1, 1), 999) : 1;
+  /* permanent 固定 1；quota 最多 999；points 最多 DC_POINTS_CAP（10 万） */
+  const value = type === 'permanent' ? 1
+    : Math.min(Math.max(Number(b.value) || 1, 1), type === 'points' ? DC_POINTS_CAP : 999);
   // 券的总使用量：留空/0 即用默认 10000
   const maxUses = Math.min(
     Math.max(Number(b.maxUses) || COUPON_MAX_USES, 1),

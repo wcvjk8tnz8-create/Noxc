@@ -20,7 +20,9 @@ export async function mountRewards(_root: HTMLElement | null): Promise<void> {
         <thead><tr><th>兑换码</th><th>类型</th><th>域名</th><th>时间</th></tr></thead>
         <tbody>${d.items.map((l) => `<tr>
           <td class="mono">${esc(l.code)}</td>
-          <td>${l.type === 'permanent' ? '<span class="badge inf">永久化</span>' : '<span class="badge ok">配额 +' + l.value + '</span>'}</td>
+          <td>${l.type === 'permanent' ? '<span class="badge inf">永久化</span>'
+              : l.type === 'points' ? '<span class="badge inf">积分 +' + l.value + '</span>'
+              : '<span class="badge ok">配额 +' + l.value + '</span>'}</td>
           <td>${l.fqdn ? '<span class="fqdn">' + esc(l.fqdn) + '</span>' : '—'}</td>
           <td class="nowrap" style="color:var(--muted)">${fmtTime(l.created_at)}</td>
         </tr>`).join('')}</tbody></table>`;
@@ -52,7 +54,7 @@ export async function mountRewards(_root: HTMLElement | null): Promise<void> {
       const r = await api.get('/api/redeem/preview?code=' + encodeURIComponent(code));
       previewType = r.type;
       tip.innerHTML = r.usable
-        ? `<span style="color:var(--ok)">可用：${esc(r.typeText)}${r.type === 'quota' ? ' ×' + r.value : ''}</span>`
+        ? `<span style="color:var(--ok)">可用：${esc(r.typeText)}${(r.type === 'quota' || r.type === 'points') ? ' ×' + r.value : ''}</span>`
         : `<span style="color:var(--danger)">不可用：${esc(r.reason)}</span>`;
       if (r.usable && r.type === 'permanent') {
         permRow.style.display = '';
@@ -76,7 +78,9 @@ export async function mountRewards(_root: HTMLElement | null): Promise<void> {
         body.subdomainId = Number(sid);
       }
       const r = await api.post('/api/redeem/redeem', body);
-      toast(r.type === 'permanent' ? `已永久化 ${r.fqdn}` : `配额 +${r.added}，当前 ${r.after < 0 ? '∞' : r.after}`);
+      toast(r.type === 'permanent' ? `已永久化 ${r.fqdn}`
+        : r.type === 'points' ? (r.unlimited ? '当前账号积分不限，无需叠加' : `积分 +${r.added}，当前 ${r.after}`)
+        : `配额 +${r.added}，当前 ${r.after < 0 ? '∞' : r.after}`);
       document.getElementById('code').value = '';
       document.getElementById('previewTip').textContent = '输入兑换码后点「识别」，可先确认它是什么类型。';
       document.getElementById('permRow').style.display = 'none';
@@ -86,6 +90,61 @@ export async function mountRewards(_root: HTMLElement | null): Promise<void> {
     btn.disabled = false;
   };
   
+  /* ---------------- 组合任务奖励：绑定 NodeLoc + Star 项目 ---------------- */
+  async function loadCombo() {
+    const box = document.getElementById('comboStatus');
+    if (!box) return;
+    try {
+      const d = await api.get('/api/points/rewards');
+      /* 动态注入的文案一律用叶子节点的 data-en 整段替换，
+         避免 <b> 把一句话拆成多个文本节点后词典翻不全。 */
+      const done = (v: boolean) => v
+        ? '<span class="badge ok" data-en="Done">已完成</span>'
+        : '<span class="badge warn" data-en="Pending">未完成</span>';
+      const starUrl = 'https://github.com/wcvjk8tnz8-create/Noxc';
+      const note = d.isAdmin
+        ? '<span data-en="Admin accounts are not eligible for point rewards.">管理员账号不参与积分奖励。</span>'
+        : d.claimed
+        ? `<span data-en="Claimed +${d.amount} points (once per account).">已领取 +${d.amount} 积分，每个账号仅一次。</span>`
+        : d.allDone
+        ? `<span data-en="Both tasks are done. Click Check & claim to receive +${d.points} points.">两项都完成了，点「检查并领取」即可入账 +${d.points} 积分。</span>`
+        : `<span data-en="${(d.nodelocLinked ? 0 : 1) + (d.starClaimed ? 0 : 1)} task(s) left. Finish both to receive +${d.points} points.">还差 ${(d.nodelocLinked ? 0 : 1) + (d.starClaimed ? 0 : 1)} 项；全部完成后才发 +${d.points} 积分。</span>`;
+      box.innerHTML = `<table>
+        <thead><tr>
+          <th><span data-en="Task">任务</span></th>
+          <th><span data-en="Status">状态</span></th>
+          <th><span data-en="Action">操作</span></th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td><span data-en="1. Link your NodeLoc account">① 绑定 NodeLoc 账号</span></td>
+            <td>${done(d.nodelocLinked)}</td>
+            <td>${d.nodelocLinked ? '—' : '<a href="/profile" data-en="Link now">去绑定</a>'}</td>
+          </tr>
+          <tr>
+            <td><span data-en="2. Star the project and claim the Star reward">② 给项目点 Star 并领取 Star 奖励</span></td>
+            <td>${done(d.starClaimed)}</td>
+            <td>${d.starClaimed ? '—'
+              : '<a href="' + starUrl + '" target="_blank" rel="noopener noreferrer" data-en="Star">去 Star</a> · <a href="/profile" data-en="Claim">领取</a>'}</td>
+          </tr>
+        </tbody></table>
+        <div class="hint" style="margin-top:10px">${note}</div>`;
+    } catch (e) { box.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+  }
+
+  const comboBtn = document.getElementById('btnComboCheck');
+  if (comboBtn) comboBtn.onclick = async () => {
+    comboBtn.disabled = true;
+    try {
+      const d = await api.get('/api/points/rewards?check=1');
+      toast(d.granted > 0 ? `组合任务奖励已到账 +${d.granted} 积分`
+        : d.claimed ? '这个奖励已经领过了'
+        : d.allDone ? '资格校验中，请稍后再试' : '请先完成上面两项任务');
+      await loadCombo();
+    } catch (e) { toast(e.message, 'err'); }
+    comboBtn.disabled = false;
+  };
+
   /* ---------------- 管理员 ---------------- */
   async function loadAdminList() {
     try {
@@ -98,7 +157,9 @@ export async function mountRewards(_root: HTMLElement | null): Promise<void> {
           const dead = r.status !== 'active' || (r.expires_at && r.expires_at < Date.now());
           return `<tr${dead ? ' style="opacity:.6"' : ''}>
             <td class="mono">${esc(r.code)}</td>
-            <td>${r.type === 'permanent' ? '<span class="badge inf">永久化</span>' : '<span class="badge ok">配额 ' + r.value + '</span>'}</td>
+            <td>${r.type === 'permanent' ? '<span class="badge inf">永久化</span>'
+                : r.type === 'points' ? '<span class="badge inf">积分 ' + r.value + '</span>'
+                : '<span class="badge ok">配额 ' + r.value + '</span>'}</td>
             <td>${r.used_count} / ${r.max_uses}</td>
             <td>${r.status === 'active' ? '<span class="badge ok">启用</span>' : '<span class="badge warn">停用</span>'}</td>
             <td style="color:var(--muted)">${esc(r.note || '—')}</td>
@@ -125,7 +186,12 @@ export async function mountRewards(_root: HTMLElement | null): Promise<void> {
   }
   
   document.getElementById('gType').onchange = (e) => {
-    document.getElementById('gValueWrap').style.display = e.target.value === 'quota' ? '' : 'none';
+    const v = e.target.value;
+    document.getElementById('gValueWrap').style.display = (v === 'quota' || v === 'points') ? '' : 'none';
+    const label = document.getElementById('gValueLabel');
+    const input = document.getElementById('gValue') as HTMLInputElement;
+    if (label) label.textContent = v === 'points' ? '积分数量' : '配额数量';
+    if (input) { input.value = v === 'points' ? '3000' : '1'; }
   };
   
   document.getElementById('btnGen').onclick = async () => {
@@ -143,7 +209,7 @@ export async function mountRewards(_root: HTMLElement | null): Promise<void> {
       });
       const out = document.getElementById('genOut');
       out.innerHTML = `<div class="alert ok" style="margin:0">
-        已生成 ${r.count} 张 ${type === 'permanent' ? 'V' : 'PE'} 码：
+        已生成 ${r.count} 张 ${type === 'permanent' ? 'V' : type === 'points' ? 'DC' : 'PE'} 码${type === 'points' ? '（注册域名时最多抵扣 ' + r.value + ' 积分，也可在此兑换）' : ''}：
         <div class="mono" style="margin-top:7px;font-size:12px;line-height:2;word-break:break-all">
           ${r.codes.map((c) => esc(c)).join('<br>')}
         </div>
@@ -181,6 +247,7 @@ export async function mountRewards(_root: HTMLElement | null): Promise<void> {
     }
     loadMine();
     loadPermOptions();
+    loadCombo();
   })();
   
 }

@@ -10,14 +10,14 @@ import { unlockApplyButton, applyPauseLock } from '../lib/applyPause';
  * 后缀选择器嵌在同一个输入框里（点右侧按钮展开浮层，行尾标 Free）。
  * 所有 legacy 控制器依赖的 id 都保留在 DOM 中（隐藏步骤只是 display:none）。
  */
-type Summary = { label: string; root: string; fqdn: string; note: string };
+type Summary = { label: string; root: string; fqdn: string; note: string; discountCode: string; pay: string };
 
 export default function RegisterPage() {
   const ref = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState(2);           // 默认停在「选择域名」，与 DnsNeko 一致
   const [ok1, setOk1] = useState(true);          // 须知默认已确认，可回第一步重新勾选
   const [ok2, setOk2] = useState(true);
-  const [summary, setSummary] = useState<Summary>({ label: '', root: '', fqdn: '', note: '' });
+  const [summary, setSummary] = useState<Summary>({ label: '', root: '', fqdn: '', note: '', discountCode: '', pay: '' });
   const [done, setDone] = useState<{
     fqdn: string; status: string; ai: boolean; source: string;
     ms: number; model: string; reason: string; skip: string; queued: boolean;
@@ -129,7 +129,10 @@ export default function RegisterPage() {
     const note = ((document.getElementById('note') as HTMLInputElement)?.value || '').trim();
     const btn = document.getElementById('rootPickerBtn');
     const root = btn?.getAttribute('data-root') || (document.getElementById('rootDomain')?.textContent || '').trim();
-    return { label, root, fqdn: label && root ? `${label}.${root}` : '', note };
+    const discountCode = ((document.getElementById('discountCode') as HTMLInputElement)?.value || '').trim();
+    const costBox = document.getElementById('costBox');
+    const pay = costBox?.getAttribute('data-pay') || '';
+    return { label, root, fqdn: label && root ? `${label}.${root}` : '', note, discountCode, pay };
   };
 
   const goConfirm = () => {
@@ -214,6 +217,16 @@ export default function RegisterPage() {
                       onInput={e => setNoteCount((e.target as HTMLTextAreaElement).value.length)} />
             <div className="reg-note-count">管理员审核时会看到这段说明。<span>{noteCount} / 200</span></div>
 
+            {/* DC 积分优惠码：注册时直接抵扣本次消耗，留空则不抵扣 */}
+            <div style={{marginTop: "18px"}}>
+              <label data-en="Points discount code (optional)">积分优惠码 <em style={{opacity:.6,fontWeight:400}}>选填</em></label>
+              <input id="discountCode" className="input mono" placeholder="DC-XXXXXX"
+                     autoComplete="off" spellCheck={false} style={{textTransform: "uppercase", letterSpacing: ".06em"}} />
+              <div className="hint" id="discountTip" data-en="Get one at Rewards Center. It offsets the points cost of this registration; unused codes are not consumed.">
+                在「奖励中心」获得；申请域名时直接抵扣本次积分消耗，用不上的码不会被消耗。
+              </div>
+            </div>
+
             <div id="costBox" style={{display: "none"}}></div>
             <div id="pendingBox"></div>
             <div id="applyTip" className="alert a-info" style={{display: "none"}}>创建子域名不会自动写入任何 DNS 记录，审核通过后到「DNS 记录」页按需添加。</div>
@@ -233,6 +246,12 @@ export default function RegisterPage() {
               <div><span>域名</span><b className="mono">{summary.fqdn || '—'}</b></div>
               <div><span>根域名</span><b className="mono">.{summary.root || '—'}</b></div>
               <div><span>用途说明</span><b>{summary.note || '（未填写）'}</b></div>
+              {summary.discountCode && (
+                <div><span data-en="Discount code">积分优惠码</span><b className="mono">{summary.discountCode}</b></div>
+              )}
+              {summary.pay && (
+                <div><span data-en="Points to pay">本次实付积分</span><b className="mono">{summary.pay} 分</b></div>
+              )}
             </div>
             <label className="check reg-confirm">
               <input type="checkbox" id="agreeUse" />

@@ -170,63 +170,68 @@ check(/zx-nav-cta"\s+href="\/register"/.test(read('src/app/pages/Home.tsx')), '�
 check(!/href="\/">登录/.test(runtime) && !/location\.href\s*=\s*'\/\?login=1'/.test(runtime), '不再有把根路径当登录页的入口');
 check(/\/login\?q=/.test(read('src/app/legacy/whois.ts')) && /href="\/login"/.test(read('src/app/legacy/report.ts')), 'WHOIS / 举报的登录链接指向 /login');
 
-/* 9. 切页过渡：Miku 冒出来 + 跳转中气泡（真实素材，不用 SVG 画角色） */
-const transition = read('src/app/lib/pageTransition.ts');
-check(/mountTransition\(\)/.test(main) && /from '\.\/lib\/pageTransition'/.test(main), '入口挂载切页过渡层');
-check(/addEventListener\('popstate',\s*\(\)\s*=>\s*beginTransition\(undefined, prefetchRoute\(location\.href\)\)\)/.test(transition), 'SPA 切页 / 后退触发过渡并预取（事件对象不误当导航回调）');
-check(/addEventListener\('td:page-ready', endTransition\)/.test(transition), '页面资料就绪收起过渡');
-check(/td:page-ready/.test(runtime), 'refreshRuntime 派发页面就绪信号');
-check(/data-no-i18n/.test(transition), '气泡文案不被全局翻译改写');
-check(/kind:\s*'image'/.test(transition) && /miku-pop\.png/.test(transition), '默认使用真实 PNG 素材');
-check(/'gif'/.test(transition) && /'video'/.test(transition) && /<video/.test(transition), '预留 GIF / MP4 一行切换');
-check(!/<svg|createElementNS|image\/svg\+xml/i.test(transition), '角色不是 SVG 绘制');
-check(/SHOW_DELAY\s*=\s*0/.test(transition) && /MIN_VISIBLE\s*=\s*360/.test(transition) && /HIDE_ANIM\s*=\s*340/.test(transition) && /FORCE_HIDE\s*=\s*8000/.test(transition), '点击即播、只保底 360ms、340ms 淡出、8s 兜底（不再固定按住 1.1s）');
-check(/NAV_HOLD_MIN\s*=\s*200/.test(transition) && /NAV_MAX_WAIT\s*=\s*1400/.test(transition) && /MEDIA_WAIT\s*=\s*180/.test(transition), '数据到手 + Miku 起手才换页，慢数据最多等 1400ms');
-check(/DOM_QUIET\s*=\s*180/.test(transition) && /MutationObserver/.test(transition) && /getElementById\('root'\)/.test(transition), '按 #root 内容稳定判定资料就绪（fire-and-forget 页面不再提前收起）');
-check(/warmAssets\(/.test(transition) && /WARM_ASSETS/.test(transition) && /decodeAsset/.test(transition), '首屏预热 Miku 与壁纸，切页不再现拉素材');
-check(/miku-bouquet-haze\.webp/.test(transition) && /theme === 'dark'/.test(transition) && /picks\.forEach/.test(transition), '只预热当前主题那张壁纸，不再多拉 310K 抢首屏带宽');
-check(/Promise\.race/.test(transition) && /waitMedia\(\)/.test(transition), '素材 / 数据等待都有硬上限，网慢不卡死切页');
-check(/beginTransition\(action\?/.test(transition) && /navPending/.test(transition) && /runPendingAction/.test(transition), '站内导航延后到数据之后，且兜底隐藏必补一次换页');
-check(/if\s*\(navPending\)\s*return/.test(transition), '导航前旧页面派发的 page-ready 不算就绪');
-check(!/endTransition[\s\S]{0,200}clearTimeout\(showTimer\)/.test(transition), '就绪信号不能取消显示');
-check(/beginTransition\(undefined, prefetchRoute/.test(read('src/app/App.tsx')) && /useLayoutEffect/.test(read('src/app/App.tsx')), 'App 路由 key 变化驱动，每个页面组件都覆盖');
-check(/beginTransition\(\(\)\s*=>\s*navigate\(href\), prefetchRoute\(href\)\)/.test(read('src/app/App.tsx')), '站内链接点击瞬间并行预取，不立刻 pushState');
-/* 预取层：数据并行、缓存消费、点击透传、根域名不重播 */
-const prefetch = read('src/app/lib/prefetch.ts');
-check(/ROUTE_DATA/.test(prefetch) && /fetch\(path/.test(prefetch) && /credentials:\s*'same-origin'/.test(prefetch), '预取层按路由并行发起只读同源 GET');
-check(/takePrefetched/.test(prefetch) && /TTL\s*=\s*6000/.test(prefetch) && /cache\.delete\(path\)/.test(prefetch), '预取结果一次性消费且有有效期，不会用旧数据');
-check(/takePrefetched\(p\)/.test(runtime) && /api\.req\('GET', p\)/.test(runtime), 'api.get 优先消费预取，未命中走正常请求（401 逻辑不绕过）');
-check(/if \(!active && !starting\) return/.test(transition) && /t\?\.closest\?\.\('a\[href\]'\)/.test(transition), '过渡期间链接可点改目标，非链接交互被守卫拦下');
-check(/\.td-trans \{[^}]*pointer-events:\s*none/.test(glass), '遮罩不吞点击，链接能透传');
-check(/meoy\\\.top\|v-1\\\.top/.test(transition) && /if \(hopped\)/.test(transition) && /shouldPlayOnLoad\(\)/.test(transition), '根域名页跳过来的首屏不重播第二遍过渡');
-/* 只有跳转才播：刷新 / 直接打开 / 外部进入一律不播 */
-check(/if \(shouldPlayOnLoad\(\)\) beginTransition\(\)/.test(transition) && !/mountTransition\(\)[\s\S]{0,40}\n\s*beginTransition\(\);/.test(transition), '入口首屏默认不播过渡，只有检测到跳转意图才播');
-check(/navigationType\(\) === 'reload'/.test(transition) && /return false/.test(transition), '刷新（reload）一律不播过渡');
-check(/NAV_INTENT_KEY/.test(transition) && /NAV_INTENT_TTL\s*=\s*6000/.test(transition) && /consumeNavigationIntent/.test(transition), '跨文档跳转用短效一次性意图标记，读完即删');
-check(/addEventListener\('pagehide'/.test(transition) && /markNavigation\(\)/.test(transition), '整页跳转卸载前写意图，SPA 换页不写');
-check(/addEventListener\('pageshow'/.test(transition) && /persisted/.test(transition) && /root\.hidden = true/.test(transition), 'bfcache 后退恢复时收掉残留遮罩，不重播');
-check(/prevKey\.current !== key/.test(read('src/app/App.tsx')) && /useRef\(key\)/.test(read('src/app/App.tsx')), 'App 首屏挂载不播过渡，只有路由 key 变化才播');
-check(/wasPending/.test(transition) && /重新排一次导航/.test(transition), '过渡中改点别的页面会重新排导航');
-check(/td-miku-rise/.test(glass) && /td-miku-breathe/.test(glass) && /td-trans-bubble/.test(glass), '玻璃层含冒出 / 呼吸 / 气泡样式');
-check(/\[data-theme="dark"\] \.td-trans/.test(glass) && /prefers-reduced-motion/.test(glass.split('页面切换过渡').pop() || ''), '过渡层深色与减少动态适配');
-check(fs.existsSync(path.join(root, 'public/img/transition/miku-pop.png')), 'Miku 透明素材已入库');
+/* 9. 切页过渡已移除：点击立即换页，不再延后导航 / 预热素材 / 播动画 */
+const main9 = read('src/app/main.tsx');
+const app9 = read('src/app/App.tsx');
+const prefetch9 = read('src/app/lib/prefetch.ts');
+const shell9 = read('src/html/spa.ts');
+check(!fs.existsSync(path.join(root, 'src/app/lib/pageTransition.ts')),
+  '过渡模块已删除，不再打进前端包');
+check(!/pageTransition|mountTransition|beginTransition|endTransition/.test(
+  main9 + app9 + read('src/app/lib/runtime.ts')),
+  '入口 / App / runtime 不再引用任何过渡 API');
+check(/void prefetchRoute\(href\);\s*navigate\(href\)/.test(app9),
+  '站内链接并行预取后立即 navigate，不再延后 200~1400ms');
+check(!/beginTransition|useRef\(key\)|prevKey/.test(app9), 'App 不再有路由过渡驱动');
+check(/waitPrefetched/.test(prefetch9) && /waitPrefetched\(p\)/.test(read('src/app/lib/runtime.ts')),
+  '立即换页后 api.get 复用在飞的预取，零重复请求');
+check(/if \(!e \|\| !e\.ok\) return null/.test(prefetch9) && /e\.promise/.test(prefetch9),
+  '在飞预取不再被 takePrefetched 提前丢弃');
+check(!/td-trans|td-miku|miku-pop/.test(read(SHELL))
+  && !/td-trans/.test(read('src/app/styles/design-system.css')),
+  'CSS 里的过渡遮罩 / 角色样式已删除');
+check(fs.existsSync(path.join(root, 'public/_headers'))
+  && /max-age=31536000, immutable/.test(read('public/_headers')),
+  '静态资源长缓存：带 hash 的 assets immutable');
 
-/* 10. 根域名静态页：跳控制台时也走同一套过渡，且副本同步 */
+/* 9b. DC 积分优惠码：注册域名时抵扣（不是充值） */
+const dcLib = read('src/lib/discountCode.ts');
+const dcSub = read('src/routes/subdomains.ts');
+const dcReg = read('src/app/legacy/register.ts');
+const dcRegPage = read('src/app/pages/Register.tsx');
+check(/export async function resolveDiscountCode/.test(dcLib)
+  && /export async function consumeDiscountCode/.test(dcLib)
+  && /export async function rollbackDiscountCode/.test(dcLib),
+  'DC 码解析 / 消耗 / 回滚三步集中在一处');
+check(/Math\.min\(base\.payable, value\)/.test(dcLib),
+  '只抵本次应付部分，不找零、不把面值变现成余额');
+check(/resolveDiscountCode\(c\.env\.DB, discountCode, u\.id, cost\)/.test(dcSub)
+  && /-payable/.test(dcSub) && /discountInvalid/.test(dcSub),
+  '注册接口按「实付」判余额与扣分，券无效有明确标志');
+check(/if \(useDiscount\) await rollbackDiscountCode/.test(dcSub),
+  '域名唯一约束撞车时回滚券');
+check(/&discountCode=/.test(dcReg) && /discountCode: dcValue\(\)/.test(dcReg)
+  && /id="discountCode"/.test(dcRegPage),
+  '注册页可填 DC 码：查价与提交都带上');
+check(/discount-code-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  'DC 码注册抵扣专项回归进 CI');
+
+/* 10. 根域名静态页：过渡同步移除，查询框改为立即跳 WHOIS */
 const rootPages = [
   ['meoy.top.html', 'src/html/root-meoy.ts'],
   ['v-1.top.html', 'src/html/root-v1.ts'],
 ];
 for (const [f, src] of rootPages) {
   const rp = read(src);
-  check(/id="tdTransition"/.test(rp) && /td-miku-rise/.test(rp), `${f} 含 Miku 跳页过渡`);
-  check(/addEventListener\("click"/.test(rp) && /preventDefault\(\)/.test(rp), `${f} 拦截控制台链接`);
-  check(/prefers-color-scheme: dark/.test(rp), `${f} 深色跟随系统`);
-  // 只做仓库内自校验：CI 里没有仓库外的工作区交付副本，不能读它
-  check(/setTimeout\(function\(\)\{ location\.href = url; \}, 300\)/.test(rp), `${f} Miku 起手 300ms 就跳，不再干等 760ms`);
-  check(/rel\s*=\s*"preload"/.test(rp) && /miku-pop\.png/.test(rp), `${f} 页面加载即预热过渡角色，点击时不再现拉`);
-  check((rp.match(/id="tdTransition"/g) || []).length === 1, `${f} 过渡层只挂一份`);
+  check(!/tdTransition|td-trans|miku-pop|nav-intent/.test(rp), `${f} 过渡层 / 素材预热已移除`);
+  check(/checker"\)\.addEventListener\("submit"/.test(rp) && /location\.href = PANEL/.test(rp),
+    `${f} 查询框提交仍跳 WHOIS，且改为立即跳转`);
+  check(!/setTimeout\(function\(\)\{ location\.href = url; \}, 300\)/.test(rp),
+    `${f} 不再有 300ms 延后跳转`);
+  check(/prefers-color-scheme:\s*dark/.test(rp), `${f} 深色跟随系统`);
+  check((rp.match(/addEventListener\("submit"/g) || []).length === 1,
+    `${f} 查询框只保留一个提交监听（校验与跳转已合并）`);
 }
-check(/\.td-trans\.is-out\s*\{[^}]*pointer-events:\s*none/.test(read(SHELL)), '淡出期间放行交互，遮罩不多挡 340ms');
 
 /* 11. 花束 Miku 壁纸 / 控制台 UI 重构 */
 const runtimeJs = read('src/app/lib/runtime.ts');
@@ -247,8 +252,10 @@ check(/dataset\.wpLoaded/.test(runtimeJs) && /img\.decode/.test(runtimeJs), 'run
 check(/brandValue/.test(runtimeJs) && /brandRefreshing/.test(runtimeJs) && /Promise\.resolve\(brandValue\)/.test(runtimeJs), '品牌配置走 stale-while-revalidate，切页不再 await 接口');
 check(/export function resetBranding\(\)\s*\{[^}]*brandPromise\s*=\s*null/s.test(runtimeJs), '后台保存后清缓存，下次切页拉新值');
 const shellHtml = read('src/html/spa.ts');
-check(/rel="preload" as="image" href="\/img\/transition\/miku-pop\.png"/.test(shellHtml), '首屏 preload 过渡角色');
-check(/miku-bouquet-haze\.webp/.test(shellHtml) && /miku-bouquet-dark\.webp/.test(shellHtml), '首屏 preload 壁纸浅/深/氛围版');
+check(!/miku-pop\.png/.test(shellHtml) && /miku-bouquet-haze\.webp/.test(shellHtml),
+  '首屏只预载 1 张氛围底纹，不再预载过渡角色与浅/深壁纸');
+check((shellHtml.match(/rel="preload" as="image"/g) || []).length === 1,
+  '首屏图片 preload 从 4 张收到 1 张，少抢 3 个并发槽');
 check(/html\[data-theme="dark"\] body[\s\S]{0,400}background:\s*transparent/.test(bloom), '深色 body 透明，壁纸不被盖住（A/B computed 背景一致）');
 check(/html:not\(\[data-theme="dark"\]\)/.test(bloom) || /background-color/.test(bloom), '纸面底色在根元素统一');
 check(!/--bl-jade:\s*#2f8f83/.test(bloom), '青瓷绿主色已换成 Noxc 蓝且不再回流');
@@ -267,8 +274,8 @@ const appSrc = read('src/app/App.tsx');
 check(/SHARED_TTL/.test(gate) && /sharedGet/.test(gate) && /pageFetchStart/.test(gate), '同路径在飞 GET 合并成一次，首屏请求纳入在途计数');
 check(/sharedGet\.get\(p\)/.test(gate) && /takePrefetched\(p\)/.test(gate), 'api.get 先复用共享 / 预取结果，未命中才发真实请求');
 check(/method !== 'GET'[\s\S]{0,80}clearSharedGet\(\)/.test(gate), '写操作立刻清共享缓存，签到 / 释放域名不读旧值');
-check(/whenPageFetchesIdle/.test(gate) && /setTimeout\(r, 2500\)/.test(gate), '就绪门控有 2.5s 硬兜底，单个挂死接口不会藏住整页');
-check(/page-root\[data-ready="0"\]/.test(gate) && /dataset\.ready = '1'/.test(gate) && /td:page-ready/.test(gate), '全部首屏 GET 结算后才放出页面并宣告过渡收起');
+check(/whenPageFetchesIdle/.test(gate) && /setTimeout\(r, 800\)/.test(gate), '就绪门控收紧到 800ms 硬兜底，慢接口不让整页干等');
+check(/page-root\[data-ready="0"\]/.test(gate) && /dataset\.ready = '1'/.test(gate) && /td:page-ready/.test(gate), '全部首屏 GET 结算后放出页面并宣告就绪（过渡层已不监听）');
 check(/opt\.deferAvatar/.test(gate), '骨架支持由页面快照一次性提供头像，不再先默认后替换');
 check(/bumpPageGeneration/.test(gate) && /gen !== pageGeneration/.test(gate) && /bumpPageGeneration\(\)/.test(appSrc), '切页世代：上一页未结算完的就绪回调不会放出新页面骨架');
 check(/async function snapshot\(\)/.test(dash) && /Promise\.all\(\[/.test(dash), '控制台首屏五个数据源一次并行出发');
@@ -280,14 +287,15 @@ check(!/async function fillWelcome/.test(dash) && !/api\.get\('\/api\/points\/me
 check(/await Promise\.all\(\[\s*snapshot\(\),\s*mountShell\('domains', \{ deferAvatar: true \}\)/.test(dash), 'mountDashboard 真的 await 完整首屏，就绪信号不会提前派发');
 check(/renderAvatars\(/.test(dash), '顶栏头像与欢迎卡头像同一帧落地');
 check(/data-ready="0"/.test(dashPage) && /id="stDomains">—/.test(dashPage) && /id="wHi">&nbsp;/.test(dashPage), '骨架不放假的 0 / 欢迎回来，数据未到齐前不露脸');
-check(/dataset\.ready = '0'/.test(appSrc) && /3000\)/.test(appSrc) && /clearTimeout\(failsafe\)/.test(appSrc), '每个页面挂载先隐藏内容区，并有 3s 放出兜底');
+check(/dataset\.ready = '0'/.test(appSrc) && /1200\)/.test(appSrc) && /clearTimeout\(failsafe\)/.test(appSrc), '每个页面挂载先隐藏内容区，放出兜底从 3s 收紧到 1.2s');
 const pageFiles = fs.readdirSync(path.join(root, 'src/app/pages')).filter((f) => f.endsWith('.tsx'));
 for (const f of pageFiles) {
   check(/refreshRuntime\(\)/.test(read('src/app/pages/' + f)), `${f} 会触发就绪门控`);
 }
-check(/READY_FALLBACK/.test(read('src/app/lib/pageTransition.ts')) && /readySignaled \|\| \(now - shownAt >= READY_FALLBACK && stable\)/.test(read('src/app/lib/pageTransition.ts')), '过渡必须等页面宣告整屏就绪，DOM 静默不再单独放行');
-check(/readySignaled = false/.test(read('src/app/lib/pageTransition.ts').split('if \(active \|\| starting\)').pop() || ''), '过渡中改点别的页面会作废旧页面的就绪信号');
-check(/\.page-root\[data-ready="0"\] \.main/.test(read(SHELL)) && /tdPageIn/.test(shellCss.split('from liquid-glass.css').pop() || ''), '未就绪时只藏内容区，就绪后整屏一次淡入（壁纸与玻璃框架照常可见）');
+check(/\.page-root\[data-ready="0"\] \.main/.test(read(SHELL))
+  && /\.page-root\[data-ready="1"\] \.main \{\s*opacity: 1 !important/.test(read(SHELL))
+  && !/tdPageIn/.test(read(SHELL)),
+  '未就绪时只藏内容区，就绪后立即显示（不再补 420ms 淡入）');
 
 
 /* 13. 壁纸全站满铺：不再只有右下角一小块、不再把公共页整层隐藏 */
@@ -470,7 +478,8 @@ check(/INSERT OR IGNORE INTO settings\(key, value\) VALUES \('default_quota', '5
 check(/defaultQuotaOf\(env\)/.test(quotaAuth) && !/Number\(env\.DEFAULT_QUOTA \|\| 5\)/.test(quotaAuth), '注册读取后台默认配额，不再写死 5');
 check(/numRule\('default_quota', body\.defaultQuota, -1, 10000/.test(quotaAdminApi), '后台保存校验 -1..10000');
 check(/applyQuotaToExisting === true/.test(quotaAdminApi) && /UPDATE users SET quota = \? WHERE role != 'admin'/.test(quotaAdminApi), '可一键同步到现有普通用户');
-check(/defaultQuota: await defaultQuotaOf\(c\.env\)/.test(quotaCfg), '公开配置下发 defaultQuota（与注册同口径）');
+check(/defaultQuota: quota/.test(quotaCfg) && /defaultQuotaOf\(c\.env\),/.test(quotaCfg),
+  '公开配置下发 defaultQuota（与注册同口径，且并入并发取值）');
 check(/defaultQuota/.test(quotaRuntime) && /applyDefaultQuota/.test(quotaRuntime), '前端首页额度跟着配置刷新');
 check(/data-default-quota/.test(quotaHome) && !/默认 5 个额度/.test(quotaHome), '首页不再硬编码 5 个额度');
 for (const id of ['sDefaultQuota', 'sApplyQuota', 'qUseDefault']) {
@@ -547,7 +556,8 @@ check((rvSub.match(/reservedLabelsOf\(c\.env\)/g) || []).length === 1, '保留�
 check(/const isReserved = !!lk\.isReserved/.test(rvSub) && /isReserved,/.test(rvSub), '/check 与真正提交复用同一次判定结果');
 check(!/c\.env\.RESERVED_LABELS/.test(rvSub), '注册链路不再各自解析 RESERVED_LABELS（避免两处口径不一致）');
 check(/isAdmin/.test(rvSub) && /isReserved && !isAdmin/.test(rvSub), '管理员仍可自建保留域名');
-check(/reservedLabels: \[\.\.\.\(await reservedLabelsOf\(c\.env\)\)\]/.test(rvIndex), '公开配置下发当前生效保留名单');
+check(/reservedLabels: reserved/.test(rvIndex) && /reservedLabelsOf\(c\.env\)\.then/.test(rvIndex),
+  '公开配置下发当前生效保留名单（并入并发取值）');
 check(/reserved: await reservedOverview\(c\.env\)/.test(rvAdminApi), '后台设置返回基线 / 额外 / 生效三份清单');
 check(/normalizeReservedExtra\(body\.reservedLabels\)/.test(rvAdminApi) && /admin\.reserved-labels/.test(rvAdminApi), '后台保存额外名单并写审计日志');
 check(/id="sReservedLabels"/.test(rvAdminUi) && /reservedLabels: document\.getElementById\('sReservedLabels'\)/.test(rvAdminUi), '后台有保留域名输入框且随保存提交');
@@ -619,7 +629,8 @@ check(
   '待审查询不再撞 /:id，/mine 别名注册在 /:id 之前'
 );
 check(/jpeg\|webp\|ico/.test(cpIndex), '静态资源放行 .webp（验证图不会被根域名重定向截走）');
-check(/captchaEnabled: await captchaEnabled\(c\.env\)/.test(cpIndex), '/api/config 下发开关，前后端同一份判定');
+check(/captchaEnabled: captcha/.test(cpIndex) && /captchaEnabled\(c\.env\),/.test(cpIndex),
+  '/api/config 下发开关，前后端同一份判定（并入并发取值）');
 check(/consumePass\(c\.env, captchaToken, u\.id\)/.test(cpSub) && /if \(!isAdmin &&/.test(cpSub), '注册提交校验一次性票据，管理员开通豁免');
 check(/captchaRequired/.test(cpRoute) && /err\.data = data/.test(cpRuntime), '验证失败可透传 captchaRequired，前端据此重新领图');
 check(/captchaToken: cap \? cap\.get\(\) : ''/.test(cpLegacy) && /cap\.reset\(\)/.test(cpLegacy), '注册请求携带票据且提交后立即作废');
@@ -649,7 +660,8 @@ const stCss = shellCss;
 const stLib = read('src/lib/publicStats.ts');
 check(/data-stat-users/.test(stHome) && /data-stat-domains/.test(stHome) && /rv-stats/.test(stHome), '首页有注册人数 / 域名数展示位');
 check(
-  /publicStats: await publicStats\(c\.env\)/.test(cpIndex) && /app\.get\('\/api\/stats'/.test(cpIndex),
+  /publicStats: stats/.test(cpIndex) && /publicStats\(c\.env\),/.test(cpIndex)
+  && /app\.get\('\/api\/stats'/.test(cpIndex),
   '统计随 /api/config 同一次返回，另有独立只读接口（零新增首屏请求）'
 );
 check(
@@ -693,7 +705,7 @@ check(/export async function checkStarred/.test(ghLib) && /\/user\/starred\//.te
 check(/app\.route\('\/api\/auth\/github', githubRoutes\)/.test(ghIndex) &&
       ghIndex.indexOf("app.route('/api/auth/github', githubRoutes)") < ghIndex.indexOf("app.route('/api/auth', authRoutes)"),
   'GitHub 路由先于 /api/auth 挂载，否则被吞成 404');
-check(/githubEnabled: await githubEnabled\(c\.env\)/.test(ghIndex) && !/accessToken:/.test(ghIndex),
+check(/githubEnabled: github/.test(ghIndex) && /githubEnabled\(c\.env\),/.test(ghIndex) && !/accessToken:/.test(ghIndex),
   '公开配置只下发开关，不下发 token / Secret');
 check(/app\.post\('\/claim-star'/.test(ghRoute) && /app\.get\('\/status'/.test(ghRoute) &&
       /app\.post\('\/unbind'/.test(ghRoute), 'GitHub 路由含绑定状态 / 领奖 / 解绑');
@@ -855,11 +867,11 @@ const dkFix = dkCss.slice(dkCss.indexOf('深色可读性收口（2026-11-21 实�
 check(dkFix.length > 1000, '深色可读性收口段存在且完整');
 check(/--zx-blue-soft:\s*#1c222c/.test(dkCss) && /--zx-body:\s*#b6c0cf/.test(dkCss),
   '深色 --zx-blue-soft 仍是背景语义的深墨、--zx-body 是浅色正文');
-/* shell.css 里 19 条历史规则把 --zx-blue-soft 当文字色；收口段必须逐类覆盖 */
+/* shell.css 里 18 条历史规则把 --zx-blue-soft 当文字色；收口段必须逐类覆盖 */
 const dkTextSelectors = [
   'stat-card .sc-num', 'stat-card .sc-lbl', 'stat-grid .stat', 'stat-v',
   'rv-term-body', 'nk-term-body', 'c-cmd', 'c-str', 'c-key', 'step i',
-  'nk-fbottom b', 'notif-panel .np-tag', 'td-trans-bubble', 'top-search kbd',
+  'nk-fbottom b', 'notif-panel .np-tag', 'top-search kbd',
   'input[disabled]',
 ];
 for (const sel of dkTextSelectors) {
@@ -990,7 +1002,8 @@ check(
   nlIndex.indexOf("app.route('/api/auth/nodeloc', nodelocRoutes)") < nlIndex.indexOf("app.route('/api/auth', authRoutes)"),
   'OAuth 路由先于 /api/auth 挂载，否则会被子应用吞成 404'
 );
-check(/nodelocEnabled: await nodelocEnabled\(c\.env\)/.test(nlIndex) && !/clientSecret:/.test(nlIndex), '公开配置只下发开关，不下发任何密钥');
+check(/nodelocEnabled: nodeloc/.test(nlIndex) && /nodelocEnabled\(c\.env\),/.test(nlIndex)
+  && !/clientSecret:/.test(nlIndex), '公开配置只下发开关，不下发任何密钥');
 check(/'nodeloc_client_secret'/.test(nlAdminApi) && /'github_client_secret'/.test(nlAdminApi) &&
         /body\.nodelocClientSecret/.test(nlAdminApi) && /body\.githubClientSecret/.test(nlAdminApi),
   '后台 Secret（NodeLoc / GitHub）只回掩码、留空不覆盖');
@@ -1120,7 +1133,7 @@ check(
 );
 check(
   /CAPTCHA_ENABLED/.test(mdLegacy) && /cfg\.captchaEnabled/.test(mdLegacy) &&
-  /captchaEnabled: await captchaEnabled\(c\.env\)/.test(mdIndex),
+  /captchaEnabled: captcha/.test(mdIndex) && /captchaEnabled\(c\.env\),/.test(mdIndex),
   '是否弹窗与后端注册接口读同一份 /api/config 判定'
 );
 check(
@@ -1345,11 +1358,13 @@ check(/ensureShowcaseReward\(c\.env, Number\(row\.user_id\)\)/.test(read('src/ro
   'PATCH 展示开关即时发奖，且发给域名所有者而非操作者');
 check(/ensureShowcaseReward\(c\.env, u\.id\)/.test(read('src/routes/points.ts')),
   '/api/points/me 为存量已展示用户惰性补发');
-check(/showcaseRewardPoints: await showcaseRewardOf/.test(read('src/index.ts'))
+check(/showcaseRewardPoints: showcasePts/.test(read('src/index.ts'))
    && /sShowcaseReward/.test(read('src/app/legacy/admin.ts'))
    && /showcaseRewardPoints: document/.test(read('src/app/legacy/admin.ts'))
    && /'showcase_reward_points', body\.showcaseRewardPoints/.test(read('src/routes/admin.ts')),
   '奖励积分可在后台设置，且 /api/config 下发当前值');
+check(/const \[effectiveRoots, ai, emailRule, reserved, captcha, nodeloc, github,[\s\S]{0,120}showcasePts, expiry, quota, stats\] = await Promise\.all\(/.test(read('src/index.ts')),
+  '/api/config 冷缓存路径：11 个独立子项并发发起，不再串行累加 RTT');
 check(read('src/app/lib/i18n.ts').includes('已开启展示，积分 \\+(\\d+)')
    && read('src/app/lib/dict.en.ts').includes('Showcase bonus points (once per account)'),
   '展示奖励提示有英文句式与新词条');
@@ -1374,7 +1389,7 @@ check(/renewWindowAuto/.test(expLib) && /renew_window_days', ''\)/.test(schemaPd
 check(/renew_window_half_v2/.test(schemaPd) && /NOT EXISTS/.test(schemaPd)
    && /value = '180'/.test(schemaPd),
   '老库旧默认 180 一次性清空，管理员自定义值保留');
-check(/expiry: await expiryRules\(c\.env\)/.test(read('src/index.ts')),
+check(/expiry,/.test(read('src/index.ts')) && /expiryRules\(c\.env\),/.test(read('src/index.ts')),
   '/api/config 下发生效后的有效期与续期窗口');
 check(/expiryTipText\(rules\)/.test(expHome) && /cfg\.expiry/.test(expHome)
    && !/单次注册 365 天/.test(expHome),

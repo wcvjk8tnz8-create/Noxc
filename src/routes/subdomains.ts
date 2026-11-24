@@ -14,6 +14,7 @@ import { ensureAiColumns, queueAiBatch } from '../lib/aiBatch.js';
 import { captchaEnabled, consumePass } from '../lib/captcha.js';
 import { ensureShowcaseColumns, cleanShowcaseInput } from '../lib/showcase.js';
 import { ensureShowcaseReward } from '../lib/showcaseReward.js';
+import { resolveDiscountCode, consumeDiscountCode, rollbackDiscountCode, normCode } from '../lib/discountCode.js';
 
 const app = new Hono();
 
@@ -106,6 +107,13 @@ app.get('/check', async (c) => {
   );
   let points = UNLIMITED_POINTS;
   if (u && !isAdmin) points = await ensurePoints(c.env.DB, u.id, rules);
+  /* DC 积分优惠码：注册页输入后随查价一起预览「原价 / 抵扣 / 实付」。
+     只做只读校验，不消耗券，也不因券不可用把「域名能不能注册」判成失败。 */
+  const rawDc = c.req.query('discountCode');
+  const dc = u && !isAdmin
+    ? await resolveDiscountCode(c.env.DB, rawDc, u.id, isAdmin ? 0 : cost)
+    : { row: null, discount: 0, payable: isAdmin ? 0 : cost, reason: '', code: '' };
+  const payable = isAdmin ? 0 : dc.payable;
   const gate = await applyGate(c.env);
   const qRoot = String(c.req.query('root') || '').trim().toLowerCase().replace(/\.+$/, '');
   const rootPaused = isRootApplyPaused(gate, qRoot) && !isAdmin;
@@ -124,7 +132,12 @@ app.get('/check', async (c) => {
     points,
     isAdmin: !!isAdmin,
     unlimited: isAdmin || u === null ? isAdmin : false,
-    enough: isAdmin || !u || points < 0 || points >= cost,
+    pay: payable,
+    discount: dc.discount,
+    discountCode: dc.code,
+    discountReason: dc.reason,
+    discountValid: !!dc.row,
+    enough: isAdmin || !u || points < 0 || points >= payable,
   });
 });
 
@@ -188,7 +201,7 @@ const createMine = async (c) => {
   const gate = await applyGate(c.env);
   if (gate.paused && u.role !== 'admin') return fail(c, gate.message, 403, { applyPaused: true });
 
-  const { label, note, root: rootReq, captchaToken } = await c.req.json().catch(() => ({}));
+  const { label, note, root: rootReq, captchaToken, discountCode } = await c.req.json().catch(() => ({}));
   const isAdmin = u.role === 'admin';
 
   /* 滑块验证：管理员「开通」不拦，普通用户必须先拿到一次性 passToken。
@@ -279,15 +292,28 @@ const createMine = async (c) => {
     isAdmin,
     reqRoot
   );
+  /* DC 积分优惠码：注册域名时直接抵扣本次消耗。
+     只校验、不在这里消耗 —— 消耗放在域名 INSERT 之前，任何提前拦下
+     （积分不足 / 配额已满 / AI 驳回）都不会白白吃掉用户的券。 */
+  const dc = !isAdmin
+    ? await resolveDiscountCode(c.env.DB, discountCode, u.id, cost)
+    : { row: null, discount: 0, payable: cost, reason: '', code: '' };
+  const dcFilled = !!normCode(discountCode);
+  /* 「本次免费，券未使用」只是提示；其余不可用原因必须拦下，
+     否则用户会以为用了券、实际却按原价扣分。 */
+  if (dcFilled && !isAdmin && !dc.row && !/不消耗积分/.test(dc.reason)) {
+    return fail(c, dc.reason, 400, { discountInvalid: true });
+  }
+  const payable = isAdmin ? 0 : dc.payable;
   let points = UNLIMITED_POINTS;
   if (!isAdmin) {
     points = await ensurePoints(c.env.DB, u.id, rules);
-    if (points >= 0 && points < cost) {
+    if (points >= 0 && points < payable) {
       return fail(
         c,
-        `积分不足：${short ? '单字域名' : '该子域名'}需要 ${cost} 分，当前 ${points} 分`,
+        `积分不足：${short ? '单字域名' : '该子域名'}需要 ${payable} 分，当前 ${points} 分${dc.discount > 0 ? `（已用优惠码抵扣 ${dc.discount} 分）` : ''}`,
         402,
-        { need: cost, have: points, short }
+        { need: payable, have: points, short, discount: dc.discount }
       );
     }
   }
@@ -348,6 +374,18 @@ const createMine = async (c) => {
   const isPerpetual = isAdmin ? 1 : 0;
   const expiresAt = isAdmin ? null : (autoApprove ? computeExpiry({ validDays: expRules.validDays }) : null);
 
+  /* 券的占位放在域名写入前：AI 驳回 / 管理员自建都不消耗。
+     先写 log（本人去重凭据）再条件累加用量，并发下不会超发；
+     域名唯一约束撞车时下面会完整回滚，绝不出现「券没了域名也没拿到」。 */
+  const useDiscount = !!dc.row && !isAdmin && !aiRejected;
+  if (useDiscount) {
+    try {
+      await consumeDiscountCode(c.env.DB, dc.row, u.id, dc.discount, now());
+    } catch {
+      return fail(c, '优惠码已被用完，请换一张或去掉优惠码重试', 409, { discountExhausted: true });
+    }
+  }
+
   let res;
   try {
     res = await c.env.DB.prepare(
@@ -363,6 +401,7 @@ const createMine = async (c) => {
       )
       .run();
   } catch (e) {
+    if (useDiscount) await rollbackDiscountCode(c.env.DB, dc.row, u.id);
     // 并发：同一瞬间被别人抢先注册（label / fqdn 唯一约束兜底）
     const msg = String(e && e.message ? e.message : e);
     if (/UNIQUE|constraint/i.test(msg))
@@ -378,13 +417,13 @@ const createMine = async (c) => {
 
   // 扣除积分（管理员不扣；AI 驳回视为未受理，不扣）
   let pointsAfter = UNLIMITED_POINTS;
-  if (!isAdmin && !aiRejected && cost > 0) {
+  if (!isAdmin && !aiRejected && payable > 0) {
     pointsAfter = await addPoints(
       c.env.DB,
       u.id,
-      -cost,
+      -payable,
       'apply',
-      `${fqdn}${short ? '（单字域名）' : ''}`
+      `${fqdn}${short ? '（单字域名）' : ''}${dc.discount > 0 ? ` · DC 码 ${dc.code} 抵扣 ${dc.discount} 分` : ''}`
     );
   }
 
@@ -394,8 +433,10 @@ const createMine = async (c) => {
   else if (noApprovalRequired) detail.push(`全局免审核直接开通，AI 未参与（${aiDiag?.skipText || '未触发'}）`);
   else detail.push(`AI 未触发：${aiDiag?.skipText || '审核模块异常，已回落人工审核'}${aiDiag?.attempts?.length ? ' · ' + aiDiag.attempts.join(' | ').slice(0, 240) : ''}`);
   if (!isAdmin && !aiRejected) {
-    if (cost === 0) detail.push(rootOverride ? `${reqRoot} 单独设为 0 分（免费）` : '积分为 0，免费开通');
-    else detail.push(`消耗 ${cost} 分${short && !rootOverride ? '（单字域名）' : ''}`);
+    if (payable === 0) detail.push(dc.discount > 0
+      ? `DC 码 ${dc.code} 全额抵扣 ${dc.discount} 分`
+      : rootOverride ? `${reqRoot} 单独设为 0 分（免费）` : '积分为 0，免费开通');
+    else detail.push(`消耗 ${payable} 分${short && !rootOverride ? '（单字域名）' : ''}${dc.discount > 0 ? `（DC 码 ${dc.code} 抵扣 ${dc.discount} 分）` : ''}`);
   }
   if (isReserved) detail.push('保留域名');
 
@@ -404,7 +445,7 @@ const createMine = async (c) => {
      refundableCost 会自动回退查 point_logs。 */
   try {
     await c.env.DB.prepare('UPDATE subdomains SET apply_cost = ? WHERE id = ?')
-      .bind(isAdmin || aiRejected ? 0 : cost, res.meta?.last_row_id)
+      .bind(isAdmin || aiRejected ? 0 : payable, res.meta?.last_row_id)
       .run();
   } catch { /* 旧库尚未补齐该列：不影响申请 */ }
 
@@ -431,6 +472,9 @@ const createMine = async (c) => {
     aiQueued,
     reserved: isReserved,
     cost: isAdmin ? 0 : (aiRejected ? 0 : cost),
+    pay: isAdmin ? 0 : (aiRejected ? 0 : payable),
+    discount: isAdmin || aiRejected ? 0 : dc.discount,
+    discountCode: dc.code,
     short,
     points: pointsAfter,
   });

@@ -1,7 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useLayoutEffect, useState, type JSX } from 'react';
 import { navigate, bumpPageGeneration } from './lib/runtime';
 import { startI18n } from './lib/i18n';
-import { beginTransition } from './lib/pageTransition';
 import { prefetchRoute } from './lib/prefetch';
 import LoginPage from './pages/Login';
 import HomePage from './pages/Home';
@@ -87,8 +86,6 @@ function isInternal(href: string): boolean {
  */
 export default function App() {
   const [key, setKey] = useState(() => keyOf(window.location.pathname));
-  // 首屏挂载（含刷新、直接打开）不算跳转，不播过渡；只有 key 真的变了才播
-  const prevKey = useRef(key);
 
   useEffect(() => {
     const onPop = () => setKey(keyOf(window.location.pathname));
@@ -100,10 +97,12 @@ export default function App() {
       const href = a.getAttribute('href') || '';
       if (!isInternal(href) || a.target === '_blank' || a.hasAttribute('download')) return;
       // 只允许左键、无修饰键；hash 变化仍交给浏览器
-      // 点击这一瞬间就并行拉目标页首屏数据；Miku 冒出 + 数据到手才换页，
-      // 换过去直接渲染完整内容，不再「切过去 → 空壳 → 串行等接口」。
+      // 点击这一瞬间并行发起目标页首屏 GET，然后**立即**换页。
+      // 不再播过渡、不再把导航延后 200~1400ms：响应慢的主要来源就是那层等待。
+      // 目标页 api.get 会直接复用这条在飞的预取，零重复请求。
       e.preventDefault();
-      beginTransition(() => navigate(href), prefetchRoute(href));
+      void prefetchRoute(href);
+      navigate(href);
     };
     window.addEventListener('popstate', onPop);
     document.addEventListener('click', onClick);
@@ -123,20 +122,14 @@ export default function App() {
     document.querySelectorAll('.page-root').forEach((el) => {
       (el as HTMLElement).dataset.ready = '0';
     });
-    // 控制器异常时的兜底：3 秒后强制放出，绝不把页面永久藏住
+    // 控制器异常时的兜底：1.2 秒后强制放出，绝不把整屏藏太久。
+    // 过渡层移除后不再需要「等动画 + 等数据」双重门控，慢接口也先让用户看到页面。
     const failsafe = window.setTimeout(() => {
       document.querySelectorAll('.page-root[data-ready="0"]').forEach((el) => {
         (el as HTMLElement).dataset.ready = '1';
       });
-    }, 3000);
+    }, 1200);
 
-    // 只有「路由真的变了」才播过渡：首屏挂载 / 刷新 / 直接打开都跳过。
-    // 不依赖 popstate，避免某些路由路径漏掉动画；站内链接点击已经先
-    // beginTransition(action, ready)，这里再调是幂等的，不会重播。
-    if (prevKey.current !== key) {
-      prevKey.current = key;
-      beginTransition(undefined, prefetchRoute(location.href));
-    }
     // 语言切换器与翻译在每次切页后补挂（内部幂等）。
     // 用 layout effect 而非 effect：绘制前就完成首次翻译，英文模式不会先闪一帧中文。
     try { startI18n(); } catch { /* 不影响页面功能 */ }

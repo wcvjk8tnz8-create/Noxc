@@ -249,13 +249,13 @@ UPDATE settings SET value = '' WHERE key = 'renew_window_days' AND value = '180'
 INSERT OR IGNORE INTO settings(key, value) VALUES ('renew_window_half_v2', '1');
 
 -- ══════════════════════════════════════════════════════════
---  兑换码：V-XXX 域名永久化 / PE-XXXXX 配额
+--  兑换码：V-XXX 域名永久化 / PE-XXXXX 配额 / DC-XXXXXX 积分
 -- ══════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS redeem_codes (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  code         TEXT    NOT NULL UNIQUE,   -- 形如 V-A1B2C3 / PE-XXXXXXX
-  type         TEXT    NOT NULL,          -- permanent | quota
-  value        INTEGER NOT NULL DEFAULT 1,-- quota 类型表示增加的配额数量
+  code         TEXT    NOT NULL UNIQUE,   -- 形如 V-A1B2C3 / PE-XXXXXXX / DC-XXXXXX
+  type         TEXT    NOT NULL,          -- permanent | quota | points
+  value        INTEGER NOT NULL DEFAULT 1,-- quota=增加配额数量 / points=增加积分数
   max_uses     INTEGER NOT NULL DEFAULT 1,
   used_count   INTEGER NOT NULL DEFAULT 0,
   status       TEXT    NOT NULL DEFAULT 'active',  -- active | disabled
@@ -630,6 +630,14 @@ CREATE TABLE IF NOT EXISTS showcase_rewards (
   user_id     INTEGER PRIMARY KEY,
   amount      INTEGER NOT NULL DEFAULT 0,
   fqdn        TEXT    NOT NULL DEFAULT '',
+  created_at  INTEGER NOT NULL
+);
+
+-- 组合任务积分奖励：绑定 NodeLoc + Star 项目，两项都完成才一次性发放 3000 积分。
+-- user_id 主键保证每账号只发一次；只建表、绝不 RENAME / DROP 业务表。
+CREATE TABLE IF NOT EXISTS combo_rewards (
+  user_id     INTEGER PRIMARY KEY,
+  amount      INTEGER NOT NULL DEFAULT 0,
   created_at  INTEGER NOT NULL
 );
 

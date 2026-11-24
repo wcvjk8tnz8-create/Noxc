@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { POINT_DEFAULTS } from '../lib/pointDefaults.js';
 import { ensureShowcaseReward } from '../lib/showcaseReward.js';
+import { ensureComboReward, comboRewardStatus } from '../lib/comboReward.js';
 import { ok, fail, now, audit } from '../lib/util.js';
 import {
   UNLIMITED_POINTS,
@@ -51,6 +52,13 @@ app.get('/me', async (c) => {
       if (bonus > 0) await audit(c, u.id, 'points.showcase_reward', 'showcase',
         `用户案例展示奖励补发 +${bonus}`);
     } catch { /* 降级：积分照常返回 */ }
+    /* 组合任务：绑定 NodeLoc + Star 项目都完成才补发一次 3000 积分。
+       惰性补发放在这里，存量用户不用重新做任务；失败不影响积分接口返回。 */
+    try {
+      const combo = await ensureComboReward(c.env, u.id);
+      if (combo > 0) await audit(c, u.id, 'points.combo_reward', 'combo',
+        `组合任务奖励 +${combo}（NodeLoc 绑定 + Star 项目）`);
+    } catch { /* 降级：积分照常返回 */ }
   }
   const points = isAdmin ? UNLIMITED_POINTS : await ensurePoints(c.env.DB, u.id, rules);
   const day = todayStr();
@@ -71,6 +79,27 @@ app.get('/me', async (c) => {
     canCheckIn: !checked,
     logs: logs || [],
   });
+});
+
+/**
+ * 组合任务奖励状态（奖励中心用）。
+ * 默认只读不写；带 ?check=1 时主动复核并补发一次，让「两个任务都做完了」
+ * 的用户点一下就能立即看到 3000 入账，不用等下次访问积分接口。
+ * 管理员恒返回只读状态，不参与发放。
+ */
+app.get('/rewards', async (c) => {
+  const u = c.get('user');
+  const isAdmin = u.role === 'admin';
+  let granted = 0;
+  if (!isAdmin && String(c.req.query('check') || '').trim() === '1') {
+    try {
+      granted = await ensureComboReward(c.env, u.id);
+      if (granted > 0) await audit(c, u.id, 'points.combo_reward', 'combo',
+        `组合任务奖励 +${granted}（奖励中心主动领取）`);
+    } catch { /* 降级：状态照常返回 */ }
+  }
+  const status = await comboRewardStatus(c.env, u.id);
+  return ok(c, { ...status, isAdmin, granted, unlimited: isAdmin });
 });
 
 /** 每日签到 */
