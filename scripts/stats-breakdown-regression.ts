@@ -206,6 +206,9 @@ check(/publicStats: stats/.test(idx) && /publicStats\(c\.env\),/.test(idx)
 check(/id="statDomainsToggle"/.test(home) && /aria-expanded/.test(home)
   && /id="statBreakdown"/.test(home) && /id="statHottest"/.test(home),
   '首页「已开通域名」可展开，且有不展开也能看到的最热提示');
+check(!/\.filter\(\(r\) => !isApplyPausedFor\(r\.domain\)\)/.test(ctrl)
+  && /rv-bd-paused/.test(ctrl),
+  '统计展开列出全部后缀：暂停申请不等于后缀不存在');
 check(/statBreakdownRows/.test(ctrl) && /renderBreakdown/.test(ctrl)
   && /renderHottest/.test(ctrl) && /HOTTEST/.test(ctrl)
   && /nk-badge-hot/.test(ctrl) && /rv-bd-hot/.test(ctrl),
@@ -257,12 +260,17 @@ ${css}
 <div class="rv-breakdown" id="statBreakdown">
   <div class="rv-bd-head"><span>后缀</span><span>域名数</span><span>注册人数</span></div>
   <div id="statBreakdownRows">
-    <div class="rv-bd-row"><span class="rv-bd-name mono">.meoy.top<em class="rv-bd-hot">HOT</em></span><span class="rv-bd-num">3</span><span class="rv-bd-num">2</span></div>
+    <div class="rv-bd-row is-paused"><span class="rv-bd-name mono">.meoy.top<em class="rv-bd-hot">HOT</em><em class="rv-bd-paused">暂停申请</em></span><span class="rv-bd-num">3</span><span class="rv-bd-num">2</span></div>
     <div class="rv-bd-row"><span class="rv-bd-name mono">.noxc.uk</span><span class="rv-bd-num">1</span><span class="rv-bd-num">1</span></div>
     <div class="rv-bd-row"><span class="rv-bd-name mono">.v-1.top</span><span class="rv-bd-num">1</span><span class="rv-bd-num">1</span></div>
     <div class="rv-bd-row"><span class="rv-bd-name mono">.zero.top</span><span class="rv-bd-num">0</span><span class="rv-bd-num">0</span></div>
   </div>
 </div>
+<div class="root-picker-menu show" id="rootPickerMenu">
+  <button type="button" class="root-opt on" data-root="noxc.uk" data-paused="0"><span class="root-opt-name">.NOXC.UK</span></button>
+  <button type="button" class="root-opt" data-root="meoy.top" data-paused="1" disabled aria-disabled="true"><span class="root-opt-name">.MEOY.TOP</span><span class="root-opt-free">暂停</span></button>
+</div>
+<script>window.__pausedClicks=0;document.querySelector('[data-paused="1"]').onclick=function(){window.__pausedClicks++};</script>
 </body></html>`;
   fs.writeFileSync(path.join(tmp, 'stats.html'), html, 'utf8');
 
@@ -278,6 +286,30 @@ ${css}
     const over = await pg.evaluate('document.documentElement.scrollWidth > window.innerWidth');
     check(visible && rows === 4 && hot >= 2 && !over,
       `${vp.width}px 实拍：展开面板 4 行、HOT 可见、无横向溢出`);
+    /* 暂停 ≠ 不存在：meoy.top 必须在统计里看得见，只做灰显标注 */
+    const pausedRow = pg.locator('.rv-bd-row.is-paused .rv-bd-name');
+    const pausedText = await pausedRow.innerText().catch(() => '');
+    const rowOpacity = await pg.evaluate(() => {
+      const el = document.querySelector('.rv-bd-row.is-paused .rv-bd-name') as HTMLElement | null;
+      return el ? Number(getComputedStyle(el).opacity) : 1;
+    });
+    const tagVisible = await pg.locator('.rv-bd-paused').isVisible().catch(() => false);
+    check(pausedText.includes('meoy.top') && tagVisible && rowOpacity < 1,
+      `${vp.width}px 实拍：被暂停的 meoy.top 仍在统计展开里、带灰标注（opacity ${rowOpacity}）`);
+    /* 注册页选择器：暂停项看得见但灰显、disabled、点不动 */
+    const opt = pg.locator('.root-opt[data-paused="1"]');
+    const optState = await pg.evaluate(() => {
+      const el = document.querySelector('.root-opt[data-paused="1"]') as HTMLButtonElement | null;
+      if (!el) return { disabled: false, pe: '', op: 1 };
+      const s = getComputedStyle(el);
+      return { disabled: el.disabled, pe: s.pointerEvents, op: Number(s.opacity) };
+    });
+    /* 只模拟真实用户能做到的动作：disabled 元素的 .click() 不会派发 onclick；
+       人工 dispatchEvent 会绕过 disabled，不代表真实点击，故不在此使用。 */
+    await opt.evaluate((el: any) => { el.click(); }).catch(() => {});
+    const clicks = await pg.evaluate('window.__pausedClicks || 0');
+    check(optState.disabled && optState.pe === 'none' && optState.op < 1 && clicks === 0,
+      `${vp.width}px 实拍：菜单里暂停项灰显不可点（disabled/pointer-events/opacity ${optState.op}/触发 ${clicks} 次）`);
     await pg.close();
   }
   console.log('  ℹ 无头浏览器实拍已执行');

@@ -19,7 +19,8 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
   let ROOTS = [];
   let RT = [];
   /* 首推 noxc.uk：无论 /api/config 返回的顺序，都把它排到第一位。
-     同时把「被暂停申请的根域名」整个剔除 —— 首页不再显示它，也点不到。 */
+     「可申请入口」（后缀卡片 / 查询下拉）剔除暂停后缀；但统计展开是数据展示，
+     暂停 ≠ 不存在，meoy.top 等仍要照常列出，只做灰显标注。 */
   const preferNoxc = (list) => sortPreferred(list);
   
   /* ---------- 可选后缀卡片 ----------
@@ -75,8 +76,9 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
   function renderBreakdown(list, fmt) {
     const rows = document.getElementById('statBreakdownRows');
     if (!rows) return;
-    const items = (Array.isArray(list) ? list : [])
-      .filter((r) => !isApplyPausedFor(r.domain));   // 暂停后缀不在首页展示
+    /* 暂停申请只影响「能不能新注册」，不影响「有多少已开通域名」：
+       统计展开必须列出全部生效后缀（含被暂停的 meoy.top），只做灰显标注。 */
+    const items = (Array.isArray(list) ? list : []);
     if (!items.length) {
       rows.innerHTML = '<div class="rv-bd-empty" data-en="No suffix data yet">暂无后缀数据</div>';
       return;
@@ -84,8 +86,9 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
     rows.innerHTML = items.map((r) => {
       const d = String(r.domain || '').trim().toLowerCase();
       const hot = HOTTEST && d === HOTTEST;
-      return `<div class="rv-bd-row">
-        <span class="rv-bd-name mono">.${esc(d)}${hot ? '<em class="rv-bd-hot">HOT</em>' : ''}</span>
+      const paused = isApplyPausedFor(d);
+      return `<div class="rv-bd-row${paused ? ' is-paused' : ''}">
+        <span class="rv-bd-name mono">.${esc(d)}${hot ? '<em class="rv-bd-hot">HOT</em>' : ''}${paused ? '<em class="rv-bd-paused" data-en="PAUSED">暂停申请</em>' : ''}</span>
         <span class="rv-bd-num">${fmt(r.domains)}</span>
         <span class="rv-bd-num">${fmt(r.users)}</span>
       </div>`;
@@ -131,7 +134,7 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
         ? cfg.rootDomains
         : (cfg.rootDomain ? [cfg.rootDomain] : []);
       /* preferNoxc 会剔除暂停后缀并把主推域名排到第一位：
-         首页后缀卡片、查询下拉、HOT 标记都只会看到开放后缀。 */
+         首页后缀卡片与查询下拉只列可申请后缀；HOT 来自真实统计，不受影响。 */
       ROOTS = preferNoxc(ROOTS);
       RT = Array.isArray(cfg.recordTypes) ? cfg.recordTypes : [];
       /* qRoot 现在是下拉框：列出全部已配置根域名，可切换查询其它后缀 */
@@ -160,8 +163,8 @@ export async function mountHome(_root: HTMLElement | null): Promise<void> {
       if (st && typeof st === 'object') {
         document.querySelectorAll('[data-stat-users]').forEach((el) => { el.textContent = fmt(st.users); });
         document.querySelectorAll('[data-stat-domains]').forEach((el) => { el.textContent = fmt(st.domains); });
+        /* HOT = 真实已开通最多的后缀，与「是否暂停新申请」无关 */
         HOTTEST = String(st.hottest || '').trim().toLowerCase();
-        if (isApplyPausedFor(HOTTEST)) HOTTEST = '';   // 暂停后缀不出现在首页任何位置
         renderBreakdown(st.roots, fmt);
         renderHottest(HOTTEST);
       }

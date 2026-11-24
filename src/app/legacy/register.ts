@@ -10,7 +10,7 @@ import type { LegacyCtx } from '../lib/types';
 import { currentLang, startI18n } from '../lib/i18n';
 import {
   configureApplyPause, applyPauseLock, isApplyPausedFor,
-  lockApplyButton, unlockApplyButton, sortPreferred,
+  lockApplyButton, unlockApplyButton, preferredRoot, rootsForPicker,
 } from '../lib/applyPause';
 
 export async function mountRegister(_root: HTMLElement | null): Promise<void> {
@@ -63,9 +63,9 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   // 供 React 注册页（滑块弹窗回调）复用同一份判定
   (window as any).__TD_APPLY_LOCKED__ = function(){ return applyLockNow(); };
 
-  /* 主推域名 = sortPreferred() 后的第一个（noxc.uk 优先，与首页「首推」一致）。
-     被暂停的根域名根本不进 ROOTS，所以用户点不到、也不会卡死在暂停后缀上。 */
-  function primaryRoot(){ return ROOTS[0] || ''; }
+  /* 主推域名 = 第一个「未暂停」后缀（noxc.uk 优先）。
+     暂停项仍会灰显在选择器里，但绝不能被当成默认值或自动切换的目标。 */
+  function primaryRoot(){ return preferredRoot(ROOTS); }
   function syncUrlRoot(d){
     try {
       var u = new URL(location.href);
@@ -89,7 +89,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
   function currentRoot(){
     var btn = document.getElementById('rootPickerBtn');
     if (btn && btn.getAttribute('data-root')) return btn.getAttribute('data-root');
-    return ROOTS[0] || '';
+    return primaryRoot();
   }
   function rootQuery(){ var r = currentRoot(); return r ? '&root=' + encodeURIComponent(r) : ''; }
   function dcValue(){ return ((document.getElementById('discountCode') as HTMLInputElement)?.value || '').trim(); }
@@ -109,7 +109,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
        管理员自建仍由后端豁免，只是这里不给任何人留可点的提交入口。 */
     APPLY_PAUSED = true;
     /* 后缀选择器永远可点：以前连它一起 disabled，用户切到暂停后缀后就再切不回来。
-       现在暂停后缀压根不在菜单里，选择器留着只会指向开放后缀。 */
+       暂停项照常渲染，只是灰显 + disabled + pointer-events:none。 */
     ['label','note','agreeUse'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) (el as HTMLButtonElement).disabled = true;
@@ -214,9 +214,9 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       var list = Array.isArray(cfg.rootDomains) && cfg.rootDomains.length
         ? cfg.rootDomains
         : (cfg.rootDomain ? [cfg.rootDomain] : []);
-      /* 被暂停申请的根域名直接从可选列表剔除，并把主推域名排到第一位。
-         这样首页/注册页都不会再出现它，用户也点不到、切不进去。 */
-      list = sortPreferred(list);
+      /* 选择器里保留全部生效后缀（含暂停项，灰显不可点），只做归一化/去重/
+         主推排序。默认选中与自动切换都取 primaryRoot() = 开放后缀。 */
+      list = rootsForPicker(list);
       ROOTS = list;
       AI_ROOTS = Array.isArray(cfg.aiReviewRoots) ? cfg.aiReviewRoots : [];
       DNS_UNLIMITED = Array.isArray(cfg.dnsUnlimitedRoots) ? cfg.dnsUnlimitedRoots : [];
@@ -232,7 +232,8 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
       /* 有效期与续期窗口同样随站点设置变，不再写死 365 / 180 */
       var expiryFaq = document.getElementById('faqExpiry');
       if (expiryFaq && cfg.expiry) expiryFaq.textContent = expiryTipText(cfg.expiry);
-      updateRootTip(list[0] || '');
+      var first = primaryRoot() || list[0] || '';
+      updateRootTip(first);
 
       /* 每个后缀在菜单里直接标出消耗积分：0 = Free，未配置 = 按全局规则 */
       function costLabel(d){
@@ -271,11 +272,10 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
           wrap.innerHTML = '<span style="opacity:.5">.</span><select id="rootDomainSel">'
             + list.map(function(d){ return '<option value="' + esc(d) + '">' + esc(d) + '</option>'; }).join('')
             + '</select>';
-        } else if (span) span.textContent = list[0] || '';
+        } else if (span) span.textContent = first;
         return;
       }
 
-      var first = list[0] || '';
       span.textContent = first;
       btn.setAttribute('data-root', first);
 
@@ -286,12 +286,12 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
         return;   // 只有一个后缀：整块就是静态文字，不展开
       }
 
-      menu.innerHTML = list.map(function(d, i){
+      menu.innerHTML = list.map(function(d){
         var paused = isApplyPausedFor(d);
-        return '<button type="button" class="root-opt' + (i === 0 ? ' on' : '') + '" role="option"'
+        return '<button type="button" class="root-opt' + (d === first ? ' on' : '') + '" role="option"'
           + ' data-root="' + esc(d) + '" data-paused="' + (paused ? '1' : '0') + '"'
-          + (paused ? ' disabled aria-disabled="true"' : '')
-          + ' aria-selected="' + (i === 0 ? 'true' : 'false') + '">'
+          + (paused ? ' disabled aria-disabled="true" title="该后缀已暂停新申请"' : '')
+          + ' aria-selected="' + (d === first ? 'true' : 'false') + '">'
           + '<span class="root-opt-name">.' + esc(d.toUpperCase()) + '</span>'
           + (paused
               ? '<span class="root-opt-free" data-en="PAUSED" style="opacity:.75">暂停</span>'
@@ -308,7 +308,7 @@ export async function mountRegister(_root: HTMLElement | null): Promise<void> {
         var want = new URLSearchParams(location.search).get('root');
         if (want) {
           var w = String(want).toLowerCase().replace(/\.+$/, '');
-          if (list.indexOf(w) >= 0) selectRoot(w);
+          if (!isApplyPausedFor(w) && list.indexOf(w) >= 0) selectRoot(w);
           else if (first) syncUrlRoot(first);   // 暂停 / 不存在的后缀：自动改为主推域名
         }
       } catch {}

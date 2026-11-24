@@ -63,13 +63,16 @@ The free D1 tier allows 5M rows read per day. Public statistics now live in a si
 
 ## Automatically switch to the primary suffix
 
-A paused root domain is **removed from every selectable list**: the registration suffix menu, home page suffix cards and lookup dropdown, WHOIS dropdown and root-domain landing page dropdown do not show it at all, so it **cannot be clicked**.
+Pausing **only stops new registrations** — it does not mean the suffix disappears. It is still a site suffix: existing domains keep resolving, renewing and showing up, and it still appears in the public statistics.
+
+- **Application entry points** (home suffix cards and lookup dropdown, WHOIS dropdown, root-domain landing page dropdown) omit paused suffixes
+- In the **registration suffix picker**, a paused suffix is **still shown, greyed out and unclickable** (`disabled` + reduced opacity + `pointer-events:none`), labelled "PAUSED" on the right
 
 - The primary suffix is `noxc.uk` (marked "Featured" on the home page); if it is paused too, the next open suffix is used automatically
 - Arriving via `/register?root=paused-suffix` or an old home / WHOIS / landing-page link **automatically switches to the primary suffix** and rewrites the URL, so a refresh does not jump back
 - If the currently selected suffix is paused while the page is open, the registration page switches to the primary suffix immediately instead of locking the picker (the old version got stuck after switching)
-- The suffix picker stays **clickable** while paused; it simply contains only open suffixes
-- The expanded statistics breakdown and the "Most active suffix HOT" label hide paused suffixes; the totals still reflect the whole site
+- The suffix picker stays **clickable** while paused: open suffixes and greyed-out paused suffixes are both visible, so you can never get stuck on a paused one
+- The **expanded statistics breakdown still lists every active suffix** (including a paused `meoy.top`); a paused row only gets a muted "PAUSED" tag. The "Most active suffix HOT" label follows real approved-domain counts and is not hidden by a pause; totals still reflect the whole site
 - If every suffix is paused there is nothing to switch to, so the submit button stays hard-locked
 
 ## Submit button cannot be clicked while paused

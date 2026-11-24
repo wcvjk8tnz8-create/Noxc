@@ -59,9 +59,9 @@ export function isApplyPausedFor(root: unknown): boolean {
 export const PRIMARY_ROOT = 'noxc.uk';
 
 /**
- * 可展示 / 可选择的后缀：归一化、去重、**剔除被暂停申请的根域名**。
- * 不传 pausedRoots 时用 configureApplyPause 里的同一份状态（前后端同口径）。
- * 用户要求：被暂停的根域名不能被点击、首页不显示 —— 从源头就不进列表。
+ * 可申请后缀列表（首页卡片 / 查询下拉 / 落地页 CTA）：归一化、去重、
+ * **剔除被暂停申请的根域名**。不传 pausedRoots 时用 configureApplyPause
+ * 里的同一份状态（前后端同口径）。这只管「去哪申请」，不代表后缀不存在。
  */
 export function availableRoots(list: unknown, pausedRootsOverride?: unknown): string[] {
   const paused = new Set(
@@ -89,6 +89,28 @@ export function preferredRoot(list: unknown, pausedRootsOverride?: unknown): str
 export function sortPreferred(list: unknown, pausedRootsOverride?: unknown): string[] {
   const open = availableRoots(list, pausedRootsOverride);
   return [...open].sort((a, b) =>
+    (b === PRIMARY_ROOT ? 1 : 0) - (a === PRIMARY_ROOT ? 1 : 0));
+}
+
+/**
+ * 注册页后缀选择器专用：归一化、去重、主推优先排序，但**保留暂停项**。
+ *
+ * 「暂停申请」不等于「后缀不存在」——它仍是站点后缀，可能已有几百个已开通
+ * 域名，首页统计展开照常列出。所以在选择器里要看得见、灰掉、点不动：
+ * 渲染时给 data-paused="1" + disabled，CSS 灰度且 pointer-events:none。
+ * 自动切换 / 默认值一律取 preferredRoot()（只认开放后缀），不会落到暂停项。
+ */
+export function rootsForPicker(list: unknown): string[] {
+  const parts = Array.isArray(list) ? list : String(list ?? '').split(',');
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const p of parts) {
+    const d = normalizeRoot(p);
+    if (!d || seen.has(d)) continue;
+    seen.add(d);
+    out.push(d);
+  }
+  return out.sort((a, b) =>
     (b === PRIMARY_ROOT ? 1 : 0) - (a === PRIMARY_ROOT ? 1 : 0));
 }
 

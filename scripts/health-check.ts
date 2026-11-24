@@ -1742,22 +1742,28 @@ const pvReadme = read('README.md');
 const pvCI = read('.github/workflows/deploy.yml');
 const pvRegS = read('scripts/paused-root-visibility-regression.ts');
 check(/export function availableRoots/.test(pvLib) && /export function sortPreferred/.test(pvLib)
+  && /export function rootsForPicker/.test(pvLib)
   && /PRIMARY_ROOT = 'noxc.uk'/.test(pvLib) && /paused\.has\(d\)/.test(pvLib),
-  '可用后缀过滤与主推判定收敛在唯一共享模块');
-check(/list = sortPreferred\(list\)/.test(pvReg) && /function autoSwitchToPrimary/.test(pvReg)
+  '可申请过滤 / 选择器全量列表 / 主推判定收敛在唯一共享模块');
+check(/list = rootsForPicker\(list\)/.test(pvReg) && /function autoSwitchToPrimary/.test(pvReg)
   && /history\.replaceState/.test(pvReg),
-  '注册页过滤暂停后缀、自动切主推并改写 URL');
+  '注册页保留暂停项（灰显不可点）、自动切主推并改写 URL');
+check(/disabled aria-disabled="true"/.test(pvReg) && /function primaryRoot\(\)\{ return preferredRoot\(ROOTS\); \}/.test(pvReg),
+  '暂停项看得见但点不动，默认/自动切换只认开放后缀');
 check(/if \(isApplyPausedFor\(d\)\)/.test(pvReg) && !/rootPickerBtn/.test(
   pvReg.slice(pvReg.indexOf('function setApplyPaused'), pvReg.indexOf('function clearApplyPaused'))),
   '选择器永不锁死，旧缓存点到暂停项也跳主推');
-check(/const preferNoxc = \(list\) => sortPreferred\(list\)/.test(pvHome)
-  && /isApplyPausedFor\(HOTTEST\)/.test(pvHome)
-  && /\.filter\(\(r\) => !isApplyPausedFor\(r\.domain\)\)/.test(pvHome),
-  '首页卡片 / 统计明细 / HOT 都不显示暂停后缀');
+check(/const preferNoxc = \(list\) => sortPreferred\(list\)/.test(pvHome),
+  '首页可申请后缀卡片 / 查询下拉仍剔除暂停后缀');
+check(!/\.filter\(\(r\) => !isApplyPausedFor\(r\.domain\)\)/.test(pvHome)
+  && !/if \(isApplyPausedFor\(HOTTEST\)\) HOTTEST = ''/.test(pvHome)
+  && /rv-bd-paused/.test(pvHome),
+  '统计展开与 HOT 照常显示暂停后缀（暂停 ≠ 不存在），只做灰显标注');
 check(/sortPreferred\(/.test(pvWhois) && /__NOXC_PRIMARY_ROOT__/.test(pvTpl)
   && (!pvHtml || /__NOXC_PRIMARY_ROOT__/.test(pvHtml)),
   'WHOIS 与根域名落地页同样过滤并回落主推（仓库外静态页存在时一并核对）');
-check(/\.root-opt\[data-paused="1"\]/.test(pvCss), 'CSS 点击兜底存在');
+check(/\.root-opt\[data-paused="1"\]/.test(pvCss) && /\.rv-bd-paused/.test(pvCss),
+  'CSS 点击兜底与统计灰显标注都存在');
 check(/自动切换|主推域名/.test(pvDocsZh) && /automatically|primary suffix/i.test(pvDocsEn)
   && /主推域名/.test(pvReadme), '中英文档与 README 写明自动切换口径');
 check(/暂停后缀可见性回归/.test(pvCI) && /paused-root-visibility-regression\.ts/.test(pvRegS),

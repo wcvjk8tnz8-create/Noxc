@@ -1,19 +1,25 @@
 /**
- * 被暂停根域名：不可见 / 不可点 / 自动切主推 · 专项回归
+ * 被暂停根域名：可申请处灰显不可点 / 统计处照常可见 / 自动切主推 · 专项回归
  *
  * 用户反馈：
  *   「切换到被暂停的根域名就不能再切换回去」—— 因为旧版 setApplyPaused
  *   连后缀选择器 rootPickerBtn 一起 disabled，切进去就被锁死。
- *   要求改为：
+ *   最初要求：
  *     1. 被暂停的根域名**自动切换到主推域名**（不再让用户停在它上面）
  *     2. 被暂停的根域名**不能被点击**
- *     3. **首页不显示**该根域名
+ *     3. 首页可申请入口不显示该根域名
  *
- * 修法：src/app/lib/applyPause.ts 新增 availableRoots / preferredRoot /
- *   sortPreferred：从源头把暂停后缀剔出所有可选列表，并把主推域名排第一。
- *   注册页 / 首页 / WHOIS / 两个线上根域名模板 / 三份静态落地页共用同一口径；
- *   注册页另加 URL ?root= 自动改主推、syncApplyPause 中途自动切主推、
- *   selectRoot 防御（旧缓存点到暂停项也跳主推）、选择器永不 disabled。
+ *   最新纠偏：用户看到首页统计展开里少了 meoy.top，明确「它只是暂停申请，
+ *   不是不见了」；并强调「注册域名里不能点击而且显示灰色」——是要看得见、
+ *   灰掉、点不动，而不是从菜单里删掉。
+ *
+ *   现行口径（本回归锁定）：
+ *     · 可申请入口（首页后缀卡片 / 查询下拉 / WHOIS / 落地页）用
+ *       availableRoots / sortPreferred 剔除暂停项，主推域名排第一
+ *     · 注册页后缀选择器用 rootsForPicker 保留全部后缀，暂停项
+ *       data-paused="1" + disabled + CSS 灰度 pointer-events:none
+ *     · 首页统计展开与 HOT 按真实数据全量展示（暂停 ≠ 不存在），暂停行灰显标注
+ *     · 默认值 / 自动切换只取 preferredRoot()（开放后缀），选择器永不 disabled
  *
  * 运行：npx tsx scripts/paused-root-visibility-regression.ts
  */
@@ -21,7 +27,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   configureApplyPause, isApplyPausedFor, availableRoots,
-  preferredRoot, sortPreferred, PRIMARY_ROOT, normalizeRoot,
+  preferredRoot, sortPreferred, rootsForPicker, PRIMARY_ROOT, normalizeRoot,
 } from '../src/app/lib/applyPause.js';
 
 const ok: string[] = [];
@@ -94,10 +100,27 @@ check(/export function availableRoots/.test(lib) && /export function preferredRo
   && /export function sortPreferred/.test(lib) && /PRIMARY_ROOT = 'noxc.uk'/.test(lib),
   '可用后缀 / 主推判定收敛在唯一共享模块');
 check(/paused\.has\(d\)/.test(lib), '过滤发生在列表构造阶段，不是渲染时再隐藏');
+{
+  configureApplyPause({ pausedRoots: ['meoy.top'] });
+  const picker = rootsForPicker(ROOTS);
+  check(picker.includes('meoy.top') && picker.length === 3,
+    '注册页选择器列表保留被暂停的 meoy.top（暂停 ≠ 不存在）');
+  check(picker[0] === 'noxc.uk' && preferredRoot(picker) === 'noxc.uk',
+    '主推排序仍在，默认/自动切换目标只认开放后缀');
+  check(!availableRoots(ROOTS).includes('meoy.top'),
+    '可申请入口仍剔除暂停后缀（两个列表职责分离）');
+  check(/export function rootsForPicker/.test(lib) && !/paused\.has\(d\)/.test(
+    lib.slice(lib.indexOf('export function rootsForPicker'))),
+    '选择器列表单独实现，不复用会过滤的 availableRoots');
+}
 
 /* 注册页：过滤、自动切换、选择器永不锁死 */
-check(/list = sortPreferred\(list\)/.test(reg) && /ROOTS = list/.test(reg),
-  '注册页后缀菜单只渲染开放后缀，主推排第一');
+check(/list = rootsForPicker\(list\)/.test(reg) && /ROOTS = list/.test(reg),
+  '注册页后缀菜单保留全部后缀（含暂停项），主推排序仍在');
+check(/function primaryRoot\(\)\{ return preferredRoot\(ROOTS\); \}/.test(reg),
+  '默认值与自动切换只取开放后缀，不会落到暂停项');
+check(/d === first \? ' on'/.test(reg) && /d === first \? 'true' : 'false'/.test(reg),
+  '菜单高亮落在开放的主推后缀，而不是被暂停项');
 check(/function autoSwitchToPrimary/.test(reg) && /syncUrlRoot\(p\)/.test(reg)
   && /selectRoot\(p\)/.test(reg),
   'URL 带暂停后缀 / 后台中途改设置都会自动切到主推域名');
@@ -111,7 +134,11 @@ const setPauseSeg = reg.slice(reg.indexOf('function setApplyPaused'), reg.indexO
 check(!/rootPickerBtn/.test(setPauseSeg)
   && /\['label','note','agreeUse'\]/.test(setPauseSeg),
   '暂停时不再禁用后缀选择器（不会再「切过去就切不回来」）');
-check(/data-paused/.test(reg) && /data-paused="1"/.test(css),
+check(/data-paused/.test(reg) && /disabled aria-disabled="true"/.test(reg)
+  && /data-en="PAUSED"[^>]*>暂停<\/span>/.test(reg),
+  '暂停项真实渲染成灰显 disabled（看得见、点不动）');
+check(/\.root-opt\[data-paused="1"\]/.test(css) && /opacity: \.45/.test(css)
+  && /pointer-events: none !important/.test(css),
   '菜单项与 CSS 双保险：暂停后缀即使被旧缓存渲染也点不动');
 check(/else if \(first\) syncUrlRoot\(first\)/.test(reg),
   '/register?root=暂停后缀 自动改为主推域名');
@@ -121,15 +148,21 @@ check(/__TD_APPLY_LOCKED__/.test(reg) && /lockApplyButton\(btn\)/.test(reg),
 /* 首页：不显示 */
 check(/const preferNoxc = \(list\) => sortPreferred\(list\)/.test(home),
   '首页后缀卡片用同一份过滤 + 主推排序');
-check(/\.filter\(\(r\) => !isApplyPausedFor\(r\.domain\)\)/.test(home),
-  '统计展开明细也不列暂停后缀');
-check(/if \(isApplyPausedFor\(HOTTEST\)\) HOTTEST = ''/.test(home),
-  '最热后缀若被暂停，首页 HOT 标记与提示一起隐藏');
+check(!/\.filter\(\(r\) => !isApplyPausedFor\(r\.domain\)\)/.test(home)
+  && /const items = \(Array\.isArray\(list\) \? list : \[\]\)/.test(home),
+  '统计展开列出全部后缀（含被暂停的 meoy.top），不再过滤');
+check(/rv-bd-paused/.test(home) && /is-paused/.test(home) && /暂停申请<\/em>/.test(home),
+  '暂停行只做灰显标注，不消失');
+check(!/if \(isApplyPausedFor\(HOTTEST\)\) HOTTEST = ''/.test(home)
+  && /HOTTEST = String\(st\.hottest/.test(home),
+  'HOT 按真实已开通数据算，不因暂停被清空');
+check(/\.rv-bd-paused/.test(css) && /\.rv-bd-row\.is-paused/.test(css),
+  '统计展开的灰显样式落地（颜色仍走现有令牌）');
 check(/history\.replaceState/.test(home) && /u\.searchParams\.set\('root', ROOTS\[0\]\)/.test(home),
   '首页查询下拉带暂停后缀时自动落主推并改 URL');
 check(/当前没有可申请的后缀/.test(home), '全部暂停时首页不给空查询入口');
 check(/PAUSED_ROOTS/.test(home) && /nk-badge-paused/.test(home),
-  '旧版暂停徽标代码保留为防御，实际列表已过滤（兼容既有断言）');
+  '首页后缀卡片仍保留暂停徽标渲染能力（当前卡片列表已过滤）');
 
 /* WHOIS 与落地页 */
 check(/sortPreferred\(/.test(whois) && /if \(w && list\.indexOf\(w\) >= 0\)/.test(whois),
@@ -169,6 +202,10 @@ check(noAuto !== reg && !/autoSwitchToPrimary\(\)\) return/.test(noAuto),
 const lockedPicker = reg.replace(/\['label','note','agreeUse'\]\.forEach\(function\(id\)\{[\s\S]*?\}\);\n    var btn = document\.getElementById\('btnApply'\);/,
   "['label','note','agreeUse','rootPickerBtn'].forEach(function(id){ });\n    var btn = document.getElementById('btnApply');");
 check(lockedPicker !== reg, '反向对照：把 rootPickerBtn 加回禁用列表会被断言拦下');
+const filteredStats = home.replace('const items = (Array.isArray(list) ? list : []);',
+  'const items = (Array.isArray(list) ? list : []).filter((r) => !isApplyPausedFor(r.domain));');
+check(filteredStats !== home && /\.filter\(\(r\) => !isApplyPausedFor\(r\.domain\)\)/.test(filteredStats),
+  '反向对照：把统计展开重新过滤掉，新断言必须拦下（meoy.top 不能再次消失）');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of bad) console.error('  ✗ ' + m);
