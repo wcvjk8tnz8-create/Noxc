@@ -169,9 +169,20 @@ jobs:
       - name: 组合任务奖励与 DC 积分码回归
         run: npx tsx scripts/rewards-regression.ts
 
-      # DC 码真实用途：注册域名时抵扣。node:sqlite 真跑 schema.sql + 申请链路
+      # DC 码真实用途：注册域名时抵扣。node:sqlite 真跑 schema.sql + 申请链路。
+      # node:sqlite 在 Node 22.5+ 才内置、Node 23.4+/24 才默认无 flag 可用；
+      # 本 job 默认 Node 20，这里临时切到 24 只跑这一步，随后立刻切回 20
+      # 构建/部署，避免改动整条部署工具链的运行时版本。
+      - name: 切换 Node 24（仅 DC 抵扣回归）
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - name: DC 码注册抵扣回归
         run: npx tsx scripts/discount-code-regression.ts
+      - name: 切回 Node 20（构建与部署沿用既有版本）
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
       # 响应速度优化 / 过渡动画移除：真跑预取复用 + 静态断言
       - name: 响应速度与过渡移除回归

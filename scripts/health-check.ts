@@ -213,8 +213,11 @@ check(/if \(useDiscount\) await rollbackDiscountCode/.test(dcSub),
 check(/&discountCode=/.test(dcReg) && /discountCode: dcValue\(\)/.test(dcReg)
   && /id="discountCode"/.test(dcRegPage),
   '注册页可填 DC 码：查价与提交都带上');
-check(/discount-code-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+const dcCI = read('.github/workflows/deploy.yml');
+check(/discount-code-regression\.ts/.test(dcCI),
   'DC 码注册抵扣专项回归进 CI');
+check(/node-version: 24[\s\S]{0,400}discount-code-regression\.ts[\s\S]{0,400}node-version: 20/.test(dcCI),
+  'CI 在 DC 抵扣回归处临时切 Node 24（node:sqlite 真跑 schema）并切回 20 构建部署');
 
 /* 10. 根域名静态页：过渡同步移除，查询框改为立即跳 WHOIS */
 const rootPages = [

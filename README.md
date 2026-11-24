@@ -527,6 +527,7 @@ Try 示例与示例域名都只把前缀填进输入框并聚焦，**不发任�
 `normCode` 与同一张去重表，所以同一张券不可能「先兑换成余额、再拿去抵扣」。
 专项回归 `scripts/discount-code-regression.ts` 用 `node:sqlite` 真跑
 `schema.sql` + 三条 Hono 链路，覆盖全额 / 部分抵扣、并发耗尽、撞车回滚等。
+该脚本需要 Node 22.5+（CI 主流程是 Node 20，故单独切到 24 执行后立刻切回）。
 
 ## 二、项目结构
 

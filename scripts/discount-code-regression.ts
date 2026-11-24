@@ -14,6 +14,8 @@
  *   · 直接兑换成积分的旧路径仍可用
  *
  * 运行：npx tsx scripts/discount-code-regression.ts
+ * 注意：依赖 node:sqlite（Node 22.5+ 内置、Node 23.4+/24 默认可用），
+ *       CI 在 Node 20 的 job 里临时切到 24 只跑本脚本，随后切回 20 构建部署。
  */
 import fs from 'node:fs';
 import path from 'node:path';
