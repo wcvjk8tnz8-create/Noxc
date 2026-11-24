@@ -1,0 +1,555 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Noxc · nodeloc-skin.css —— 形态层（最后加载）
+   ──────────────────────────────────────────────────────────────────────
+   全面改版：配合 NodeLoc 3.0 的界面语言，参照其实拍截图。
+
+   截图中可确认的形态语言：
+     · 所有可见组件都是圆角：大圆角卡片 / 胶囊按钮与标签 / 圆形图标按钮
+     · 顶栏：品牌在左，中间一条大圆角搜索胶囊，右侧一排圆形图标按钮
+     · 侧栏：分组是圆角卡片，导航项是圆角胶囊，选中态有独立底色
+     · 公告横幅是大圆角卡片，内嵌胶囊 CTA 与圆形翻页/关闭按钮
+     · 中间内容区是圆角卡片流 + 胶囊标签行，右侧栏同样是圆角卡片
+     · 发丝线分隔、零阴影、零渐变、零毛玻璃；深浅两套都成立
+
+   ── 铁律：颜色保持现在的 ──────────────────────────────────────────────
+   本文件**不定义任何色值**：background / color / border-color 一律引用
+   design-system.css 既有的 --zx-* 令牌（或历史别名），明/暗主题自动跟随。
+   回归脚本会扫描本文件，出现 #hex / rgb() / hsl() 字面量或重定义
+   --zx-* 颜色变量即判失败。只改：圆角、间距、字体族、字重、字距、
+   布局、动效开关。圆角阶梯本身定义在 design-system.css（唯一视觉源）。
+
+   架构仍是 5 层，不新增第 6 层：
+     shell.css / captcha.css / oauth.css / design-system.css / 本文件
+   几何在源头（前两层）已把 0 圆角清成 var(--nl-r-sm)，本文件只做统一
+   收口与 NodeLoc 3.0 的组件形状，不再跨层用 !important 互相压。
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root,
+html[data-theme="dark"] {
+  /* ── 兼容别名：Home.tsx / shell.css 里的 yn-、rv-、radius 契约不改名 ── */
+  --yn-gap: 14px;
+  --nl-ease: cubic-bezier(.22, 1, .36, 1);
+  --yn-ease: var(--nl-ease);
+
+  /* ── 字体：等宽承担域名 / 输入框 / 按钮 / uppercase 小标 ── */
+  --zx-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  --mono: var(--zx-mono);
+  --rv-mono: var(--zx-mono);
+  --td-mono: var(--zx-mono);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   1 · 全站统一圆角收口：所有可见容器 / 控件一律有圆角
+   ══════════════════════════════════════════════════════════════════════ */
+html body .card,
+html body .stat-card,
+html body .quick,
+html body .modal-card,
+html body .tablewrap,
+html body .yn-panel,
+html body .yn-step,
+html body .zx-fact,
+html body .nk-suf,
+html body .rv-frame,
+html body .rv-breakdown,
+html body .rv-results .card,
+html body .side-mod,
+html body .showcase-card,
+html body .showcase-empty,
+html body .alert,
+html body .notice,
+html body .chip,
+html body .tag,
+html body .nk-tag,
+html body .root-picker-menu,
+html body .root-opt,
+html body .whois-search,
+html body input,
+html body select,
+html body textarea {
+  border-radius: var(--nl-r) !important;
+}
+
+/* 大圆角容器：面板 / 统计展开 / 侧栏分组 / 公告横幅 */
+html body .rv-frame,
+html body .rv-breakdown,
+html body .side-group,
+html body .site-announcement,
+html body .yn-panel,
+html body .yn-step {
+  border-radius: var(--nl-r-lg) !important;
+}
+
+/* 页面骨架也圆角（顶栏下沿、侧栏右沿），对齐「全都做成圆角」 */
+html body .topbar,
+html body .home-top,
+html body .site-nav,
+html body .rv-head,
+html body .sidebar,
+html body .side-in {
+  border-radius: var(--nl-r-lg) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   2 · 胶囊：按钮 / 标签 / 徽章 / chips / 导航项
+   ══════════════════════════════════════════════════════════════════════ */
+html body .btn,
+html body .rv-pill,
+html body .rv-ask-btn,
+html body .yn-try button,
+html body .yn-motion,
+html body .nk-badge,
+html body .nk-badge-hot,
+html body .nk-badge-paused,
+html body .rv-bd-hot,
+html body .rv-bd-paused,
+html body .rv-hottest,
+html body .root-picker-btn,
+html body .side-item,
+html body .navlink,
+html body .tab,
+html body .chip,
+html body .tag {
+  border-radius: var(--nl-r-pill) !important;
+}
+html body .rv-pill.sm { border-radius: var(--nl-r-pill) !important; }
+html body .btn.sm { border-radius: var(--nl-r-pill) !important; }
+
+/* 圆形图标按钮：侧栏图标、菜单开关、示例箭头、顶栏图标 */
+html body .side-toggle,
+html body .side-ico,
+html body .yn-sample-arrow,
+html body .rv-head .rv-brand img,
+html body .topbar .btn.ghost.icon,
+html body .sa-close {
+  border-radius: var(--nl-r-round) !important;
+}
+html body .side-ico {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  background: var(--zx-blue-a8);
+}
+html body .side-ico svg { width: 17px; height: 17px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   3 · 侧栏：分组圆角卡片 + 导航胶囊 + 选中态（对齐截图左栏）
+   ══════════════════════════════════════════════════════════════════════ */
+html body .side-group {
+  margin: 10px 12px !important;
+  padding: 8px !important;
+  border: 1px solid var(--zx-hair-2) !important;
+  background: var(--zx-blue-soft) !important;
+}
+html body .side-item {
+  margin: 2px 0 !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+html body .side-item.on {
+  background: var(--zx-blue-a16) !important;
+  border-radius: var(--nl-r-pill) !important;
+}
+html body .side-item.on::before { border-radius: var(--nl-r-pill) !important; }
+html body .side-mod {
+  border: 1px solid var(--zx-hair-2) !important;
+  background: var(--zx-blue-soft) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   4 · 公告横幅：大圆角卡片（截图里最显眼的元素）
+   ══════════════════════════════════════════════════════════════════════ */
+html body .site-announcement {
+  margin: 12px clamp(12px, 3vw, 28px) 0 !important;
+  padding: 12px 18px !important;
+  border: 1px solid var(--zx-hair) !important;
+  border-bottom: 1px solid var(--zx-hair) !important;
+  border-radius: var(--nl-r-lg) !important;
+  background: var(--zx-blue-soft) !important;
+  align-items: center !important;
+}
+html body .site-announcement .sa-dot {
+  width: 8px !important; height: 8px !important;
+  flex: 0 0 8px !important; margin-top: 0 !important;
+  border-radius: var(--nl-r-round) !important;
+}
+html body .site-announcement .sa-text { color: var(--zx-body) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   5 · 顶栏：品牌 / 胶囊链接 / 圆形图标（截图顶栏语言）
+   ══════════════════════════════════════════════════════════════════════ */
+html body .rv-head-in { gap: 18px; }
+html body .rv-head .rv-brand img { width: 38px; height: 38px; object-fit: cover; }
+html body .rv-nav { gap: 6px; }
+html body .rv-nav > a:not(.rv-pill) {
+  padding: 8px 14px !important;
+  border-radius: var(--nl-r-pill) !important;
+}
+html body .rv-nav > a:not(.rv-pill):hover { background: var(--zx-blue-a8); }
+html body .topbar-in { gap: 12px; }
+html body .topbar .btn {
+  border-radius: var(--nl-r-pill) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   6 · 标题与等宽小标（Zerexa/Yunamo 骨架保留，字重与字族不变）
+   ══════════════════════════════════════════════════════════════════════ */
+html body .rv-title {
+  font-weight: 700 !important;
+  letter-spacing: -.035em !important;
+  font-size: clamp(40px, 6vw, 78px) !important;
+}
+html body.page-home .rv-h2 { font-weight: 700 !important; letter-spacing: -.03em !important; }
+html body.page-home .rv-col h3 { font-weight: 700 !important; }
+html body .card h2 { font-family: var(--zx-sans) !important; }
+
+html body.page-home .rv-eyebrow,
+html body.page-home .rv-sec-no,
+html body.page-home .rv-art-cap,
+html body.page-home .rv-stat b,
+html body.page-home .rv-hint,
+html body.page-home .zx-fact-k,
+html body .nk-suf-name,
+html body .rv-bd-head,
+html body .rv-bd-name,
+html body .rv-bd-num,
+html body th,
+html body code,
+html body pre,
+html body .mono,
+html body .fqdn {
+  font-family: var(--zx-mono) !important;
+  letter-spacing: .06em;
+}
+html body .rv-hero-foot {
+  font-family: var(--zx-mono) !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+}
+/* 标题下的 1px 细线改成圆头（NodeLoc 3.0 全圆角语言） */
+html body .rv-title::after {
+  height: 1px !important;
+  width: 88px !important;
+  border-radius: var(--nl-r-pill) !important;
+  background: var(--zx-hair) !important;
+  margin-top: 28px !important;
+}
+html body .rv-title em::after { height: 1px !important; border-radius: var(--nl-r-pill) !important; }
+html body .rv-main { max-width: 1180px; }
+html body .rv-hero { min-height: 58vh; }
+html body .rv-foot-in,
+html body .rv-fbottom { border-top: 1px solid var(--zx-hair) !important; }
+html body .rv-ask,
+html body .rv-frame { border-radius: var(--nl-r) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   7 · 首页查询区：从「拼接直角」改成独立胶囊（截图搜索胶囊语言）
+       仍保留两段式 grid（输入框 + 后缀一行，全宽按钮一行）
+   ══════════════════════════════════════════════════════════════════════ */
+html body.page-home .rv-ask {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: var(--yn-gap);
+  width: 100% !important;
+  max-width: 900px;
+  margin: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: var(--nl-r) !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  min-height: 0 !important;
+}
+html body.page-home .rv-ask-ico { display: none !important; }
+/* 输入框 + 后缀选择器合成一条完整胶囊，不再有 0 圆角的拼接边 */
+html body.page-home .rv-ask #qName {
+  grid-column: 1; grid-row: 1;
+  flex: none !important;
+  border: 1px solid var(--zx-hair) !important;
+  border-right: 0 !important;
+  border-radius: var(--nl-r-pill) 0 0 var(--nl-r-pill) !important;
+  background: var(--zx-paper) !important;
+  padding: 18px 20px !important;
+  min-height: 62px;
+  font-family: var(--zx-mono) !important;
+  font-size: 17px !important;
+  color: var(--zx-ink);
+}
+html body.page-home .rv-root-wrap {
+  grid-column: 2; grid-row: 1;
+  border: 1px solid var(--zx-hair) !important;
+  border-left: 1px solid var(--zx-hair-2) !important;
+  border-radius: 0 var(--nl-r-pill) var(--nl-r-pill) 0 !important;
+  background: var(--zx-paper) !important;
+  padding: 0 18px !important;
+  min-height: 62px;
+  font-family: var(--zx-mono) !important;
+}
+html body.page-home .rv-root-wrap select { font-family: var(--zx-mono) !important; }
+html body.page-home .rv-ask-btn {
+  grid-column: 1 / -1; grid-row: 2;
+  width: 100% !important;
+  min-height: 58px !important;
+  padding: 0 28px !important;
+  border-radius: var(--nl-r-pill) !important;
+  font-family: var(--zx-mono) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: .14em !important;
+  text-transform: uppercase !important;
+}
+
+/* ── Try 示例 chips：胶囊 ── */
+.yn-try {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-top: 14px;
+  font-family: var(--zx-mono); font-size: 12px;
+}
+.yn-try > span { color: var(--zx-muted); letter-spacing: .12em; }
+.yn-try button {
+  border: 1px solid var(--zx-hair);
+  border-radius: var(--nl-r-pill) !important;
+  background: transparent;
+  color: var(--zx-body);
+  font: inherit;
+  padding: 7px 15px;
+  min-height: 36px;
+  cursor: pointer;
+  transition: border-color .18s var(--yn-ease), transform .18s var(--yn-ease);
+}
+.yn-try button:hover { border-color: var(--zx-ink); transform: translateY(-1px); }
+.yn-try button:focus-visible { outline: 2px solid var(--zx-hair); outline-offset: 2px; }
+
+/* ── How it works：三步大圆角描边卡 ── */
+.yn-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--yn-gap);
+  margin-top: 26px;
+}
+.yn-step {
+  border: 1px solid var(--zx-hair);
+  border-radius: var(--nl-r-lg) !important;
+  background: var(--zx-paper);
+  padding: 24px 24px 26px;
+  box-shadow: none;
+}
+.yn-step .yn-no {
+  display: block;
+  font: 700 11px var(--zx-mono);
+  letter-spacing: .24em;
+  color: var(--zx-muted);
+  text-transform: uppercase;
+}
+.yn-step h3 { font-size: 17px; font-weight: 700; margin: 14px 0 9px; letter-spacing: -.02em; }
+.yn-step p { font-size: 13.5px; line-height: 1.85; color: var(--zx-body); margin: 0; }
+.yn-step code { font-size: 12.5px; }
+
+/* ── 顶栏「暂停动效」：胶囊可访问性开关 ── */
+.yn-motion {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 34px; padding: 0 14px;
+  border: 1px solid var(--zx-hair);
+  border-radius: var(--nl-r-pill) !important;
+  background: transparent;
+  color: var(--zx-body);
+  font: 600 11.5px var(--zx-mono);
+  letter-spacing: .06em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.yn-motion:hover { border-color: var(--zx-ink); }
+.yn-motion[aria-pressed="true"] { font-weight: 700; }
+
+/* 暂停动效：用户主动开关 + 系统偏好，两条路都生效。
+   刻意不写全局 transform:none —— 历史层有元素用 transform 做定位。 */
+html[data-motion="paused"] *,
+html[data-motion="paused"] *::before,
+html[data-motion="paused"] *::after,
+html[data-motion="paused"] {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+html[data-motion="paused"] .rv-reveal,
+html[data-motion="paused"] .rv-title em::after {
+  opacity: 1 !important;
+  transform: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html body *, html body *::before, html body *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── 卡片零阴影（NodeLoc 3.0 靠圆角与发丝线分层，不靠投影） ── */
+html body .card { box-shadow: none !important; }
+html body .zx-fact { border-radius: var(--nl-r-lg) !important; }
+
+@media (max-width: 780px) {
+  .yn-steps { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  html body.page-home .rv-ask { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+  html body.page-home .rv-ask #qName { padding: 14px 14px !important; min-height: 54px; font-size: 15px !important; }
+  html body.page-home .rv-root-wrap { padding: 0 12px !important; min-height: 54px; }
+  html body.page-home .rv-ask-btn { min-height: 52px !important; letter-spacing: .1em !important; }
+  /* shell.css 有 button:not(...) { display:inline-flex !important }，用 id 兜底 */
+  html body #ynMotion { display: none !important; }
+  .yn-try { font-size: 11px; }
+  .yn-try button { padding: 6px 12px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   结构层：Hero 左右分栏（上一轮成果，功能契约与卡内顺序全部保留）
+   颜色仍全部引用 --zx-* 令牌，本文件不改颜色。
+   ══════════════════════════════════════════════════════════════════════ */
+html body.page-home .yn-hero {
+  min-height: 0 !important;
+  padding: clamp(38px, 6vh, 72px) 0 clamp(42px, 6vh, 80px) !important;
+  text-align: left;
+}
+.yn-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, .96fr);
+  gap: clamp(28px, 4.6vw, 64px);
+  align-items: center;
+  min-height: clamp(420px, 56vh, 580px);
+}
+.yn-hero-copy { min-width: 0; }
+.yn-hero-panel { min-width: 0; }
+
+html body.page-home .yn-eyebrow {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0;
+  margin: 0 0 22px;
+  font-size: 11px;
+  letter-spacing: .2em;
+  color: var(--zx-body);
+}
+html body.page-home .yn-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: var(--nl-r-pill);
+  background: var(--zx-ink);
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+html body.page-home .yn-title {
+  font-size: clamp(38px, 4.5vw, 62px) !important;
+  line-height: 1.14 !important;
+  letter-spacing: -.04em !important;
+}
+html body.page-home .yn-title .yn-line { display: block; }
+html body.page-home .yn-title em { font-style: normal; }
+html body.page-home .rv-lede {
+  max-width: 34em;
+  margin-top: 22px;
+  font-size: 15px;
+  line-height: 1.9;
+}
+html body.page-home .rv-stats { margin-top: 30px; padding-top: 20px; }
+html body.page-home .rv-stat b { font-size: 26px; }
+
+/* ── 右栏查询卡：1px 发丝线 + 24px 大圆角 + 零阴影 ── */
+.yn-panel {
+  position: relative;
+  border: 1px solid var(--zx-hair);
+  border-radius: var(--nl-r-lg) !important;
+  background: var(--zx-paper);
+  box-shadow: none;
+  padding: clamp(22px, 3vw, 32px);
+  overflow: hidden;
+}
+html[data-theme="dark"] .yn-panel { background: var(--zx-paper); }
+
+.yn-panel-cap {
+  margin: 0 0 20px;
+  font: 500 12px var(--zx-mono);
+  letter-spacing: .04em;
+  color: var(--zx-muted);
+}
+.yn-sample {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--zx-ink) !important;
+  text-align: left;
+  cursor: pointer;
+  font: 700 clamp(18px, 2.2vw, 25px) var(--zx-mono) !important;
+  letter-spacing: -.02em;
+}
+.yn-sample:hover .yn-sample-arrow { transform: translate(2px, -2px); }
+.yn-sample-arrow {
+  color: var(--zx-muted);
+  font-size: 18px;
+  transition: transform .18s var(--yn-ease);
+}
+.yn-sample-hint {
+  margin: 8px 0 0;
+  font: 400 11.5px var(--zx-mono);
+  letter-spacing: .04em;
+  color: var(--zx-muted);
+}
+.yn-rule { height: 1px; background: var(--zx-hair); margin: 24px 0 20px; }
+.yn-panel-label {
+  margin: 0 0 12px;
+  font: 700 11.5px var(--zx-mono);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--zx-body);
+}
+
+html body.page-home .yn-panel .rv-ask { max-width: none !important; width: 100% !important; gap: 10px; }
+html body.page-home .yn-panel .rv-ask #qName { min-height: 54px; padding: 14px 16px !important; font-size: 15px !important; }
+html body.page-home .yn-panel .rv-root-wrap { min-height: 54px; padding: 0 14px !important; }
+html body.page-home .yn-panel .rv-ask-btn { min-height: 54px !important; font-size: 14px !important; letter-spacing: .12em !important; }
+html body.page-home .yn-panel .rv-results { margin-top: 16px; }
+html body.page-home .yn-panel .yn-try { margin-top: 18px; }
+html body.page-home .yn-panel-foot {
+  display: block !important;
+  justify-content: flex-start !important;
+  margin: 12px 2px 0;
+  text-align: left !important;
+}
+
+/* ── 顶栏右下悬浮开关：胶囊 ── */
+.yn-motion-float {
+  position: absolute !important;
+  top: calc(100% + 14px) !important;
+  right: max(24px, calc((100vw - 1000px) / 2));
+  z-index: 6;
+  border-radius: var(--nl-r-pill) !important;
+  padding: 0 16px !important;
+  min-height: 36px;
+}
+
+/* ── 窄屏：两栏改单列，卡片跟在标题后面 ── */
+@media (max-width: 900px) {
+  .yn-hero-grid { grid-template-columns: minmax(0, 1fr); gap: 30px; min-height: 0; }
+  html body.page-home .yn-title { font-size: clamp(34px, 7vw, 54px) !important; }
+  html body.page-home .rv-lede { max-width: none; }
+  .yn-panel { max-width: 620px; }
+}
+@media (max-width: 640px) {
+  html body.page-home .yn-hero { padding: 30px 0 38px !important; }
+  html body.page-home .yn-title { font-size: clamp(34px, 9vw, 46px) !important; }
+  .yn-panel { padding: 20px 18px; }
+  .yn-rule { margin: 20px 0 16px; }
+  html body.page-home .yn-panel .rv-ask { gap: 9px; }
+  html body.page-home .yn-panel .rv-ask #qName { padding: 13px 13px !important; }
+  html body.page-home .yn-panel .rv-root-wrap { padding: 0 10px !important; }
+}

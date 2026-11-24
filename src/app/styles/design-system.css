@@ -45,7 +45,24 @@
   /* ── 材质 ── */
   --zx-glass: var(--zx-paper);
   --zx-shadow: none;
-  --zx-radius: 18px;
+
+  /* ── NodeLoc 3.0 圆角阶梯：全站唯一几何源 ──
+     所有层（含 shell.css 的 --radius / --rv-r 历史别名）都指向这一组。 */
+  --nl-r-xs: 10px;
+  --nl-r-sm: 14px;
+  --nl-r: 18px;
+  --nl-r-lg: 24px;
+  --nl-r-xl: 30px;
+  --nl-r-pill: 999px;
+  --nl-r-round: 50%;
+  --zx-radius: var(--nl-r);
+  --radius: var(--nl-r);
+  --radius-s: var(--nl-r-sm);
+  --radius-l: var(--nl-r-lg);
+  --rv-r: var(--nl-r);
+  --rv-r-lg: var(--nl-r-lg);
+  --yn-radius: var(--nl-r);
+  --yn-radius-lg: var(--nl-r-lg);
 
   /* ── 字：Zerexa 真图标题是超粗黑体（非衬线），字重 800/900、字距收紧。
         英文沿用 Redaction 35，中文回退系统黑体最重档。 ── */
@@ -311,17 +328,17 @@ html body .rv-hero-foot {
 html body .rv-title::after {
   height: 1px !important;
   width: 88px !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-pill) !important;
   background: var(--zx-hair) !important;
   margin-top: 28px !important;
 }
-html body .rv-title em::after { height: 1px !important; border-radius: 0 !important; }
+html body .rv-title em::after { height: 1px !important; border-radius: var(--nl-r-pill) !important; }
 html body .rv-main { max-width: 1180px; }
 html body .rv-hero { min-height: 58vh; }
 html body .rv-foot-in,
 html body .rv-fbottom { border-top: 1px solid var(--zx-hair) !important; }
 html body .rv-ask,
-html body .rv-frame { border-radius: 18px !important; }
+html body .rv-frame { border-radius: var(--nl-r) !important; }
 
 /* ── 4. 英文模式：全部采用 Redaction 35（中文字符自然回退中文字体） ── */
 html[data-lang="en"] body,
@@ -358,7 +375,7 @@ html[data-lang="en"] body .rv-quote p {
   min-height: 236px;
   padding: 26px 24px;
   border: 1px solid var(--zx-hair);
-  border-radius: 18px;
+  border-radius: var(--nl-r);
   background: var(--zx-paper);
   color: var(--zx-ink);
   text-decoration: none;
@@ -373,7 +390,7 @@ html[data-lang="en"] body .rv-quote p {
 .showcase-fqdn { color: var(--zx-blue); font-size: 14px; font-weight: 600; word-break: break-all; }
 .showcase-empty {
   text-align: center; padding: 72px 20px; color: var(--zx-muted);
-  border: 1px dashed var(--zx-hair); border-radius: 18px; font-size: 14px;
+  border: 1px dashed var(--zx-hair); border-radius: var(--nl-r); font-size: 14px;
 }
 .showcase-empty > span { display: block; font-size: 30px; color: var(--zx-blue); margin-bottom: 12px; }
 .showcase-fbottom { flex-wrap: wrap; gap: 12px; }
@@ -566,7 +583,7 @@ html body.page-home .rv-hottest {
 html body.page-home .rv-breakdown[hidden],
 html body.page-home .rv-hottest[hidden] { display: none !important; }
 html body.page-home .rv-breakdown {
-  margin-top: 12px; border: 1px solid var(--zx-hair); border-radius: 14px;
+  margin-top: 12px; border: 1px solid var(--zx-hair); border-radius: var(--nl-r-sm);
   background: var(--zx-paper); overflow: hidden;
 }
 .rv-bd-head, .rv-bd-row {
@@ -634,7 +651,7 @@ html body.page-home .rv-frame {
   padding: 0 !important;
   border: 0 !important;
   background: transparent !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-pill) !important;
   overflow: visible !important;
   display: block !important;
 }
@@ -647,7 +664,7 @@ html body.page-home .rv-ask {
   margin: 0;
   padding: 0 !important;
   border: 1px solid var(--zx-hair) !important;
-  border-radius: 16px !important;
+  border-radius: var(--nl-r) !important;
   background: var(--zx-paper) !important;
   background-image: none !important;
   box-shadow: none !important;
@@ -672,7 +689,7 @@ html body.page-home .rv-root-wrap select {
   padding: 8px 4px; outline: none !important;
 }
 html body.page-home .rv-ask-btn {
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-pill) !important;
   min-height: 62px !important;
   padding: 0 30px !important;
   font-weight: 800 !important;
@@ -692,7 +709,7 @@ html body.page-home .zx-facts {
 html body.page-home .zx-fact {
   background: var(--zx-paper);
   border: 1px solid var(--zx-hair-2);
-  border-radius: 18px;
+  border-radius: var(--nl-r);
   padding: 22px 22px 24px;
   min-height: 132px;
   box-shadow: none;
@@ -722,7 +739,7 @@ html body.page-home .rv-col-ico { color: var(--zx-ink) !important; }
   html body.page-home .zx-facts { grid-template-columns: minmax(0, 1fr) !important; gap: 12px; }
   html body.page-home .zx-fact { min-height: 0; padding: 18px 20px; }
   html body.page-home .zx-fact-k { margin-bottom: 10px; }
-  html body.page-home .rv-ask { flex-wrap: wrap !important; border-radius: 14px !important; }
+  html body.page-home .rv-ask { flex-wrap: wrap !important; border-radius: var(--nl-r-sm) !important; }
   html body.page-home .rv-ask #qName { flex: 1 1 60%; padding: 14px 8px 14px 18px; }
   html body.page-home .rv-root-wrap { border-left: 0; padding: 0 16px 12px; }
   html body.page-home .rv-ask-btn { width: 100% !important; min-height: 48px !important; border-radius: 0 0 14px 14px !important; }
@@ -861,7 +878,7 @@ html body .site-announcement {
   border-left: 0 !important;
   border-right: 0 !important;
   border-bottom: 1px solid var(--zx-hair) !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-pill) !important;
   box-shadow: none !important;
   color: var(--zx-body) !important;
   font-family: var(--zx-sans, var(--sans, system-ui, sans-serif)) !important;

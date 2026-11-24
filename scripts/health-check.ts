@@ -67,13 +67,13 @@ for (const p of srcFiles) {
       颜色全部令牌化；渐变、毛玻璃、阴影在源头删除，不再靠 !important 层层压盖。 */
 const main = read('src/app/main.tsx');
 const imports = [...main.matchAll(/import\s+['"]\.\/styles\/([^'"]+)['"]/g)].map((m) => m[1]);
-const ORDER = ['shell.css', 'captcha.css', 'oauth.css', 'design-system.css', 'yunamo-skin.css'];
+const ORDER = ['shell.css', 'captcha.css', 'oauth.css', 'design-system.css', 'nodeloc-skin.css'];
 check(imports.length === 5, `样式入口恰好 5 层（实际 ${imports.length}：${imports.join(', ')})`);
 check(imports.slice(0, 4).join(',') === ORDER.slice(0, 4).join(','),
   '4 层加载顺序固定：结构 → 独立组件 → 设计系统（形态层另算）');
-check(imports.at(-1) === 'yunamo-skin.css'
-  && imports.indexOf('design-system.css') < imports.indexOf('yunamo-skin.css'),
-  'design-system.css 仍是颜色权威层；形态层 yunamo-skin.css 最后加载且不改颜色');
+check(imports.at(-1) === 'nodeloc-skin.css'
+  && imports.indexOf('design-system.css') < imports.indexOf('nodeloc-skin.css'),
+  'design-system.css 仍是颜色权威层；形态层 nodeloc-skin.css 最后加载且不改颜色');
 check(
   imports.indexOf('captcha.css') < imports.indexOf('design-system.css') &&
   imports.indexOf('oauth.css') < imports.indexOf('design-system.css'),
@@ -266,7 +266,7 @@ check(/bl-petals/.test(bloom) && /prefers-reduced-motion/.test(bloom), '花瓣�
 check(/\.bgswitch button/.test(bloom), '壁纸切换器为圆形缩略点');
 check(/min-width:\s*620px/.test(bloom), '窄屏表格不再竖排断字');
 check(imports.includes('shell.css') && imports.indexOf('design-system.css') === 3
-  && imports.at(-1) === 'yunamo-skin.css',
+  && imports.at(-1) === 'nodeloc-skin.css',
   'design-system.css 为颜色权威层，结构 / 组件层在其之前，形态层在其之后');
 
 /* 12. 首屏一次性就绪：不再「一阶段 / 二阶段 / 三阶段慢慢加载出来」 */
@@ -1913,8 +1913,8 @@ check(/backup-regression\.ts/.test(read('.github/workflows/deploy.yml'))
   '备份专项回归进 CI 且覆盖完整 round-trip');
 
 
-/* ── Yunamo 形态层防回流（颜色保持现在的） ── */
-const ynSkin = read('src/app/styles/yunamo-skin.css');
+/* ── NodeLoc 3.0 形态层防回流（颜色保持现在的） ── */
+const ynSkin = read('src/app/styles/nodeloc-skin.css');
 const ynMain = read('src/app/main.tsx');
 const ynHome = read('src/app/pages/Home.tsx');
 const ynCode = ynSkin.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -1923,16 +1923,22 @@ check(!/#[0-9a-fA-F]{3,8}\b/.test(ynCode) && !/\brgba?\(/.test(ynCode) && !/\bhs
 check(!/--zx-(paper|ink|blue|body|muted|hair|danger|warn)\s*:/.test(ynCode),
   '形态层不重定义 --zx-* 颜色令牌');
 const ynImports = [...ynMain.matchAll(/import '([^']+\.css)'/g)].map((m) => m[1]);
-check(ynImports.at(-1) === './styles/yunamo-skin.css', '形态层最后加载，删掉即可回滚');
-check(/--yn-radius/.test(ynSkin) && /--zx-mono:\s*ui-monospace/.test(ynSkin)
+check(ynImports.at(-1) === './styles/nodeloc-skin.css', '形态层最后加载，删掉即可回滚');
+check(/--nl-r-pill|var\(--nl-r-lg\)/.test(ynSkin) && /--zx-mono:\s*ui-monospace/.test(ynSkin)
   && /rv-ask[\s\S]{0,400}display: grid !important/.test(ynSkin),
-  '圆角 / 等宽字 / 两段式查询都在形态层');
+  'NodeLoc 3.0 圆角收口 / 等宽字 / 两段式查询都在形态层');
+check(/html body \.side-group \{/.test(ynSkin) && /html body \.site-announcement \{/.test(ynSkin)
+  && /border-radius: var\(--nl-r-round\) !important/.test(ynSkin),
+  '侧栏分组圆角卡 / 公告横幅 / 圆形图标按钮都在形态层');
+const ynAll = read('src/app/styles/shell.css') + read('src/app/styles/design-system.css');
+check(!/border-radius:\s*0\s*!important/.test(ynAll),
+  '源头零直角：shell.css / design-system.css 不再有 border-radius: 0 !important');
 check(/id="ynMotion"/.test(ynHome) && /noxc-motion-paused/.test(ynHome)
   && /id="how"/.test(ynHome) && /data-yn-try=/.test(ynHome),
   '暂停动效 / How it works / Try 示例都在首页');
 check(/不发任何查询请求/.test(ynHome), 'Try 示例零接口请求，不增加 D1 读取');
-check(/yunamo-skin-regression\.ts/.test(read('.github/workflows/deploy.yml')),
-  '皮肤专项回归进 CI');
+check(/nodeloc-skin-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  'NodeLoc 3.0 皮肤专项回归进 CI');
 check(/### 15\. 界面风格/.test(read('README.md'))
   && /### Z\.7 界面风格与形态层的常见错误/.test(read('README.md')),
   'README 正文描述能力、错误按约定收在文末 Z.7');

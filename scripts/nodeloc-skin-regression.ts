@@ -1,20 +1,22 @@
 /**
- * Yunamo 形态皮肤专项回归（CI 步骤：Yunamo 风格皮肤回归）
+ * NodeLoc 3.0 形态皮肤专项回归（CI 步骤：NodeLoc 3.0 风格皮肤回归）
  *
- * 背景：用户要求「整体网站风格改为 yunamo.com 那样，但颜色保持现在的」。
- * 可确认的 Yunamo 界面语言（官方首页摘要 + 仓库 assets/domain-search.png）：
- *   大圆角描边组件 / 等宽字体承担域名·按钮·uppercase 小标 / 首屏输入条 +
- *   全宽大写按钮两段式 / Try 示例 chips / Features·How it works·FAQ 分区 /
- *   顶栏 Pause motion 可访问性开关 / 无阴影无渐变。
+ * 背景：用户要求「全面改版，配合 NodeLoc 3.0 风格，全都做成圆角，截图参考风格」。
+ * 截图里可确认：所有可见组件都是圆角（大圆角卡片 / 胶囊按钮与标签 /
+ * 圆形图标按钮）；顶栏品牌在左、中间大搜索胶囊、右侧圆形图标按钮；
+ * 侧栏分组是圆角卡片、导航项是圆角胶囊、选中态有独立底色；公告横幅是
+ * 大圆角卡片；发丝线分隔、零阴影零渐变零毛玻璃。
+ * 上一轮「颜色保持现在的」铁律继续生效：形态层不定义任何色值。
  *
- * 两层验证：
- *   A. 静态扫描（CI 必跑）：皮肤层**不得定义任何颜色**、加载顺序、形态 token、
+ * 三层验证：
+ *   A. 静态扫描（CI 必跑）：颜色字面量、加载顺序、圆角阶梯、源头零直角、
  *      首页结构与零请求交互
- *   B. 浏览器真跑（scripts/yunamo-skin-render.py，环境有 Playwright 才执行）：
- *      按生产加载顺序拼 5 份 CSS，用等效首页 DOM 计算样式、比对色值、点按钮，
- *      并生成改造前后对照图。CI 无 Playwright 时自动跳过，不算失败。
+ *   B. 浏览器真跑（scripts/nodeloc-skin-render.py，有 Playwright 才执行）：
+ *      等效首页 DOM 比对 10 个核心色值、逐元素扫描全站圆角、控制台等效 DOM
+ *      （顶栏/侧栏/公告/卡片/控件）、生成改造前后对照图
+ *   C. 反向对照：拿掉形态层后旧的小圆角仍在，证明新收口确实生效
  *
- * 运行：npx tsx scripts/yunamo-skin-regression.ts
+ * 运行：npx tsx scripts/nodeloc-skin-regression.ts
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,7 +27,7 @@ const bad: string[] = [];
 const check = (v: any, m: string) => (v ? ok.push(m) : bad.push(m));
 const read = (p: string) => fs.readFileSync(path.resolve(p), 'utf8');
 
-const SKIN = 'src/app/styles/yunamo-skin.css';
+const SKIN = 'src/app/styles/nodeloc-skin.css';
 const skin = read(SKIN);
 const mainSrc = read('src/app/main.tsx');
 const home = read('src/app/pages/Home.tsx');
@@ -52,7 +54,7 @@ const readme = read('README.md');
     '未重定义任何 --zx-* 颜色令牌' + (redefined.length ? '：' + redefined.join(',') : ''));
 
   const used = [...skin.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]);
-  const unknown = [...new Set(used)].filter((v) => !/^--(zx-|rv-|td-|lg-|radius|mono|sans|yn-)/.test(v));
+  const unknown = [...new Set(used)].filter((v) => !/^--(zx-|rv-|td-|lg-|nl-|radius|mono|sans|yn-)/.test(v));
   check(unknown.length === 0,
     'var() 引用的都是既有令牌' + (unknown.length ? '：' + unknown.join(',') : ''));
 
@@ -62,21 +64,26 @@ const readme = read('README.md');
   check(/html\[data-theme="dark"\]/.test(ds), '暗色主题仍由 design-system.css 独占定义');
 
   const imports = [...mainSrc.matchAll(/import '([^']+\.css)'/g)].map((m) => m[1]);
-  check(imports.at(-1) === './styles/yunamo-skin.css',
-    'yunamo-skin.css 在 main.tsx 最后加载（能覆盖历史层形状，且不碰颜色）');
+  check(imports.at(-1) === './styles/nodeloc-skin.css',
+    'nodeloc-skin.css 在 main.tsx 最后加载（能覆盖历史层形状，且不碰颜色）');
   check(imports.includes('./styles/design-system.css')
-    && imports.indexOf('./styles/design-system.css') < imports.indexOf('./styles/yunamo-skin.css'),
+    && imports.indexOf('./styles/design-system.css') < imports.indexOf('./styles/nodeloc-skin.css'),
     '颜色层在形态层之前');
 }
 
 /* ───────── A2. 形态与结构静态断言 ───────── */
 {
-  check(/--yn-radius:\s*14px/.test(skin) && /--radius:\s*var\(--yn-radius\)/.test(skin),
-    '圆角 token：胶囊 999px → 14px 圆角矩形');
+  const ds2 = read('src/app/styles/design-system.css');
+  check(/--nl-r-pill:\s*999px/.test(ds2) && /--nl-r-lg:\s*24px/.test(ds2)
+    && /--nl-r:\s*18px/.test(ds2) && /--zx-radius:\s*var\(--nl-r\)/.test(ds2),
+    'NodeLoc 3.0 圆角阶梯定义在唯一视觉源 design-system.css');
+  check(/--yn-radius:\s*var\(--nl-r\)/.test(ds2) && /--rv-r:\s*var\(--nl-r\)/.test(ds2),
+    'shell.css / Home.tsx 的历史 var() 别名统一指向新阶梯');
   check(/--zx-mono:\s*ui-monospace/.test(skin) && /--rv-mono:\s*var\(--zx-mono\)/.test(skin),
     '等宽字体 token 覆盖到 --zx-mono / --rv-mono / --mono');
-  check(/html body \.rv-pill \{[\s\S]{0,200}border-radius: var\(--yn-radius\) !important/.test(skin),
-    '按钮形状从 999px 胶囊改成克制圆角');
+  check(/border-radius: var\(--nl-r-pill\) !important/.test(skin)
+    && /html body \.rv-pill[\s\S]{0,600}border-radius: var\(--nl-r-pill\) !important/.test(skin),
+    '按钮 / 标签 / 徽章 / 导航项统一为胶囊');
   check(/html body \.rv-title \{[\s\S]{0,220}font-weight: 700 !important/.test(skin),
     '标题字重从 900 收敛到 700');
   check(/rv-ask[\s\S]{0,400}display: grid !important/.test(skin)
@@ -120,11 +127,33 @@ const readme = read('README.md');
   check(/04 <span>\/<\/span> TOOLS/.test(home), '后续分区编号顺延，不出现两个 03');
   check(!/[\u{1F300}-\u{1FAFF}]/u.test(home), '首页零 emoji');
   check(/形态层|不改颜色/.test(skin), '皮肤文件头声明了「不改颜色」约定');
+
+  /* ── NodeLoc 3.0：全圆角静态断言 ── */
+  check(/html body \.side-toggle,[\s\S]{0,300}border-radius: var\(--nl-r-round\) !important/.test(skin),
+    '圆形图标按钮（侧栏图标 / 菜单开关 / 示例箭头）');
+  check(/html body \.side-group \{[\s\S]{0,320}border-radius: var\(--nl-r-lg\) !important|[\s\S]{0,320}background: var\(--zx-blue-soft\) !important/.test(skin),
+    '侧栏分组是圆角卡片 + 独立底色');
+  check(/html body \.side-item \{[\s\S]{0,220}margin: 2px 0 !important/.test(skin)
+    && /html body \.side-item\.on \{[\s\S]{0,200}background: var\(--zx-blue-a16\) !important/.test(skin),
+    '侧栏导航项是胶囊、选中态有独立底色');
+  check(/html body \.site-announcement \{[\s\S]{0,500}border-radius: var\(--nl-r-lg\) !important/.test(skin),
+    '公告横幅是大圆角卡片（截图最显眼的元素）');
+  check(/html body \.topbar,[\s\S]{0,240}border-radius: var\(--nl-r-lg\) !important/.test(skin),
+    '顶栏 / 侧栏骨架本身也四角圆角，不留直角');
+  check(/border-radius: var\(--nl-r-pill\) 0 0 var\(--nl-r-pill\) !important/.test(skin)
+    && /border-radius: 0 var\(--nl-r-pill\) var\(--nl-r-pill\) 0 !important/.test(skin),
+    '首页输入条与后缀合为一条完整胶囊，拼接直角已消除');
+  const allCss = read('src/app/styles/shell.css') + read('src/app/styles/design-system.css')
+    + read('src/app/styles/captcha.css') + read('src/app/styles/oauth.css');
+  check(!/border-radius:\s*0\s*!important/.test(allCss),
+    '源头 4 层已无 border-radius: 0 !important（不再靠形态层跨层互压）');
+  check(/NodeLoc 3\.0/.test(skin) && /全都做成圆角|全站统一圆角收口/.test(skin),
+    '形态层头注释与收口段声明 NodeLoc 3.0 全圆角口径');
 }
 
 /* ───────── B. 浏览器真跑（可选，环境有 Playwright 才执行） ───────── */
 {
-  const py = path.resolve('scripts/yunamo-skin-render.py');
+  const py = path.resolve('scripts/nodeloc-skin-render.py');
   if (fs.existsSync(py)) {
     const r = spawnSync('python3', [py], { encoding: 'utf8', timeout: 300_000, cwd: process.cwd() });
     const out = String(r.stdout || '');
@@ -148,12 +177,12 @@ const readme = read('README.md');
 }
 
 /* ───────── CI / 文档 ───────── */
-check(/yunamo-skin-regression\.ts/.test(deploy), '皮肤专项回归挂进 CI');
-check(/yunamo/i.test(readme), 'README 记录了风格口径');
+check(/nodeloc-skin-regression\.ts/.test(deploy), 'NodeLoc 3.0 皮肤专项回归挂进 CI');
+check(/NodeLoc 3\.0/i.test(readme), 'README 记录了 NodeLoc 3.0 风格口径');
 check(/maskSecrets/.test(read('src/routes/backup.ts')) && !/includeSecrets/.test(read('src/routes/backup.ts')),
   '同一版里站点设置 JSON 默认完整导出凭据（问题 1 已修）');
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of bad) console.error('  ✗ ' + m);
-console.log(`Yunamo 风格皮肤回归：${ok.length} 通过，${bad.length} 失败`);
+console.log(`NodeLoc 3.0 风格皮肤回归：${ok.length} 通过，${bad.length} 失败`);
 if (bad.length) process.exit(1);

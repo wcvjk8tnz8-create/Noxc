@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Yunamo 形态皮肤 · 浏览器真跑 + 改造前后对照图
+"""NodeLoc 3.0 形态皮肤 · 浏览器真跑 + 改造前后对照图
 
 按 main.tsx 的生产加载顺序拼 5 份 CSS，用与 Home.tsx 等价的 DOM 计算样式：
-  · 按钮圆角、等宽字体、两段式查询、全宽主按钮、标题字重
+  · 全站圆角扫描：卡片 / 按钮 / 输入框 / 侧栏 / 顶栏 / 公告横幅 100% 非直角
+  · 胶囊按钮与标签、圆形图标按钮、大圆角面板（NodeLoc 3.0 实拍语言）
   · 明/暗主题的 --zx-* 色值与改动前逐项比对（颜色保持现在的）
   · Try chips 点击零请求、暂停动效后内容仍可见、手机端单列无溢出
 
@@ -28,7 +29,7 @@ CSS_ORDER = [
     'src/app/styles/captcha.css',
     'src/app/styles/oauth.css',
     'src/app/styles/design-system.css',
-    'src/app/styles/yunamo-skin.css',
+    'src/app/styles/nodeloc-skin.css',
 ]
 SKIN = CSS_ORDER[-1]
 
@@ -131,6 +132,82 @@ if(mb) mb.addEventListener('click',function(){
 </body></html>''' % (theme, css)
 
 
+def shell_html(with_skin: bool, dark: bool = False) -> str:
+    """控制台等效 DOM：顶栏 / 侧栏 / 公告横幅 / 卡片 / 表格 / 弹窗 / 控件。
+    用于逐元素扫描 computed border-radius，验证「全都做成圆角」。"""
+    css = '\n\n'.join(
+        '/* %s */\n%s' % (f, (ROOT / f).read_text(encoding='utf-8'))
+        for f in CSS_ORDER if with_skin or f != SKIN
+    )
+    theme = ' data-theme="dark"' if dark else ''
+    return '''<!doctype html><html lang="zh-CN"%s><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>%s</style></head><body>
+<div class="site-announcement" data-no-i18n><span class="sa-dot"></span><span class="sa-text">站点公告示例 · Noxc 服务正常</span></div>
+<header class="topbar"><div class="topbar-in">
+  <button class="side-toggle" id="sideToggle">≡</button>
+  <button class="btn ghost icon" id="iconBtn">◎</button>
+  <a class="btn primary" href="/register">立即注册</a>
+</div></header>
+<aside class="sidebar"><div class="side-in">
+  <div class="side-group">
+    <a class="side-item on" href="#"><span class="side-ico">◆</span><span class="side-txt">首页</span></a>
+    <a class="side-item" href="#"><span class="side-ico">◆</span><span class="side-txt">域名管理</span></a>
+    <a class="side-item" href="#"><span class="side-ico">◆</span><span class="side-txt">奖励中心</span></a>
+  </div>
+  <div class="side-group"><div class="side-mod"><h3>快捷入口</h3><p>说明文字</p></div></div>
+</div></aside>
+<main class="main"><div class="main-in">
+  <div class="card" id="cardA"><h2>域名总数</h2><p>内容</p></div>
+  <div class="stat-card" id="statCard">统计</div>
+  <div class="quick" id="quickCard">快捷入口</div>
+  <div class="rv-breakdown" id="bdPanel"><div class="rv-bd-row"><span>.noxc.uk</span><b class="rv-bd-hot">HOT</b><em class="rv-bd-paused">暂停申请</em></div></div>
+  <div class="tablewrap" id="tableWrap"><table><tr><th>后缀</th><th>数量</th></tr><tr><td>noxc.uk</td><td>146</td></tr></table></div>
+  <div class="modal-card" id="modalCard">弹窗内容</div>
+  <input id="inpA" placeholder="输入"><select id="selA"><option>选项</option></select><textarea id="taA"></textarea>
+  <button class="btn" id="btnA">普通按钮</button><button class="rv-pill" id="pillA">胶囊</button>
+  <span class="chip" id="chipA">标签</span><span class="nk-badge" id="badgeA">徽章</span>
+  <div class="root-picker"><button class="root-picker-btn" id="pickerBtn">noxc.uk</button>
+    <div class="root-picker-menu"><button class="root-opt" data-paused="0">.NOXC.UK</button>
+    <button class="root-opt" data-paused="1" disabled>.MEOY.TOP</button></div></div>
+</div></main>
+</body></html>''' % (theme, css)
+
+
+def radius_scan(pg, label):
+    """逐元素扫描：所有可见组件 computed border-radius 必须 > 0。"""
+    data = pg.evaluate('''() => {
+      const sels = ['.site-announcement','.topbar','.sidebar','.side-in','.side-group',
+        '.side-item','.side-item.on','.side-ico','.side-toggle','.btn.ghost.icon',
+        '.card','.stat-card','.quick','.rv-breakdown','.tablewrap','.modal-card',
+        'input','select','textarea','.btn','.rv-pill','.chip','.nk-badge',
+        '.rv-bd-hot','.rv-bd-paused','.root-picker-btn','.root-picker-menu','.root-opt'];
+      const out = [];
+      for (const s of sels) {
+        document.querySelectorAll(s).forEach(function(el){
+          const cs = getComputedStyle(el);
+          const r = parseFloat(cs.borderTopLeftRadius) || 0;
+          out.push({sel:s, r:r, raw:cs.borderTopLeftRadius});
+        });
+      }
+      return out;
+    }''')
+    flat = [d for d in data if d['r'] <= 0]
+    check(len(flat) == 0,
+          '%s 全站 %d 个组件 0 个直角（%s）' % (
+            label, len(data), ('直角: ' + ', '.join(x['sel'] for x in flat[:5])) if flat else '全部有圆角'))
+    # 胶囊与圆形
+    pill = pg.eval_on_selector('#btnA', '(e)=>parseFloat(getComputedStyle(e).borderTopLeftRadius)||0')
+    icon = pg.eval_on_selector('.side-ico', '(e)=>parseFloat(getComputedStyle(e).borderTopLeftRadius)||0')
+    banner = pg.eval_on_selector('.site-announcement', '(e)=>parseFloat(getComputedStyle(e).borderTopLeftRadius)||0')
+    card = pg.eval_on_selector('#cardA', '(e)=>parseFloat(getComputedStyle(e).borderTopLeftRadius)||0')
+    check(pill >= 100, '%s 按钮为胶囊（radius %.0f）' % (label, pill))
+    check(icon >= 15, '%s 侧栏图标为圆形/高圆角（radius %.0f）' % (label, icon))
+    check(banner >= 20, '%s 公告横幅为大圆角卡片（radius %.0f）' % (label, banner))
+    check(card >= 14, '%s 内容卡为圆角（radius %.0f）' % (label, card))
+    return data
+
+
 def style(pg, sel, prop):
     return pg.eval_on_selector(sel, '(e,p)=>getComputedStyle(e).getPropertyValue(p)', prop)
 
@@ -142,6 +219,9 @@ def main():
         ('_skin_after_dark.html', True, True),
     ]:
         (PREVIEW / name).write_text(page_html(skin, dark), encoding='utf-8')
+    (PREVIEW / '_nodeloc_shell.html').write_text(shell_html(True, False), encoding='utf-8')
+    (PREVIEW / '_nodeloc_shell_dark.html').write_text(shell_html(True, True), encoding='utf-8')
+    (PREVIEW / '_nodeloc_shell_before.html').write_text(shell_html(False, False), encoding='utf-8')
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -159,7 +239,7 @@ def main():
         check('Redaction' in before_font or 'monospace' not in before_font.lower(),
               '改造前输入框不是等宽（实测 %s）' % before_font[:60])
         pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
-        f = PREVIEW / 'yunamo_skin_before_desktop.png'
+        f = PREVIEW / 'nodeloc_skin_before_desktop.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
 
@@ -169,7 +249,7 @@ def main():
         pg.wait_for_timeout(1700)
 
         radius = style(pg, '.rv-pill.ink.lg', 'border-radius')
-        check('14px' in radius, '按钮改为 14px 圆角矩形（实测 %s）' % radius)
+        check('999px' in radius, '按钮为 NodeLoc 3.0 胶囊（实测 %s）' % radius)
 
         qfont = style(pg, '#qName', 'font-family')
         check(any(x in qfont.lower() for x in ['monospace', 'menlo', 'consolas']),
@@ -178,7 +258,7 @@ def main():
         btnfont = style(pg, '#askBtn', 'font-family')
         btntransform = style(pg, '#askBtn', 'text-transform')
         check(any(x in btnfont.lower() for x in ['monospace', 'menlo', 'consolas'])
-              and 'uppercase' in btntransform, '主按钮等宽 + 大写（Yunamo 招牌）')
+              and 'uppercase' in btntransform, '主按钮等宽 + 大写（保留形态骨架）')
 
         display = style(pg, '#searchForm', 'display')
         rows = style(pg, '#searchForm', 'grid-template-rows')
@@ -252,7 +332,7 @@ def main():
         panel_bg = style(pg, '.yn-panel', 'background-color')
         panel_border = style(pg, '.yn-panel', 'border-top-width')
         check('255, 255, 255' in panel_bg or 'rgb(255' in panel_bg,
-              '查询卡是白底描边（实测 %s），没有抄 yunamo 的深色星空' % panel_bg)
+              '查询卡是白底描边（实测 %s），颜色保持现行色板' % panel_bg)
         check(panel_border == '1px', '查询卡 1px 发丝线（实测 %s）' % panel_border)
 
         motion_pos = style(pg, '#ynMotion', 'position')
@@ -283,7 +363,7 @@ def main():
               '宽屏无横向溢出')
         pg.fill('#qName', '')   # 对照图展示空态，不留下点击测试填进去的示例值
         pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
-        f = PREVIEW / 'yunamo_skin_after_desktop.png'
+        f = PREVIEW / 'nodeloc_skin_after_desktop.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
 
@@ -293,10 +373,10 @@ def main():
         pg.wait_for_timeout(1700)
         paper = pg.evaluate("()=>getComputedStyle(document.documentElement).getPropertyValue('--zx-paper').trim()")
         radius_dark = style(pg, '.rv-pill.ink.lg', 'border-radius')
-        check(paper == '#0b0d11' and '14px' in radius_dark,
-              '暗色主题色值不变、形态同样生效（paper=%s, radius=%s）' % (paper, radius_dark))
+        check(paper == '#0b0d11' and '999px' in radius_dark,
+              '暗色主题色值不变、胶囊形态同样生效（paper=%s, radius=%s）' % (paper, radius_dark))
         pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
-        f = PREVIEW / 'yunamo_skin_after_dark.png'
+        f = PREVIEW / 'nodeloc_skin_after_dark.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
 
@@ -321,7 +401,7 @@ def main():
               and m_panel['y'] > m_copy['y'] + m_copy['height'] - 4,
               '手机端两栏改单列，查询卡跟在标题下方（实测 %s）' % m_cols)
         pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
-        f = PREVIEW / 'yunamo_skin_after_mobile.png'
+        f = PREVIEW / 'nodeloc_skin_after_mobile.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
 
@@ -329,9 +409,37 @@ def main():
         pg.goto('file://' + str(PREVIEW / '_skin_before.html'))
         pg.wait_for_timeout(1700)
         pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
-        f = PREVIEW / 'yunamo_skin_before_mobile.png'
+        f = PREVIEW / 'nodeloc_skin_before_mobile.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
         pg.close()
+
+        # ── NodeLoc 3.0 全站圆角：明 / 暗 × 改造前后 ──
+        for name, label in [('_nodeloc_shell.html', '明色'),
+                            ('_nodeloc_shell_dark.html', '暗色')]:
+            sp = browser.new_page(viewport={'width': 1280, 'height': 900})
+            sp.goto('file://' + str(PREVIEW / name))
+            sp.wait_for_timeout(300)
+            radius_scan(sp, label)
+            sp.close()
+
+        bp = browser.new_page(viewport={'width': 1280, 'height': 900})
+        bp.goto('file://' + str(PREVIEW / '_nodeloc_shell_before.html'))
+        bp.wait_for_timeout(300)
+        before = bp.evaluate("""() => {
+          const sels=['.topbar','.sidebar','.side-item','.site-announcement','.card','input','.btn'];
+          return sels.map(s=>{const e=document.querySelector(s);
+            return e ? parseFloat(getComputedStyle(e).borderTopLeftRadius)||0 : -1;});
+        }""")
+        after_side = bp.evaluate("""() => 0""")
+        check(any(0 < v < 18 for v in before),
+              '反向对照：不带形态层时仍有未统一的旧小圆角（%s），形态层才把它们收进统一阶梯' % before)
+        sp2 = browser.new_page(viewport={'width': 1280, 'height': 900})
+        sp2.goto('file://' + str(PREVIEW / '_nodeloc_shell.html'))
+        sp2.wait_for_timeout(250)
+        new_side = sp2.eval_on_selector('.side-item', '(e)=>parseFloat(getComputedStyle(e).borderTopLeftRadius)||0')
+        check(new_side > before[2], '反向对照：侧栏导航项从旧小圆角升到胶囊（%s → %s）' % (before[2], new_side))
+        sp2.close()
+        bp.close()
 
         browser.close()
 

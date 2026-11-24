@@ -8,14 +8,14 @@ import App from './App';
    captcha.css        滑块验证（tdcap- 前缀，独立组件）
    oauth.css          NodeLoc 登录（td-oauth- 前缀，独立组件）
    design-system.css  唯一视觉源：令牌 + Zerexa 排版骨架
-   yunamo-skin.css   形态层：几何 / 等宽字 / 两段式查询 / 动效开关，最后加载
+   nodeloc-skin.css   形态层：NodeLoc 3.0 全圆角 / 等宽字 / 两段式查询 / 动效开关，最后加载
                       （不定义颜色，明/暗主题仍由 design-system.css 决定）
    ────────────────────────────────────────────────────────────────────── */
 import './styles/shell.css';
 import './styles/captcha.css';
 import './styles/oauth.css';
 import './styles/design-system.css';
-import './styles/yunamo-skin.css';
+import './styles/nodeloc-skin.css';
 
 const host = document.getElementById('root');
 if (!host) throw new Error('#root 挂载点缺失');

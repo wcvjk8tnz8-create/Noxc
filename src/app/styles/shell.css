@@ -739,7 +739,7 @@ tr.rejected td {
   cursor: pointer;
   letter-spacing: .3px;
   flex: 1;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   font-weight: 500;
   transition: background .2s cubic-bezier(.4,0,.2,1),
               color .2s cubic-bezier(.4,0,.2,1),
@@ -888,7 +888,7 @@ tr.rejected td {
   margin-bottom: 24px;}
 .stat {
   border: 0 !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   padding: 18px 20px;
   background: transparent;
   transition: background .25s;
@@ -1216,7 +1216,7 @@ tr.rejected td {
   width: 2px;
   height: 0;
   background: hsl(var(--foreground));
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   transform: translateY(-50%);
   animation: barIn .28s cubic-bezier(.4,0,.2,1) forwards;}
 .main {
@@ -4142,7 +4142,7 @@ body .site-foot, body:has(.main) .site-foot {
 .nk-hot, .nk-s-tag, .nk-tag, .badge {
   border-radius: 6px !important;}
 .topbar, .sidebar, .home-top, .site-nav {
-  border-radius: 0 !important;}
+  border-radius: var(--nl-r-sm) !important;}
 .side-item, .side-item.on::before {
   border-radius: var(--radius-s) !important;}
 .acc, .acc-body, .reg-summary, .reg-notice, .reg-field-head {
@@ -4497,7 +4497,7 @@ html[data-theme="dark"] .reg-domain-box {
   align-self: stretch;
   padding: 0 38px;
   border: none !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   background: hsl(var(--foreground));
   color: hsl(var(--background));
   font: 700 16px/1 var(--sans) !important;
@@ -4577,7 +4577,7 @@ html[data-theme="dark"] .reg-domain-box {
   font-size: 14px !important;
   padding: 14px 40px 14px 16px !important;}
 .whois-search .btn {
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   padding: 0 26px !important;}
 table th, table td, .tablewrap table th, .tablewrap table td {
   white-space: normal;
@@ -5463,7 +5463,7 @@ body.page-login canvas { display: none !important;}
   border-bottom: 1px solid var(--td-line);
   margin-top: 64px !important;
   background: transparent;}
-.zx-metric { padding: 26px 20px !important; border-right: 1px solid var(--td-line); background: transparent; box-shadow: none; border-radius: 0 !important;}
+.zx-metric { padding: 26px 20px !important; border-right: 1px solid var(--td-line); background: transparent; box-shadow: none; border-radius: var(--nl-r-sm) !important;}
 .zx-metric:last-child { border-right: 0;}
 .zx-metric b { font-family: var(--td-serif) !important; font-size: 30px !important; font-weight: 700 !important; color: var(--td-ink);}
 .zx-m-lbl { font-family: var(--td-mono) !important; font-size: 10px !important; letter-spacing: .18em; text-transform: uppercase; color: var(--td-muted);}
@@ -5537,7 +5537,7 @@ body.page-home .card p { color: var(--td-muted);}
 
 .welcome {
   border-bottom: 1px solid var(--td-line) !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   background: transparent;
   box-shadow: none;
   padding: 4px 0 18px !important;
@@ -5551,7 +5551,7 @@ body.page-home .card p { color: var(--td-muted);}
   background: var(--td-surface);
   border: 0 !important;
   border-right: 1px solid var(--td-line) !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   box-shadow: none;
   padding: 18px 20px !important;
   color: var(--td-ink);}
@@ -5588,13 +5588,13 @@ table th {
   font-weight: 600 !important;
   padding: 10px 14px !important;
   border-bottom: 1px solid var(--td-line) !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   position: sticky; top: 0; z-index: 1;}
 table td {
   background: transparent;
   padding: 11px 14px !important;
   border-bottom: 1px solid var(--td-line-2) !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   font-size: 14px !important;
   color: var(--td-ink);}
 table tbody tr:hover td { background: var(--td-accent-soft);}
@@ -5830,7 +5830,7 @@ button:not(.root-opt):not(.op-btn):not(.iconbtn):not(.side-toggle),
 .modal {
   background: var(--zx-blue-a30);
   border: none !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   box-shadow: none;}
 [data-theme="dark"] .modal { background: var(--zx-blue-a30);}
 
@@ -5839,7 +5839,7 @@ button:not(.root-opt):not(.op-btn):not(.iconbtn):not(.side-toggle),
   background: transparent;
   color: inherit;
   box-shadow: none;
-  border-radius: 0 !important;}
+  border-radius: var(--nl-r-sm) !important;}
 .toast {
   background: hsl(var(--card, 0 0% 100%));
   color: hsl(var(--foreground, 220 9% 10%));
@@ -6342,7 +6342,7 @@ body:has(.main) .site-foot,
 .stat-card {
   background: transparent;
   border-right: 1px solid var(--lg-hair) !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   box-shadow: none;
   color: var(--lg-ink);}
 .stat-card:last-child { border-right: 0 !important;}
@@ -7787,7 +7787,7 @@ th { font-family: var(--rv-mono); font-weight: 500; color: var(--rv-muted);}
 #toast {
   background: transparent;
   border: 0 !important;
-  border-radius: 0 !important;
+  border-radius: var(--nl-r-sm) !important;
   box-shadow: none;
   padding: 0 !important;
   min-width: 0 !important;
