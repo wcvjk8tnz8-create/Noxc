@@ -887,7 +887,8 @@ export function contactBadgeLoaded() { return contactHtmlLoaded; }
 
   /** 数字从 0 滚到目标值，只动 textContent（不触发重排） */
   function countUp(el) {
-    if (reduced || el.dataset.counted === '1') return;
+    if (reduced || document.documentElement.dataset.motion === 'paused'
+        || el.dataset.counted === '1') return;
     var raw = String(el.textContent || '').trim();
     var target = parseFloat(raw.replace(/[^\d.]/g, ''));
     if (!isFinite(target) || target === 0) return;
@@ -1228,7 +1229,8 @@ function bootMotion() {
   if (__motionBoot) return __motionBoot;
   window.addEventListener('scroll', syncTopbarState, { passive: true });
   syncTopbarState();
-  const reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+    || document.documentElement.dataset.motion === 'paused';
   let io: IntersectionObserver | null = null;
   if (!reduced) {
     let bar = document.getElementById('docProgress') as HTMLElement | null;

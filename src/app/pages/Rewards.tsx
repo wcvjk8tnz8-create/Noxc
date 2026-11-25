@@ -116,7 +116,46 @@ export default function RewardsPage() {
       
         <div className="card" id="adminList" style={{display: "none"}}>
           <h2>管理员 · 兑换码列表</h2>
+          <div className="hint" style={{margin: "-4px 0 12px"}}
+               data-en="Click Edit to change a coupon's value, total uses, used count, expiry and note.">
+            点「编辑」可修改券的面值、总使用量、已用量、有效期与备注，不用删了重发。
+          </div>
           <div id="listWrap" className="tablewrap"><div className="empty">加载中…</div></div>
+
+          {/* 编辑已生成的券：行内表单，不新增页面 / 弹窗组件 */}
+          <div className="card" id="editBox" style={{display: "none", marginTop: "14px"}}>
+            <h2 id="editTitle" data-en="Edit coupon">编辑兑换码</h2>
+            <div className="hint" id="editMeta" style={{margin: "-4px 0 12px"}}></div>
+            <div className="grid2">
+              <div>
+                <label data-en="Value (quota / points)">面值（配额 / 积分）</label>
+                <input id="eValue" type="number" min="1" />
+                <div className="hint" data-en="Permanent (V) codes have no value.">永久化券（V 码）没有面值。</div>
+              </div>
+              <div>
+                <label data-en="Total uses">券总使用量</label>
+                <input id="eMax" type="number" min="1" />
+                <div className="hint" data-en="Cannot be lower than the used count.">不能低于已用量。</div>
+              </div>
+              <div>
+                <label data-en="Used count (admin correction)">已用量（管理员修正）</label>
+                <input id="eUsed" type="number" min="0" />
+                <div className="hint" data-en="Use this only to fix accounting errors; it is written to the audit log.">仅用于修正计数偏差，修改会写审计日志。</div>
+              </div>
+              <div>
+                <label data-en="Expires at (blank = never)">到期时间（留空 = 长期有效）</label>
+                <input id="eExpiry" type="datetime-local" />
+              </div>
+              <div>
+                <label data-en="Note">备注</label>
+                <input id="eNote" placeholder="例如：活动奖励" />
+              </div>
+            </div>
+            <div className="row end" style={{marginTop: "12px"}}>
+              <button className="btn" id="btnEditCancel" data-en="Cancel">取消</button>
+              <button className="btn primary" id="btnEditSave" data-en="Save changes">保存修改</button>
+            </div>
+          </div>
         </div>
       
       </div></main>

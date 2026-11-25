@@ -149,6 +149,24 @@ const readme = read('README.md');
     '源头 4 层已无 border-radius: 0 !important（不再靠形态层跨层互压）');
   check(/NodeLoc 3\.0/.test(skin) && /全都做成圆角|全站统一圆角收口/.test(skin),
     '形态层头注释与收口段声明 NodeLoc 3.0 全圆角口径');
+
+  /* ── NodeLoc 3.0 + 效果层：纯白不闷，但克制、零彩色、可一键停 ── */
+  check(/8 · 效果层/.test(skin) && /radial-gradient\(circle at 1px 1px/.test(skin)
+    && /radial-gradient\(760px/.test(skin),
+    '效果层落地：两处柔光 + 26px 点阵（全部只用既有 --zx-* 令牌）');
+  check(/@keyframes nl-glow/.test(skin) && /@keyframes nl-dot/.test(skin)
+    && (skin.match(/@keyframes nl-/g) || []).length === 2,
+    '常驻循环动画恰好两条：查询卡柔光呼吸 + 墨点 pulse，不堆动效');
+  check(/html\[data-motion="paused"\] \*::before/.test(skin)
+    && /prefers-reduced-motion/.test(skin)
+    && /html\[data-motion="paused"\] \.card:hover/.test(skin),
+    '暂停开关与系统偏好能停掉全部循环动画 / hover 位移');
+  check(!/backdrop-filter/.test(skin) && !/pageTransition|tdTransition|miku-pop/.test(skin),
+    '没恢复毛玻璃、没恢复上一轮删掉的切页过渡（hover 微动效 ≠ 切页延后）');
+  check(/transform: translateY\(-2px\)/.test(skin) && /transition:[\s\S]{0,200}var\(--yn-ease\)/.test(skin),
+    '卡片 / 按钮靠 2px 上浮与发丝线加深做层次，不靠投影');
+  check(/Vue 3 \+ Vite \+ Tailwind CSS \+ DaisyUI/.test(skin),
+    '形态层注明参考来源（yunamo.com 为 SPA，抓不到打包 CSS，按公开技术栈落地）');
 }
 
 /* ───────── B. 浏览器真跑（可选，环境有 Playwright 才执行） ───────── */

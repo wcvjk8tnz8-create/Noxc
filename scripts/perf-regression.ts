@@ -9,7 +9,8 @@
  *   A. 真跑 src/app/lib/prefetch.ts：验证「立即换页」后在飞的预取能被
  *      api.get 复用，零重复请求（这是拆掉过渡后不退化的数据层保障）
  *   B. 静态断言：过渡模块 / DOM / CSS / 静态页副本全部移除、点击立即
- *      navigate、首屏预载收紧、整屏等待收紧、/api/config 并发、静态资源缓存
+ *      navigate、首屏预载收紧、整屏等待收紧、/api/config 并发、静态资源缓存、
+ *      以及「默认关闭装饰动效」（社区反馈动画太多）
  *
  * 运行：npx tsx scripts/perf-regression.ts
  */
@@ -94,6 +95,12 @@ async function main() {
   check(!/useRef\(key\)|prevKey/.test(appSrc), 'App 不再有过渡驱动的路由 key 比对');
   check(!/miku-pop|tdTransition|td-trans/.test(spa + shellCss + dsCss),
     'HTML 壳与 CSS 里不再有过渡角色 / 遮罩样式');
+  /* 「纯白不闷」的 hover 微动效放在形态层，但绝不等于恢复切页延后：
+     它只用 transform / opacity，不引入任何导航等待或整屏就绪门。 */
+  const fxCss = read('src/app/styles/nodeloc-skin.css');
+  check(!/pageTransition|tdTransition|miku-pop|data-ready/.test(fxCss)
+    && /8 · 效果层/.test(fxCss),
+    '形态层只有 hover / 呼吸微动效，没有切页过渡与整屏就绪门');
   for (const f of ['src/html/root-meoy.ts', 'src/html/root-v1.ts']) {
     const rp = read(f);
     check(!/tdTransition|td-trans|miku-pop|location\.href = url/.test(rp),
@@ -135,6 +142,20 @@ async function main() {
   check(/perf-regression\.ts/.test(read('.github/workflows/deploy.yml')),
     '性能专项回归挂进 CI');
   check(/过渡动画|移除过渡/.test(read('README.md')), 'README 记录过渡移除与提速口径');
+
+  /* ── 社区反馈「动画效果太多」：默认全停，仍可一键恢复 ── */
+  check(/dataset\.motion = 'paused'/.test(mainSrc)
+    && /noxc-motion-paused/.test(mainSrc)
+    && /!== '0'/.test(mainSrc),
+    '入口默认把 documentElement 标成 paused，只有显式恢复才放开');
+  check(!/localStorage\.getItem\(MOTION_KEY\) === '1'\) document\.documentElement\.dataset\.motion = 'paused'/.test(
+      read('src/app/pages/Home.tsx')),
+    '首页不再反向覆盖全局默认，用户「恢复动效」跨页保留');
+  check(/dataset\.motion === 'paused'/.test(runtime),
+    'JS 数字滚动与 IntersectionObserver 入场也尊重默认暂停');
+  check(/8\.5 默认暂停兜底/.test(fxCss)
+    && /html\[data-motion="paused"\] body\.page-home \.yn-panel::before/.test(fxCss),
+    '形态层高特异性兜底：循环柔光 / 圆点 pulse / hover 过渡全部停掉');
 
   for (const m of ok) console.log('  ✓ ' + m);
   for (const m of bad) console.error('  ✗ ' + m);

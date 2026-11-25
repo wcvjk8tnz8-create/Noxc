@@ -219,6 +219,23 @@ check(/discount-code-regression\.ts/.test(dcCI),
 check(/node-version: 24[\s\S]{0,400}discount-code-regression\.ts[\s\S]{0,400}node-version: 20/.test(dcCI),
   'CI 在 DC 抵扣回归处临时切 Node 24（node:sqlite 真跑 schema）并切回 20 构建部署');
 
+/* 9b. 奖励中心：已生成的券可编辑（用量 / 面值 / 有效期 / 备注） */
+const rcRedeem = read('src/routes/redeem.ts');
+const rcCtrl = read('src/app/legacy/rewards.ts');
+const rcPage = read('src/app/pages/Rewards.tsx');
+const rcI18n = read('src/lib/i18nServer.ts');
+check(/app\.put\('\/admin\/:id'/.test(rcRedeem)
+  && /redeem\.edit/.test(rcRedeem)
+  && /AND used_count <= \?/.test(rcRedeem) && /AND used_count = \?/.test(rcRedeem),
+  '编辑券接口存在：部分更新 + 审计 + 两类并发兜底');
+check(/data-ed=/.test(rcCtrl) && /api\.put\('\/api\/redeem\/admin\/'/.test(rcCtrl)
+  && /id="eMax"/.test(rcPage) && /id="eUsed"/.test(rcPage) && /id="eExpiry"/.test(rcPage),
+  '奖励中心列表有编辑按钮与总用量 / 已用量 / 到期表单');
+check(/券刚被使用过，请刷新列表后重试/.test(rcI18n)
+  && /已用量（/.test(rcI18n), '编辑券的服务端提示有英文词条');
+check(/rewards-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  '组合任务 / DC 码 / 编辑券专项回归进 CI');
+
 /* 10. 根域名静态页：过渡同步移除，查询框改为立即跳 WHOIS */
 const rootPages = [
   ['meoy.top.html', 'src/html/root-meoy.ts'],
@@ -1930,6 +1947,12 @@ check(/--nl-r-pill|var\(--nl-r-lg\)/.test(ynSkin) && /--zx-mono:\s*ui-monospace/
 check(/html body \.side-group \{/.test(ynSkin) && /html body \.site-announcement \{/.test(ynSkin)
   && /border-radius: var\(--nl-r-round\) !important/.test(ynSkin),
   '侧栏分组圆角卡 / 公告横幅 / 圆形图标按钮都在形态层');
+check(/8 · 效果层/.test(ynSkin) && /radial-gradient\(circle at 1px 1px/.test(ynSkin)
+  && /@keyframes nl-glow/.test(ynSkin) && /@keyframes nl-dot/.test(ynSkin)
+  && (ynSkin.match(/@keyframes nl-/g) || []).length === 2,
+  '效果层：柔光 + 点阵 + 恰好两条循环呼吸动画，纯白不闷');
+check(!/backdrop-filter/.test(ynSkin) && !/pageTransition|tdTransition|miku-pop/.test(ynSkin),
+  '效果层没恢复毛玻璃，也没恢复已删除的切页过渡');
 const ynAll = read('src/app/styles/shell.css') + read('src/app/styles/design-system.css');
 check(!/border-radius:\s*0\s*!important/.test(ynAll),
   '源头零直角：shell.css / design-system.css 不再有 border-radius: 0 !important');

@@ -41,12 +41,12 @@ def check(cond, msg):
     CHECKS.append({'ok': bool(cond), 'msg': msg})
 
 
-def page_html(with_skin: bool, dark: bool = False) -> str:
+def page_html(with_skin: bool, dark: bool = False, motion: str = '') -> str:
     css = '\n\n'.join(
         '/* %s */\n%s' % (f, (ROOT / f).read_text(encoding='utf-8'))
         for f in CSS_ORDER if with_skin or f != SKIN
     )
-    theme = ' data-theme="dark"' if dark else ''
+    theme = (' data-theme="dark"' if dark else '') + (' data-motion="paused"' if motion else '')
     return '''<!doctype html><html lang="zh-CN"%s><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>%s</style></head>
@@ -222,6 +222,7 @@ def main():
     (PREVIEW / '_nodeloc_shell.html').write_text(shell_html(True, False), encoding='utf-8')
     (PREVIEW / '_nodeloc_shell_dark.html').write_text(shell_html(True, True), encoding='utf-8')
     (PREVIEW / '_nodeloc_shell_before.html').write_text(shell_html(False, False), encoding='utf-8')
+    (PREVIEW / '_nodeloc_motion_default.html').write_text(page_html(True, False, 'paused'), encoding='utf-8')
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -235,9 +236,12 @@ def main():
         pg.wait_for_timeout(1700)
         before_radius = style(pg, '.rv-pill.ink.lg', 'border-radius')
         before_font = style(pg, '#qName', 'font-family')
+        before_bg = style(pg, '.rv-hero', 'background-image')
         check('999px' in before_radius, '改造前按钮是 999px 胶囊（实测 %s）' % before_radius)
         check('Redaction' in before_font or 'monospace' not in before_font.lower(),
               '改造前输入框不是等宽（实测 %s）' % before_font[:60])
+        check(before_bg in ('none', ''),
+              '反向对照：改造前首屏是纯白、无柔光与点阵（实测 %s）' % before_bg)
         pg.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
         f = PREVIEW / 'nodeloc_skin_before_desktop.png'
         pg.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
@@ -342,6 +346,30 @@ def main():
               and motion_y >= head_bottom.get('y', 0) + head_bottom.get('height', 0) - 4,
               '暂停动效悬浮在顶栏右下方，不占导航位置（position=%s）' % motion_pos)
 
+        # ── 效果层：柔光 / 点阵 / 呼吸光晕 / hover 层次 ──
+        hero_bg = style(pg, '.rv-hero', 'background-image')
+        check('radial-gradient' in hero_bg and hero_bg.count('radial-gradient') >= 2,
+              '首屏有柔光 + 点阵两层（实测 %s）' % hero_bg[:110])
+        glow = pg.evaluate("()=>getComputedStyle(document.querySelector('.yn-panel'),'::before').animationName")
+        dot = pg.evaluate("()=>getComputedStyle(document.querySelector('.yn-eyebrow'),'::before').animationName")
+        check(glow == 'nl-glow', '查询卡柔光晕缓慢呼吸（animation=%s）' % glow)
+        check(dot == 'nl-dot', 'eyebrow 墨点 pulse（animation=%s）' % dot)
+        anim_count = pg.evaluate("""() => {
+          let n=0; for (const s of document.styleSheets) {
+            try { for (const r of s.cssRules)
+              if (r.type===CSSRule.KEYFRAMES_RULE && r.name.startsWith('nl-')) n++;
+            } catch(e){}
+          } return n;
+        }""")
+        check(anim_count == 2, '常驻循环动画恰好 2 条（实测 %d），不堆动效' % anim_count)
+        backdrop = pg.evaluate("()=>getComputedStyle(document.querySelector('.rv-head')).backdropFilter")
+        check(backdrop in ('none', '', None), '未恢复毛玻璃（backdrop-filter=%s）' % backdrop)
+        pg.hover('.card.rv-col')
+        pg.wait_for_timeout(300)
+        hov = style(pg, '.card.rv-col', 'transform')
+        check(hov != 'none' and '-2' in hov.replace(' ', ''),
+              '卡片 hover 轻微上浮 2px（transform=%s）' % hov)
+
         requests = []
         pg.on('request', lambda r: requests.append(r.url) if not r.url.startswith('file:') else None)
         pg.click('.yn-sample')
@@ -356,6 +384,10 @@ def main():
         anim = style(pg, '.rv-hero', 'animation-name')
         check(paused == 'paused' and op == '1' and 'none' in anim,
               '暂停动效后动画停止、入场内容仍可见（opacity=%s, animation=%s）' % (op, anim))
+        glow_paused = pg.evaluate("()=>getComputedStyle(document.querySelector('.yn-panel'),'::before').animationName")
+        dot_paused = pg.evaluate("()=>getComputedStyle(document.querySelector('.yn-eyebrow'),'::before').animationName")
+        check(glow_paused == 'none' and dot_paused == 'none',
+              '暂停动效后两条循环动画都停（glow=%s, dot=%s）' % (glow_paused, dot_paused))
         pg.click('#ynMotion')
         check(not pg.evaluate('()=>!!document.documentElement.dataset.motion'), '再点一次恢复动效')
 
@@ -440,6 +472,36 @@ def main():
         check(new_side > before[2], '反向对照：侧栏导航项从旧小圆角升到胶囊（%s → %s）' % (before[2], new_side))
         sp2.close()
         bp.close()
+
+        # ── 默认暂停：装饰动效全停但内容仍可见 ──
+        dp = browser.new_page(viewport={'width': 1280, 'height': 900})
+        dp.goto('file://' + str(PREVIEW / '_nodeloc_motion_default.html'))
+        dp.wait_for_timeout(400)
+        st = dp.evaluate("""() => {
+          const g = (s, p) => { const e=document.querySelector(s);
+            return e ? getComputedStyle(e).getPropertyValue(p).trim() : 'missing'; };
+          return {
+            glow: g('.yn-panel', 'animation-name'),
+            revealOpacity: g('.rv-hero', 'opacity'),
+            btnTransition: g('.rv-pill.ink.lg', 'transition-duration'),
+            cardTransition: g('.card.rv-col', 'transition-duration'),
+            titleVisible: g('.yn-title', 'opacity'),
+          };
+        }""")
+        check('none' in st['glow'] or st['glow'] == '',
+              '默认暂停：查询卡柔光循环动画已停（%s）' % st['glow'])
+        check(st['revealOpacity'] == '1' and st['titleVisible'] == '1',
+              '默认暂停：入场元素不会停在 opacity:0（hero=%s, title=%s）' % (
+                  st['revealOpacity'], st['titleVisible']))
+        check(all(v in ('0s', '0', '') for v in [st['btnTransition'], st['cardTransition']]),
+              '默认暂停：按钮与卡片的 hover 过渡也停掉（%s / %s）' % (
+                  st['btnTransition'], st['cardTransition']))
+        check(not dp.evaluate('()=>document.documentElement.scrollWidth>window.innerWidth'),
+              '默认暂停：无横向溢出、布局不歪')
+        dp.add_style_tag(content='.rv-reveal{animation:none!important;opacity:1!important;transform:none!important;}')
+        f = PREVIEW / 'nodeloc_skin_motion_default.png'
+        dp.screenshot(path=str(f), full_page=True); IMAGES.append(str(f))
+        dp.close()
 
         browser.close()
 

@@ -215,6 +215,113 @@ app.get('/admin/list', async (c) => {
   return ok(c, { items: results || [] });
 });
 
+/**
+ * 编辑已生成的券：面值 / 总使用量 / 已用量（管理员修正）/ 到期时间 / 备注。
+ *
+ * 之前 `/admin/generate` 写死这些字段后只能「停用 / 删除」，管理员想调
+ * 「券总使用量」「面值」「有效期」都改不了，只能删了重发（用户已经领过的
+ * 兑换记录还会留在旧码上）。这里按「部分更新」实现：只认请求里出现的字段，
+ * 券码 / 类型 / 创建人永远不可改。
+ *
+ * 并发兜底：改总量时带 `AND used_count <= 新总量`，防止编辑期间又有人兑换
+ * 导致总量小于真实已用量；显式修正已用量时用 `AND used_count = 读取值`
+ * 做乐观锁，期间被用过就要求刷新重试，不静默覆盖。
+ */
+app.put('/admin/:id', async (c) => {
+  const bad = requireAdmin(c);
+  if (bad) return bad;
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id) || id <= 0) return fail(c, '兑换码 ID 无效');
+  const row: any = await c.env.DB.prepare('SELECT * FROM redeem_codes WHERE id = ?').bind(id).first();
+  if (!row) return fail(c, '兑换码不存在', 404);
+
+  const b: any = await c.req.json().catch(() => ({}));
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(b, k);
+  const sets: string[] = [];
+  const args: any[] = [];
+  const changes: string[] = [];
+
+  /* 面值：永久化券固定为 1，不可改；积分券上限 DC_POINTS_CAP，配额券 999 */
+  if (has('value')) {
+    if (row.type === 'permanent') return fail(c, '永久化券没有面值可改');
+    const v = Number(b.value);
+    if (!Number.isInteger(v) || v < 1) return fail(c, '面值必须是正整数');
+    const cap = row.type === 'points' ? DC_POINTS_CAP : 999;
+    const nv = Math.min(v, cap);
+    if (nv !== Number(row.value)) {
+      sets.push('value = ?'); args.push(nv);
+      changes.push(`面值 ${row.value}→${nv}`);
+    }
+  }
+
+  /* 已用量：默认只在兑换时自增；这里允许管理员修正对账偏差（会写审计） */
+  let targetUsed = Number(row.used_count);
+  if (has('usedCount')) {
+    const v = Number(b.usedCount);
+    if (!Number.isInteger(v) || v < 0) return fail(c, '已用量必须是非负整数');
+    targetUsed = v;
+    if (v !== Number(row.used_count)) {
+      sets.push('used_count = ?'); args.push(v);
+      changes.push(`已用量 ${row.used_count}→${v}`);
+    }
+  }
+
+  /* 总使用量 */
+  let targetMax = Number(row.max_uses);
+  if (has('maxUses')) {
+    const v = Number(b.maxUses);
+    if (!Number.isInteger(v) || v < 1) return fail(c, '总使用量必须是正整数');
+    targetMax = Math.min(v, COUPON_MAX_USES_LIMIT);
+    if (targetMax !== Number(row.max_uses)) {
+      sets.push('max_uses = ?'); args.push(targetMax);
+      changes.push(`总量 ${row.max_uses}→${targetMax}`);
+    }
+  }
+  if (targetUsed > targetMax) {
+    return fail(c, `已用量（${targetUsed}）不能超过总使用量（${targetMax}）`);
+  }
+
+  /* 到期时间：毫秒时间戳；null / 空字符串 = 长期有效 */
+  if (has('expiresAt')) {
+    const raw = b.expiresAt;
+    let v: number | null = null;
+    if (raw !== null && raw !== '' && raw !== undefined) {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0) return fail(c, '到期时间无效');
+      v = Math.floor(n);
+    }
+    const old = row.expires_at == null ? null : Number(row.expires_at);
+    if (v !== old) {
+      sets.push('expires_at = ?'); args.push(v);
+      changes.push(v === null ? '改为长期有效' : `到期 ${new Date(v).toISOString().slice(0, 10)}`);
+    }
+  }
+
+  /* 备注 */
+  if (has('note')) {
+    const v = String(b.note ?? '').trim().slice(0, 200) || null;
+    if (v !== (row.note ?? null)) {
+      sets.push('note = ?'); args.push(v);
+      changes.push('备注已更新');
+    }
+  }
+
+  if (!sets.length) return ok(c, { item: row, unchanged: true });
+
+  const lockUsedCount = has('usedCount');
+  const guardSql = lockUsedCount ? 'AND used_count = ?' : 'AND used_count <= ?';
+  const guardArg = lockUsedCount ? Number(row.used_count) : targetMax;
+  const res: any = await c.env.DB.prepare(
+    `UPDATE redeem_codes SET ${sets.join(', ')} WHERE id = ? ${guardSql}`
+  ).bind(...args, id, guardArg).run();
+  if (!res?.meta?.changes) {
+    return fail(c, '券刚被使用过，请刷新列表后重试', 409);
+  }
+  const item = await c.env.DB.prepare('SELECT * FROM redeem_codes WHERE id = ?').bind(id).first();
+  await audit(c, c.get('user').id, 'redeem.edit', row.code, changes.join('；'));
+  return ok(c, { item, changes });
+});
+
 /** 停用 / 启用 */
 app.post('/admin/:id/toggle', async (c) => {
   const bad = requireAdmin(c);

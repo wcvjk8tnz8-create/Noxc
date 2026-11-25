@@ -17,6 +17,20 @@ import './styles/oauth.css';
 import './styles/design-system.css';
 import './styles/nodeloc-skin.css';
 
+/* ── 动效默认关闭 ───────────────────────────────────────────────────────
+   社区反馈「网站太卡、动画效果太多」：上一轮只删了 Miku 切页过渡，历史层
+   仍常驻花瓣 / 猫爪 / 柔光呼吸 / 圆点 pulse 与几十条 hover 过渡。这里在入口
+   统一把 documentElement 标成 paused，形态层既有降级链路会把它们全停掉，
+   控制台 / 直接打开的 SPA 页面同样生效，不必每页各写一份。
+   只有用户在首页点「恢复动效」（localStorage 记 0）才放开，选择跨页保留。 */
+try {
+  if (localStorage.getItem('noxc-motion-paused') !== '0') {
+    document.documentElement.dataset.motion = 'paused';
+  }
+} catch {
+  document.documentElement.dataset.motion = 'paused';
+}
+
 const host = document.getElementById('root');
 if (!host) throw new Error('#root 挂载点缺失');
 

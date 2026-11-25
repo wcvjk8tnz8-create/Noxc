@@ -12,7 +12,9 @@
  *      存量补发、任务状态接口
  *   B. DC 码：格式、生成权限 / 校验 / 上限、预览、兑换加积分、重复兑换、
  *      停用 / 过期 / 用完、管理员无限积分、兑换流水
- *   C. 静态断言：schema / 前端奖励中心 / CI / README 口径一致
+ *   C. 管理员编辑券：面值 / 总使用量 / 已用量修正 / 有效期 / 备注，
+ *      权限、上下界校验、并发兜底、改完兑换链路立即按新值生效
+ *   D. 静态断言：schema / 前端奖励中心 / CI / README 口径一致
  *
  * 运行：npx tsx scripts/rewards-regression.ts
  */
@@ -50,6 +52,8 @@ type Store = {
   audit: Row[];
   seq: number;
   failPointLog: boolean;
+  /** 测试钩子：下一次按 id 读券时，模拟「读取后、写入前」又被兑换一次 */
+  bumpUsedOnSelect?: number;
   unknownSql: string[];
 };
 
@@ -60,7 +64,7 @@ function fresh(): Store {
     subdomains: [], user_points: [], point_logs: [],
     oauth_bindings: [], oauth_grants: [], combo_rewards: [],
     redeem_codes: [], redeem_logs: [], checkins: [], audit: [],
-    seq: 0, failPointLog: false, unknownSql: [],
+    seq: 0, failPointLog: false, bumpUsedOnSelect: undefined, unknownSql: [],
   };
 }
 
@@ -162,7 +166,13 @@ function makeEnv(S: Store) {
       if (r) rows.push({ id: r.id });
     } else if (/^SELECT \* FROM redeem_codes WHERE id = \?/.test(s)) {
       const r = S.redeem_codes.find((x) => x.id === uid);
-      if (r) rows.push({ ...r });
+      if (r) {
+        rows.push({ ...r });                       // 读到的是快照
+        if (S.bumpUsedOnSelect === r.id) {         // 随后别处又用了一次
+          r.used_count = Number(r.used_count) + 1;
+          S.bumpUsedOnSelect = undefined;
+        }
+      }
     } else if (/^SELECT code FROM redeem_codes WHERE id = \?/.test(s)) {
       const r = S.redeem_codes.find((x) => x.id === uid);
       if (r) rows.push({ code: r.code });
@@ -185,6 +195,23 @@ function makeEnv(S: Store) {
     } else if (/^UPDATE redeem_codes SET status = \? WHERE id = \?/.test(s)) {
       const r = S.redeem_codes.find((x) => x.id === Number(args[1]));
       if (r) { r.status = String(args[0]); changes = 1; }
+    } else if (/^UPDATE redeem_codes SET/.test(s)) {
+      /* 编辑券：SET 列顺序 = args[0..n-1]，随后是 id 与并发 guard。
+         guard 有两种：used_count = 原值（乐观锁）/ used_count <= 新总量。 */
+      const m = s.match(/^UPDATE redeem_codes SET (.*?) WHERE id = \? (AND used_count = \?|AND used_count <= \?)$/);
+      if (!m) { S.unknownSql.push(s.slice(0, 120)); }
+      else {
+        const cols = m[1].split(',').map((x) => x.trim().split(/\s*=\s*/)[0].trim());
+        const id = Number(args[cols.length]);
+        const guard = Number(args[cols.length + 1]);
+        const r = S.redeem_codes.find((x) => x.id === id);
+        const pass = r && (m[2] === 'AND used_count = \?'
+          ? Number(r.used_count) === guard : Number(r.used_count) <= guard);
+        if (pass) {
+          cols.forEach((col, i) => { (r as Row)[col] = args[i]; });
+          changes = 1;
+        }
+      }
     } else if (/^DELETE FROM redeem_codes WHERE id = \?/.test(s)) {
       const n = S.redeem_codes.length;
       S.redeem_codes = S.redeem_codes.filter((x) => x.id !== uid);
@@ -211,7 +238,7 @@ function makeEnv(S: Store) {
       const r = S.users.find((x) => x.id === Number(args[1]));
       if (r) { r.quota = Number(args[0]); changes = 1; }
     } else if (/^INSERT INTO audit_log/.test(s)) {
-      S.audit.push({ action: args[1] ?? '', detail: String(args[4] ?? '') });
+      S.audit.push({ action: args[1] ?? '', detail: String(args[3] ?? '') });
       changes = 1;
     } else {
       S.unknownSql.push(s.slice(0, 120));
@@ -252,6 +279,7 @@ function appFor(S: Store, role: 'user' | 'admin' | 'none' = 'user') {
 const post = (body: any): RequestInit => ({
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
 });
+const putReq = (body: any): RequestInit => ({ ...post(body), method: 'PUT' });
 const json = async (r: Response) => await r.json() as any;
 
 const pts = (S: Store, uid = 1) => Number(S.user_points.find((x) => x.user_id === uid)?.points ?? -999);
@@ -469,7 +497,118 @@ async function main() {
     check(mine.success && Array.isArray(mine.items), '我的兑换记录接口可用');
   }
 
-  /* ═════════ C. 静态口径 ═════════ */
+  /* ═════════ C. 管理员编辑券（真跑 PUT /api/redeem/admin/:id） ═════════ */
+  {
+    const S = fresh();
+    const admin = appFor(S, 'admin');
+    const gen = await json(await admin.call('/api/redeem/admin/generate',
+      post({ type: 'points', count: 1, value: 3000, maxUses: 10, days: 7, note: '活动奖励' })));
+    const code = gen.codes[0];
+    const row = S.redeem_codes[0];
+    const id = row.id;
+    const edit = (body: any, role: 'user' | 'admin' | 'none' = 'admin') =>
+      appFor(S, role).call('/api/redeem/admin/' + id, putReq(body));
+
+    const deny = await json(await edit({ maxUses: 3 }, 'user'));
+    check(!deny.success, '普通用户不能编辑券（403）');
+
+    const r = await json(await edit({ value: 500, maxUses: 3, note: '改过的备注', expiresAt: null }));
+    check(r.success && row.value === 500 && row.max_uses === 3
+      && row.note === '改过的备注' && row.expires_at === null,
+      '面值 / 总使用量 / 备注 / 改为长期有效一次改成功');
+    check(row.code === code && row.type === 'points' && row.created_by === 1,
+      '券码 / 类型 / 创建人不可被编辑接口改动');
+    check(S.audit.some((a) => a.action === 'redeem.edit' && String(a.detail).includes('面值')),
+      '编辑写审计日志 redeem.edit');
+
+    const list = await json(await admin.call('/api/redeem/admin/list'));
+    const li = list.items.find((x: any) => x.id === id);
+    check(li && li.value === 500 && li.max_uses === 3 && li.expires_at === null,
+      '列表接口立刻返回编辑后的值（前端刷新即可看到）');
+
+    const noChange = await json(await edit({}));
+    check(noChange.success && noChange.unchanged === true, '空提交返回 unchanged，不写库不写审计');
+
+    const badMax = await json(await edit({ maxUses: 0 }));
+    check(!badMax.success, '总使用量 0 被拒绝');
+    const badVal = await json(await edit({ value: -5 }));
+    check(!badVal.success, '负 / 非整数面值被拒绝');
+    const badUsed = await json(await edit({ usedCount: 99, maxUses: 3 }));
+    check(!badUsed.success && /不能超过/.test(badUsed.message),
+      '已用量不能超过总使用量（同时改两个字段也一起校验）');
+    check(row.used_count === 0 && row.max_uses === 3, '非法编辑不产生任何写入');
+
+    const capped = await json(await edit({ value: 999999999 }));
+    check(capped.success && row.value === DC_POINTS_CAP,
+      `积分券面值封顶 ${DC_POINTS_CAP}（实际 ${row.value}）`);
+
+    const adj = await json(await edit({ usedCount: 1 }));
+    check(adj.success && row.used_count === 1 && S.audit.some((a) => String(a.detail).includes('已用量')),
+      '管理员修正已用量留痕');
+
+    /* 乐观锁：显式改已用量时，若「读取后、写入前」又被兑换一次就 409 要求刷新 */
+    const S3 = fresh();
+    const a3 = appFor(S3, 'admin');
+    const g3 = await json(await a3.call('/api/redeem/admin/generate', post({ type: 'points', count: 1, value: 100 })));
+    const r3 = S3.redeem_codes[0];
+    await appFor(S3, 'user').call('/api/redeem/redeem', post({ code: g3.codes[0] }));
+    S3.bumpUsedOnSelect = r3.id;
+    const lockFail = await json(await appFor(S3, 'admin').call('/api/redeem/admin/' + r3.id, putReq({ usedCount: 0 })));
+    check(!lockFail.success && /刷新/.test(lockFail.message) && r3.used_count === 2,
+      `编辑期间券被用过则拒绝覆盖，不静默抹掉真实用量（${lockFail.message}）`);
+
+    /* 并发兜底：读取时总量合法，但写入前又被用一次 → UPDATE guard 拦下 */
+    const S4 = fresh();
+    const a4 = appFor(S4, 'admin');
+    const g4 = await json(await a4.call('/api/redeem/admin/generate', post({ type: 'points', count: 1, value: 100, maxUses: 9 })));
+    const r4 = S4.redeem_codes[0];
+    await appFor(S4, 'user').call('/api/redeem/redeem', post({ code: g4.codes[0] }));
+    S4.bumpUsedOnSelect = r4.id;
+    const guardFail = await json(await appFor(S4, 'admin').call('/api/redeem/admin/' + r4.id, putReq({ maxUses: 1 })));
+    check(!guardFail.success && /刷新/.test(guardFail.message) && r4.used_count === 2,
+      `并发下总量降到低于真实已用量被 guard 拦下（${guardFail.message}）`);
+    const equal = await json(await appFor(S4, 'admin').call('/api/redeem/admin/' + r4.id, putReq({ maxUses: 2 })));
+    check(equal.success && r4.max_uses === 2, '刷新后总量设成等于已用量是允许的');
+    const impossible = await json(await appFor(S4, 'admin').call('/api/redeem/admin/' + r4.id, putReq({ maxUses: 0 })));
+    check(!impossible.success, '总量 0 / 低于已用量被前置校验拦下');
+
+    /* 改完总量后，兑换链路立即按新值生效 */
+    const S5 = fresh();
+    const a5 = appFor(S5, 'admin');
+    const g5 = await json(await a5.call('/api/redeem/admin/generate', post({ type: 'points', count: 1, value: 100, maxUses: 10 })));
+    const r5 = S5.redeem_codes[0];
+    await appFor(S5, 'admin').call('/api/redeem/admin/' + r5.id, putReq({ maxUses: 1 }));
+    const u5 = appFor(S5, 'user');
+    const first = await json(await u5.call('/api/redeem/redeem', post({ code: g5.codes[0] })));
+    const app6 = new Hono();
+    app6.use('*', async (c, next) => { c.set('user', { id: 2, role: 'user', status: 'active', quota: 5 }); await next(); });
+    app6.route('/api/redeem', redeemRoutes);
+    const second = await json(await app6.fetch(
+      new Request('https://nic.test/api/redeem/redeem', post({ code: g5.codes[0] })), makeEnv(S5), CTX));
+    check(first.success && !second.success && /用完/.test(second.message),
+      '总量改成 1 后第二个账号兑换立即被拦（不是旧值 10）');
+
+    /* 过期时间：改到过去后预览与兑换都判过期 */
+    const S6 = fresh();
+    const a6 = appFor(S6, 'admin');
+    const g6 = await json(await a6.call('/api/redeem/admin/generate', post({ type: 'points', count: 1, value: 100 })));
+    const r6 = S6.redeem_codes[0];
+    await appFor(S6, 'admin').call('/api/redeem/admin/' + r6.id, putReq({ expiresAt: Date.now() - 86400000 }));
+    const pre = await json(await appFor(S6, 'user').call('/api/redeem/preview?code=' + g6.codes[0]));
+    check(!pre.usable && /过期/.test(pre.reason), '编辑到期时间后预览立即判过期');
+
+    /* 永久化券不允许改面值 */
+    const S7 = fresh();
+    const a7 = appFor(S7, 'admin');
+    const g7 = await json(await a7.call('/api/redeem/admin/generate', post({ type: 'permanent', count: 1 })));
+    const r7 = S7.redeem_codes[0];
+    const perm = await json(await appFor(S7, 'admin').call('/api/redeem/admin/' + r7.id, putReq({ value: 9 })));
+    check(!perm.success && r7.value === 1, '永久化券没有面值可改');
+    const permMax = await json(await appFor(S7, 'admin').call('/api/redeem/admin/' + r7.id, putReq({ maxUses: 2 })));
+    check(permMax.success && r7.max_uses === 2, '永久化券仍可改总使用量');
+  }
+
+  /* ═════════ D. 静态口径 ═════════ */
   const schema = read('schema.sql');
   const rewardPage = read('src/app/pages/Rewards.tsx');
   const rewardCtrl = read('src/app/legacy/rewards.ts');
@@ -504,6 +643,12 @@ async function main() {
     '奖励中心控制器：任务主动领取 / 积分数量标签 / 状态加载');
   check(/data-en="/.test(rewardCtrl) && /data-en="/.test(rewardPage),
     '新增文案覆盖英文模式');
+  check(/app\.put\('\/admin\/:id'/.test(redeemRoute), '后端提供 PUT /admin/:id 编辑券');
+  check(/data-ed="\$\{r\.id\}"/.test(rewardCtrl) && /api\.put\('\/api\/redeem\/admin\/'/.test(rewardCtrl)
+    && /id="eMax"/.test(rewardPage) && /id="eUsed"/.test(rewardPage),
+    '奖励中心列表有编辑按钮 + 总用量 / 已用量 / 面值 / 到期 / 备注表单');
+  check(/AND used_count <= \?/.test(redeemRoute) && /AND used_count = \?/.test(redeemRoute),
+    '编辑接口有并发兜底：降总量不越过真实用量、修正用量用乐观锁');
   check(/rewards-regression\.ts/.test(ci), '专项回归挂进 CI');
   check(/3000/.test(readme) && /DC-XXXXXX/.test(readme), 'README 记录两项新规则');
 

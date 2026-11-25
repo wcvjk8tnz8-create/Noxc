@@ -553,3 +553,171 @@ html body.page-home .yn-panel-foot {
   html body.page-home .yn-panel .rv-ask #qName { padding: 13px 13px !important; }
   html body.page-home .yn-panel .rv-root-wrap { padding: 0 10px !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   8 · 效果层：克制、零彩色、默认不常驻（可一键开启动效）
+   ──────────────────────────────────────────────────────────────────────
+   yunamo.com 是 Vue 3 + Vite 的 SPA，抓取只返回标题，拿不到它打包后的 CSS；
+   但公开 README 确认前端是 Vue 3 + Vite + Tailwind CSS + DaisyUI。DaisyUI
+   把「层次」拆成 base-100 / base-200 / base-300 三层底色、1px border、
+   radius-box / radius-selector、depth 与 noise —— 也就是不加彩色，靠极淡
+   底色、细线与轻动效让界面活起来。这里按同一思路落地：
+
+     · 纸面：两处柔光 + 超淡点阵（只用既有 --zx-* 令牌，零颜色字面量）
+     · 查询卡：右上角一团缓慢呼吸的柔光（用户开启动效后才跑）
+     · 圆点：eyebrow 与站点公告的墨点轻微 pulse（同上）
+     · 交互：卡片 / 按钮 / 导航 / 统计行 hover 上浮、边框加深、底色浮现
+
+   全走 transform / opacity / 既有令牌：不恢复毛玻璃、不恢复切页过渡、
+   不加任何 JS 与请求。**入口 main.tsx 默认把 documentElement 标成 paused**，
+   社区反馈「动画太多」后这层默认完全停掉；用户点「恢复动效」才放开。
+   prefers-reduced-motion 与 html[data-motion="paused"] 两条链路都会停掉
+   这里所有 animation / transition（末尾另有高特异性兜底）。
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 8.1 纸面层次：柔光 + 26px 点阵（壁纸未加载时也能撑住画面） ── */
+html body {
+  background-image:
+    radial-gradient(760px 460px at 88% -6%, var(--zx-blue-a8), transparent 72%),
+    radial-gradient(640px 400px at 2% 98%, var(--zx-blue-a8), transparent 74%),
+    radial-gradient(circle at 1px 1px, var(--zx-hair-2) 1px, transparent 1.5px) !important;
+  background-size: auto, auto, 26px 26px !important;
+  background-attachment: fixed !important;
+}
+/* 首屏内容层在 #bg 之上，保证点阵与柔光一定看得见 */
+html body.page-home .rv-hero,
+html body .main-in {
+  background-image:
+    radial-gradient(560px 340px at 92% 10%, var(--zx-blue-a8), transparent 70%),
+    radial-gradient(circle at 1px 1px, var(--zx-hair-2) 1px, transparent 1.5px) !important;
+  background-size: auto, 24px 24px !important;
+}
+
+/* ── 8.2 查询卡柔光晕：9s 呼吸，被卡片圆角裁住，不干扰文字 ── */
+html body.page-home .yn-panel::before {
+  content: '';
+  position: absolute;
+  top: -170px;
+  right: -130px;
+  width: 360px;
+  height: 360px;
+  z-index: 0;
+  border-radius: var(--nl-r-round);
+  background: radial-gradient(circle, var(--zx-blue-a8), transparent 68%);
+  pointer-events: none;
+  animation: nl-glow 9s var(--yn-ease) infinite alternate;
+}
+html body.page-home .yn-panel > * { position: relative; z-index: 1; }
+@keyframes nl-glow {
+  from { opacity: .45; transform: scale(.92); }
+  to   { opacity: 1;   transform: scale(1.08); }
+}
+
+/* ── 8.3 墨点呼吸：eyebrow 与站点公告共用一条曲线 ── */
+html body.page-home .yn-eyebrow::before,
+html body .site-announcement .sa-dot {
+  animation: nl-dot 3.8s ease-in-out infinite;
+}
+@keyframes nl-dot {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%      { transform: scale(1.35); opacity: .5; }
+}
+
+/* ── 8.4 hover 层次：上浮 + 边框加深 + 底色浮现（不投影、不发光） ── */
+html body .card,
+html body .nk-suf,
+html body .yn-step,
+html body .zx-fact,
+html body .showcase-card,
+html body .rv-pill,
+html body .btn,
+html body .side-item,
+html body .yn-try button,
+html body .rv-bd-row {
+  transition:
+    transform .22s var(--yn-ease),
+    border-color .22s var(--yn-ease),
+    background-color .22s var(--yn-ease),
+    color .22s var(--yn-ease) !important;
+}
+html body .card:hover,
+html body .nk-suf:hover,
+html body .yn-step:hover,
+html body .zx-fact:hover,
+html body .showcase-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--zx-ink-a30) !important;
+}
+html body .rv-pill:hover,
+html body .btn:hover,
+html body .yn-try button:hover { transform: translateY(-1px); }
+html body .side-item:hover { background: var(--zx-blue-a8) !important; }
+html body .side-item.on {
+  background-image: linear-gradient(135deg, var(--zx-blue-a16), var(--zx-blue-a8)) !important;
+}
+html body .rv-bd-row:hover {
+  background: var(--zx-blue-a8);
+  border-radius: var(--nl-r-sm) !important;
+}
+html body .rv-nav > a:not(.rv-pill):hover { background: var(--zx-blue-a8); }
+
+/* 暂停动效时连 hover 位移也一并收掉（既有两条降级链路的补充） */
+html[data-motion="paused"] .card:hover,
+html[data-motion="paused"] .nk-suf:hover,
+html[data-motion="paused"] .yn-step:hover,
+html[data-motion="paused"] .zx-fact:hover,
+html[data-motion="paused"] .showcase-card:hover,
+html[data-motion="paused"] .rv-pill:hover,
+html[data-motion="paused"] .btn:hover,
+html[data-motion="paused"] .yn-try button:hover { transform: none !important; }
+
+/* ── 8.5 默认暂停兜底：8.2 / 8.3 的循环动画与 8.4 的 !important 过渡 ──
+   这些选择器特异性高于全局 `html[data-motion="paused"] *`，必须单独收口，
+   否则「恢复动效」开关之外仍会有颜色/边框过渡在跑。 */
+html[data-motion="paused"] body.page-home .yn-panel::before,
+html[data-motion="paused"] body.page-home .yn-eyebrow::before,
+html[data-motion="paused"] body .site-announcement .sa-dot {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+html[data-motion="paused"] body .card,
+html[data-motion="paused"] body .nk-suf,
+html[data-motion="paused"] body .yn-step,
+html[data-motion="paused"] body .zx-fact,
+html[data-motion="paused"] body .showcase-card,
+html[data-motion="paused"] body .rv-pill,
+html[data-motion="paused"] body .btn,
+html[data-motion="paused"] body .side-item,
+html[data-motion="paused"] body .yn-try button,
+html[data-motion="paused"] body .rv-bd-row {
+  transition: none !important;
+}
+
+/* ── 8.6 全局收口：历史层仍散着几十条不带 !important 的 .16s/.2s 过渡 ──
+   上面的类名清单挡不住 shell.css 里形如 .rv-pill { transition: color .16s,
+   opacity .16s } 这种规则；这里用同等 !important 且更高特异性统一归零。
+   只停 animation / transition，不动 transform（历史层有用它做定位的）。 */
+html[data-motion="paused"] body *,
+html[data-motion="paused"] body *::before,
+html[data-motion="paused"] body *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── 8.7 胶囊按钮：shell.css 有针对 .rv-pill.ink 的高特异性长属性过渡 ──
+   上面 body * 仍被它压过，这里用 0-3-3 特异性单独归零，确保默认态
+   「点上去没有任何颜色/透明度过渡」，而不是留两条 0.16s。 */
+html[data-motion="paused"] body a.rv-pill,
+html[data-motion="paused"] body button.rv-pill,
+html[data-motion="paused"] body .rv-pill.ink,
+html[data-motion="paused"] body .rv-pill.line,
+html[data-motion="paused"] body .rv-pill.sm,
+html[data-motion="paused"] body .rv-pill.lg,
+html[data-motion="paused"] body .rv-pill.ink.lg {
+  transition: none !important;
+  transition-duration: 0s !important;
+  transition-property: none !important;
+  animation: none !important;
+}

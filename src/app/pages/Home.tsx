@@ -57,7 +57,8 @@ export default function HomePage() {
         btn.setAttribute('aria-pressed', paused ? 'true' : 'false');
       }
     };
-    try { if (localStorage.getItem(MOTION_KEY) === '1') document.documentElement.dataset.motion = 'paused'; } catch { /* 隐私模式 */ }
+    /* 默认暂停由入口 main.tsx 统一设置；这里只同步按钮文案，不反向覆盖，
+       否则用户在首页点「恢复动效」后切页回来又会被改回去。 */
     syncMotion();
     const onMotion = () => {
       const paused = document.documentElement.dataset.motion === 'paused';

@@ -158,7 +158,7 @@ jobs:
       - name: 数据备份导出与汇入回归
         run: npx tsx scripts/backup-regression.ts
 
-      - name: NodeLoc 3.0 风格皮肤回归（全圆角 / 颜色保持）
+      - name: NodeLoc 3.0 风格皮肤回归（全圆角 / 效果层 / 颜色保持）
         run: npx tsx scripts/nodeloc-skin-regression.ts
 
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
