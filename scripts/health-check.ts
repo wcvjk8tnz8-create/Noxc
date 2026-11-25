@@ -2005,9 +2005,10 @@ check(!/UPDATE subdomains SET status/.test(dnsPauseLib)
   && /status 仍是 approved|保留 status/.test(dnsPauseLib),
   '暂停解析不批量改 subdomains.status，公开统计 / 续期 / 配额不受影响');
 check(/ANYNS_API_TOKEN/.test(anynsBackendLib)
-  && /Worker Secret/.test(anynsBackendLib)
+  && /anyns_api_token/.test(anynsBackendLib)
+  && /anynsServerConfigFull/.test(anynsBackendLib)
   && /anynsRelativeName/.test(anynsBackendLib),
-  '站点级 AnyNS 令牌只来自 Secret，根域名用官方 @ 相对名');
+  '站点级 AnyNS 令牌来自 Worker Secret 或后台站点设置，根域名用官方 @ 相对名');
 check(/p.backend === 'anyns'/.test(cfLib)
   && /anynsRootEnabled/.test(cfLib)
   && (cfLib.match(/backend === 'anyns'/g) || []).length >= 4,
@@ -2021,3 +2022,20 @@ check(/anyns-migration-regression\.ts/.test(migrationReg)
   '暂停解析专项回归挂进 CI');
 check(/### 21\. meoy\.top/.test(read('README.md')) && /### Z\.12/.test(read('README.md')),
   'README 正文写能力、错误按约定收在文末 Z.12');
+/* 后台「站点设置 → AnyNS」：令牌可填、只回掩码、保存即生效 */
+const admSettings = read('src/routes/admin.ts');
+const admSettingsUi = read('src/app/legacy/admin.ts');
+check(/'anyns_api_token'/.test(admSettings) && /anynsApiToken/.test(admSettings)
+  && /anynsClearToken/.test(admSettings) && /tokenMasked/.test(admSettings),
+  '后台 GET 只回掩码、POST 可保存 / 清除 AnyNS 令牌');
+check(/invalidateSettings\(\)/.test(admSettings)
+  && /clearDnsProviderCache\(\)/.test(admSettings)
+  && /clearAnynsConfigCache\(\)/.test(admSettings),
+  '保存后统一失效三层缓存，设置立即生效');
+check(/id="sAnynsToken"/.test(admSettingsUi) && /id="sDnsPausedRoots"/.test(admSettingsUi)
+  && /anynsApiToken:/.test(admSettingsUi) && /d\.anyns/.test(admSettingsUi),
+  '站点设置页面有 AnyNS 卡片、保存字段与掩码渲染');
+check(/'anyns_api_token'/.test(read('src/lib/backupFormat.ts')),
+  '备份脱敏副本会把 anyns_api_token 置空');
+check(/anyns_api_token/.test(read('schema.sql')),
+  'schema 预置空的配置项，后台首次打开不会显示 undefined');

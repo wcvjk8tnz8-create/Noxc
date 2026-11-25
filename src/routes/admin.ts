@@ -24,6 +24,8 @@ import { githubConfig, GITHUB_CALLBACK_PATH, httpsCallbackUrl as ghCallbackUrl,
          normalizeStarRepo, DEFAULT_STAR_REPO, DEFAULT_STAR_BONUS } from '../lib/github.js';
 import { parseRootRegLimits, serializeRootRegLimits } from '../lib/rootLimits.js';
 import { parsePausedRoots, serializePausedRoots } from '../lib/applyGate.js';
+import { invalidateSettings } from '../lib/settingsCache.js';
+import { clearAnynsConfigCache, anynsTokenSource } from '../lib/anynsBackend.js';
 
 const app = new Hono();
 
@@ -429,7 +431,7 @@ app.get('/settings', async (c) => {
   const raw = Object.fromEntries(results.map((r) => [r.key, r.value]));
 
   // 敏感项：不回传明文，只回传「是否已配置 + 尾号」，前端显示为占位符
-  const SENSITIVE = ['dnshe_api_key', 'dnshe_api_secret', 'dns_api_key', 'dns_api_secret', 'mail_api_key', 'spaceship_api_key', 'spaceship_api_secret', 'ai_api_key', 'nodeloc_client_secret', 'github_client_secret'];
+  const SENSITIVE = ['dnshe_api_key', 'dnshe_api_secret', 'dns_api_key', 'dns_api_secret', 'mail_api_key', 'spaceship_api_key', 'spaceship_api_secret', 'ai_api_key', 'nodeloc_client_secret', 'github_client_secret', 'anyns_api_token'];
   const items = { ...raw };
   for (const k of SENSITIVE) delete items[k];
   // 未配置过时把默认备案号回填到输入框，避免「页脚明明有、后台却是空的」
@@ -594,6 +596,22 @@ app.get('/settings', async (c) => {
       dnsheApiKeyMasked: mask(raw.dnshe_api_key || envKey),
       dnsheApiSecretMasked: mask(raw.dnshe_api_secret || envSecret),
       fromEnv: !!(envKey && envSecret),   // 来自环境变量时后台不可改
+    },
+
+    /* AnyNS（n.ht 社区）站点级管理令牌：后台可填，Worker Secret 优先。
+       只回掩码 / 布尔，绝不回明文；公开 /api/config 完全不含这一项。 */
+    anyns: {
+      tokenSet: !!(raw.anyns_api_token || String(c.env.ANYNS_API_TOKEN || '').trim()),
+      tokenMasked: mask(raw.anyns_api_token || String(c.env.ANYNS_API_TOKEN || '').trim()),
+      fromEnv: anynsTokenSource(c.env, raw.anyns_api_token) === 'env',
+      source: anynsTokenSource(c.env, raw.anyns_api_token),
+      roots: String(raw.anyns_roots || c.env.ANYNS_ROOTS || c.env.ROOT_DOMAIN || '').trim(),
+      zoneId: String(raw.anyns_zone_id || c.env.ANYNS_ZONE_ID || '').trim(),
+      zoneIds: String(raw.anyns_zone_ids || c.env.ANYNS_ZONE_IDS || '').trim(),
+      ready: !!(raw.anyns_api_token || String(c.env.ANYNS_API_TOKEN || '').trim()),
+      // 迁移期的「暂停解析」也在这里管：清空名单即一次性恢复，不用改数据库
+      dnsPausedRoots: raw.dns_paused_roots === undefined ? 'meoy.top' : String(raw.dns_paused_roots || ''),
+      migrationNotice: String(raw.dns_migration_notice || '').trim(),
     },
   });
 });
@@ -967,6 +985,36 @@ app.post('/settings', async (c) => {
   if (String(body.aiApiKey || '').trim()) await set('ai_api_key', String(body.aiApiKey).trim().slice(0, 300));
   else if (body.aiClearKey === true) await set('ai_api_key', '');
 
+  /* ── AnyNS（n.ht 社区）站点级 DNS 后端 ──
+     令牌是敏感项：只在显式提交新值时写入，留空不覆盖；也可勾选清空。
+     Worker Secret ANYNS_API_TOKEN 优先级更高，此时后台只读（fromEnv）。
+     保存后统一失效三层缓存（settings / dnsProvider / anyns），立即生效。 */
+  if (String(body.anynsApiToken || '').trim()) {
+    await set('anyns_api_token', String(body.anynsApiToken).trim().slice(0, 300));
+  } else if (body.anynsClearToken === true) {
+    await set('anyns_api_token', '');
+  }
+  const cleanDomains = (v: unknown) => String(v ?? '')
+    .split(/[,\s]+/).map((x) => x.trim().toLowerCase().replace(/^\.+|\.+$/g, ''))
+    .filter((x) => /^[a-z0-9][a-z0-9.-]{0,251}$/.test(x)).slice(0, 30).join(',');
+  if (body.anynsRoots !== undefined) await set('anyns_roots', cleanDomains(body.anynsRoots));
+  if (body.anynsZoneId !== undefined) {
+    const z = String(body.anynsZoneId || '').trim();
+    await set('anyns_zone_id', /^\d+$/.test(z) ? z : '');
+  }
+  if (body.anynsZoneIds !== undefined) {
+    const pairs = String(body.anynsZoneIds || '')
+      .split(/[,\s]+/).map((x) => x.trim())
+      .filter((x) => /^[a-z0-9][a-z0-9.-]{0,251}[:=]\d+$/i.test(x))
+      .slice(0, 30).join(',');
+    await set('anyns_zone_ids', pairs);
+  }
+  /* 迁移期「暂停解析」：同一张卡片管理，清空名单即全部恢复 */
+  if (body.dnsPausedRoots !== undefined) await set('dns_paused_roots', cleanDomains(body.dnsPausedRoots));
+  if (body.dnsMigrationNotice !== undefined) {
+    await set('dns_migration_notice', String(body.dnsMigrationNotice || '').trim().slice(0, 300));
+  }
+
   // 注册邮箱规则（默认「白名单 ∪ 任意含 edu 的邮箱」）
   if (body.emailRule !== undefined) {
     const r = String(body.emailRule || '').trim().toLowerCase();
@@ -1186,6 +1234,12 @@ app.post('/settings', async (c) => {
   /* 管理员刚改完 AI 配置（例如补上 Key / 换模型）时，顺手把积压的
      pending 重新送审一次，不必等下一个整点或下一笔新申请。 */
   queueAiBatch(c, 'settings-save');
+
+  /* 站点设置落库后统一失效三层缓存：保存即生效，不必等 isolate 的 30s/15s TTL。
+     以前只有个别分支清 dnsProvider，settings 统一缓存没清，改完要等半分钟。 */
+  invalidateSettings();
+  clearDnsProviderCache();
+  clearAnynsConfigCache();
 
   await audit(c, u.id, 'admin.settings', 'site', `name=${name} logo=${logo || '(默认)'}`);
   return ok(c, {});

@@ -40,6 +40,7 @@ export const SENSITIVE_SETTING_KEYS = new Set([
   'dns_api_key', 'dns_api_secret',
   'dnshe_api_key', 'dnshe_api_secret',
   'spaceship_api_key', 'spaceship_api_secret',
+  'anyns_api_token',
   'cf_api_token',
 ]);
 

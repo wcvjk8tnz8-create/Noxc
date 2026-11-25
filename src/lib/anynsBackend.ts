@@ -11,11 +11,16 @@
  * 这就是「后台的 api」的意思：我（站长）用 api key 给根域名添加记录，
  * 而不是让每个用户自带 key。配置全在环境变量 / Secret，**不改后台 UI**。
  *
- * 配置：
- *   ANYNS_API_TOKEN   必需，anyns.io 面板建的「管理令牌」nhtdns_ 开头
- *   ANYNS_ROOTS       可选，逗号分隔，默认取 ROOT_DOMAIN（meoy.top）
- *   ANYNS_ZONE_ID     可选，单个 zone id（ANYNS_ROOTS 只有一个时最省事）
- *   ANYNS_ZONE_IDS    可选，"meoy.top:4821,noxc.uk:4822" 形式的多根映射
+ * 配置（两条来源，Worker Secret 优先，后台「站点设置」兜底）：
+ *   Worker Secret / env（部署时注入，后台只读）
+ *     ANYNS_API_TOKEN   必需，anyns.io 面板建的「管理令牌」nhtdns_ 开头
+ *     ANYNS_ROOTS       可选，逗号分隔，默认取 ROOT_DOMAIN（meoy.top）
+ *     ANYNS_ZONE_ID     可选，单个 zone id（ANYNS_ROOTS 只有一个时最省事）
+ *     ANYNS_ZONE_IDS    可选，"meoy.top:4821,noxc.uk:4822" 形式的多根映射
+ *   settings 表（管理员在「站点设置 → AnyNS」里填，保存即生效）
+ *     anyns_api_token / anyns_roots / anyns_zone_id / anyns_zone_ids
+ *   令牌是敏感项：后台 GET 只回掩码，公开 /api/config 绝不下发。
+ *
  * 没配 zone id 时按域名调 GET /api/dns/v1/zones 查一次并缓存 15 秒，
  * 查不到会明确报错，绝不假装写入成功。
  *
@@ -27,6 +32,7 @@ import {
   anynsWriteRecord, anynsDeleteRecord, anynsRelativeName,
 } from './anynsDns.js';
 import { normalizeDomain } from './roots.js';
+import { allSettings } from './settingsCache.js';
 
 export type AnynsServerConfig = {
   token: string;
@@ -51,7 +57,7 @@ function parseZoneMap(raw: unknown): Map<string, string> {
   return m;
 }
 
-/** 从 Worker env / Secret 读站点级配置；没配 token 返回 null（其它后端照常工作） */
+/** 纯 env / Secret 同步读取（回归与无 D1 场景用；不含 settings 兜底） */
 export function anynsServerConfig(env: any): AnynsServerConfig | null {
   const token = String(env?.ANYNS_API_TOKEN || '').trim();
   if (!token) return null;
@@ -66,6 +72,54 @@ export function anynsServerConfig(env: any): AnynsServerConfig | null {
     defaultZoneId: /^\d+$/.test(String(env?.ANYNS_ZONE_ID || '').trim())
       ? String(env.ANYNS_ZONE_ID).trim() : '',
   };
+}
+
+/* settings 兜底配置缓存：走统一 settingsCache（命中 0 次 D1），
+   管理员在后台保存后由 clearAnynsConfigCache() 立即失效，不用等隔离实例过期。 */
+let settingsCfgCache: { cfg: AnynsServerConfig | null; at: number } | null = null;
+const SETTINGS_CFG_TTL = 15_000;
+
+/** 保存设置后调用：让后台新填的令牌立即生效 */
+export function clearAnynsConfigCache() { settingsCfgCache = null; }
+
+/**
+ * 完整配置：Worker Secret 优先；Secret 没配时读后台「站点设置」里的
+ * anyns_api_token / anyns_roots / anyns_zone_id / anyns_zone_ids。
+ * 两个来源都没有 → 返回 null，其它 DNS 后端照常工作、部署不中断。
+ */
+export async function anynsServerConfigFull(env: any): Promise<AnynsServerConfig | null> {
+  const fromEnv = anynsServerConfig(env);
+  if (fromEnv) return fromEnv;                 // Secret 优先级最高
+  if (settingsCfgCache && Date.now() - settingsCfgCache.at < SETTINGS_CFG_TTL) {
+    return settingsCfgCache.cfg;
+  }
+  let s: Map<string, string>;
+  try { s = await allSettings(env); }
+  catch { s = new Map(); }
+  const token = String(s.get('anyns_api_token') || '').trim();
+  let cfg: AnynsServerConfig | null = null;
+  if (token) {
+    const rootsRaw = String(s.get('anyns_roots') || '').trim();
+    const roots = (rootsRaw
+      ? rootsRaw.split(/[,\s]+/).map(norm).filter(Boolean)
+      : [norm(env?.ROOT_DOMAIN)].filter(Boolean));
+    cfg = {
+      token,
+      roots,
+      zoneIds: parseZoneMap(s.get('anyns_zone_ids')),
+      defaultZoneId: /^\d+$/.test(String(s.get('anyns_zone_id') || '').trim())
+        ? String(s.get('anyns_zone_id')).trim() : '',
+    };
+  }
+  settingsCfgCache = { cfg, at: Date.now() };
+  return cfg;
+}
+
+/** 令牌来源（给后台 /api/admin/settings 显示状态用，绝不返回明文） */
+export function anynsTokenSource(env: any, settingsToken: string): 'env' | 'settings' | 'none' {
+  if (String(env?.ANYNS_API_TOKEN || '').trim()) return 'env';
+  if (String(settingsToken || '').trim()) return 'settings';
+  return 'none';
 }
 
 /** 这个根域名是否走 AnyNS 后端 */
@@ -165,8 +219,8 @@ function asCfError(e: any) {
 
 /** 统一取 zone id + 根域名，失败转成 cf.ts 的 {ok:false, errors} 形状 */
 async function ctx(env: any, root: string) {
-  const cfg = anynsServerConfig(env);
-  if (!cfg) throw new AnynsDnsError('未配置 ANYNS_API_TOKEN：请先在 Worker Secret 里填入 anyns.io 面板创建的管理令牌');
+  const cfg = await anynsServerConfigFull(env);
+  if (!cfg) throw new AnynsDnsError('未配置 AnyNS 管理令牌：请到后台「站点设置 → AnyNS」填入 nhtdns_ 令牌，或在 Worker Secret 配 ANYNS_API_TOKEN');
   const r = norm(root);
   const zoneId = await anynsZoneId(cfg, r);
   return { cfg, root: r, zoneId };

@@ -1,5 +1,6 @@
 import { effectiveRootList } from './lib/rootStore.js';
 import { parsePausedRoots as parseDnsPausedRoots, DEFAULT_MIGRATION_NOTICE } from './lib/dnsPause.js';
+import { allSettings } from './lib/settingsCache.js';
 import { DEFAULT_MESSAGE } from './lib/applyGate.js';
 import { loadAiConfig } from './lib/aiReview.js';
 import { parseRootCosts } from './lib/points.js';
@@ -294,7 +295,10 @@ async function buildConfigData(c: any) {
     // 不含任何密钥；ANYNS_API_TOKEN 只留在 Worker Secret，绝不下发浏览器。
     dnsPausedRoots: parseDnsPausedRoots(s.dns_paused_roots === undefined ? 'meoy.top' : s.dns_paused_roots),
     migrationNotice: String(s.dns_migration_notice || '').trim().slice(0, 300) || DEFAULT_MIGRATION_NOTICE,
-    anynsBackendEnabled: !!String(c.env.ANYNS_API_TOKEN || '').trim(),
+    // 只给布尔：Worker Secret 或后台「站点设置」任一配了管理令牌即为 true，
+    // 但令牌本体绝不进公开配置（后台 GET 也只回掩码）。
+    anynsBackendEnabled: !!String(c.env.ANYNS_API_TOKEN || '').trim()
+      || !!String((await allSettings(c.env)).get('anyns_api_token') || '').trim(),
     fontBody: s.font_body || 'system',
     fontDisplay: s.font_display || 'system',
     // 首页展示的额度跟着后台「站点设置」走，与注册同一逐级回落口径

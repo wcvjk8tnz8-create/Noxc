@@ -50,9 +50,12 @@ records temporarily; **viewing records, WHOIS, renewal, showcase entries
 and public statistics are unaffected**. Administrators remain able to write
 records, which are added to the root zone via the site-level AnyNS token.
 
-You do not need to paste any API key here: the site uses the
-`ANYNS_API_TOKEN` Worker Secret, and records are written to the AnyNS
-`meoy.top` zone. Clearing `dns_paused_roots` restores everything at once.
+Regular users never paste an API key: the administrator enters the
+`nhtdns_` management token under **Site Settings → AnyNS** (or uses the
+`ANYNS_API_TOKEN` Worker Secret, which takes priority). Records are then
+written to the AnyNS `meoy.top` zone. The token stays server-side and the
+admin page shows only a mask. Clearing "paused roots" on the same card
+restores everything at once.
 
 ## Platform verification
 

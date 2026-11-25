@@ -642,21 +642,37 @@ Token 只在本次调用内存里用；SEUS 的相对名称规则（区顶点 `@
 
 **这里澄清上一轮的理解偏差**：第 19 节把 AnyNS 接成了「用户自带令牌」的
 NS 委派 / 第三方域名接入（BYOS）。本节的 AnyNS 是**站点后端的 API**：
-管理员在 Worker Secret 里配一次 `ANYNS_API_TOKEN`（anyns.io 面板建的
-`nhtdns_` **管理令牌**），`cf.ts` 就把 `meoy.top` 的记录下发切到
-`https://anyns.io/api/dns/v1/zones/:id/records`。用户完全无感，不用填任何 key。
+管理员配一次 `nhtdns_` **管理令牌**，`cf.ts` 就把 `meoy.top` 的记录下发切到
+`https://anyns.io/api/dns/v1/zones/:id/records`。普通用户完全无感，
+不用填任何 key；**管理员在「站点设置 → AnyNS」里填即可，保存即生效**。
+
+### 站点设置 → AnyNS
+
+后台「站点设置」新增一张 **AnyNS（n.ht 社区）· 站点级 DNS 管理 API** 卡片：
+
+| 字段 | 作用 |
+|---|---|
+| 管理令牌 | `nhtdns_` 开头；只存服务端，页面只回掩码，留空不修改，可勾选清除 |
+| 生效根域名 | 逗号分隔，默认 `meoy.top` |
+| Zone ID / 多根映射 | 可选；都没填就按域名 `GET /zones` 查一次并缓存 15 秒 |
+| 暂停解析根域名 / 迁移提示 | 同一张卡片管理；**清空第一格即一次性恢复全部域名** |
+
+令牌是敏感项：后台 GET 只回掩码、公开 `/api/config` 完全不下发、
+备份的「脱敏副本」会置空（默认完整备份仍含真值以便原样恢复）。
+保存后统一失效 settings / dnsProvider / anyns 三层缓存，**不用等
+30 秒 TTL，也不用重新部署**。
+
+也可以用 Worker Secret（`ANYNS_API_TOKEN`），**优先级高于后台设置**，
+此时后台标「已由环境变量配置」且令牌框只读：
 
 ```bash
-# 一行即可启用（CI 会自动读取同名 GitHub Secret 并写入 Worker）
 npx wrangler secret put ANYNS_API_TOKEN
 # GitHub：Settings → Secrets and variables → Actions → New repository secret
 #          Name = ANYNS_API_TOKEN，Value = nhtdns_xxxxxxxx
 ```
 
-**不改后台 UI**。其余都是可选：`ANYNS_ROOTS`（默认取 `ROOT_DOMAIN`，即
-`meoy.top`）、`ANYNS_ZONE_ID` / `ANYNS_ZONE_IDS`（都没配时按域名调
-`GET /api/dns/v1/zones` 查一次并缓存 15 秒）。没配令牌时后端完全不启用，
-`meoy.top` 仍走原来的 Cloudflare / Spaceship，部署也不会中断。
+两个来源都没配令牌时后端完全不启用，`meoy.top` 仍走原来的
+Cloudflare / Spaceship，部署也不会中断。
 
 **为什么不动 `subdomains.status`**：`status='approved'` 被公开统计、续期、
 配额、用户案例展示等十几处判定依赖，硬改成新值会让几百个域名从统计里
@@ -1612,3 +1628,12 @@ DNSHE 同理要等委派检查通过。改 NS 前还常要先在注册商**关�
   若管理员也 403，先看 `dns_paused_roots` 是否配错成了 `*` 之类。
 - **迁移后旧 Cloudflare 记录改不了**：`cf_record_id` 是旧的非数字 id，
   接口会明确提示「删除后重新添加」，不要把它当 AnyNS 记录 id 传出去。
+- **以为令牌只能走 Worker Secret**：后台「站点设置 → AnyNS」现在可以直接填，
+  保存即生效；Secret 只是优先级更高的可选项，不是唯一入口。
+- **后台填完令牌却「没反应」**：确认没开 Worker Secret（后台会标 `fromEnv`、
+  令牌框只读），或 CI 重新部署把 Secret 覆盖了。保存时三层缓存已统一失效，
+  正常情况下不用等 30 秒、不用重新部署。
+- **把令牌写进公开配置或备份发给别人**：后台只回掩码、`/api/config` 只有布尔值；
+  要把备份发给别人排查时勾「生成脱敏副本」，`anyns_api_token` 会被置空。
+- **迁移完忘了恢复**：在「站点设置 → AnyNS」把「暂停解析根域名」清空保存，
+  不用去数据库改 `dns_paused_roots`。

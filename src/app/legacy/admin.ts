@@ -605,6 +605,39 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <div class="hint" id="dnsheHint"></div>
             </div>
             <div class="field">
+              <label>AnyNS（n.ht 社区）· 站点级 DNS 管理 API</label>
+              <div class="hint" style="margin-bottom:10px">
+                填入 anyns.io 面板创建的 <b>管理令牌</b>（<span class="mono">nhtdns_</span> 开头）后，
+                下面「生效根域名」的 DNS 记录会直接写进 AnyNS 的 zone，用户无需自带 key。
+                DDNS / ACME 令牌不能用于管理接口。令牌只存服务端，页面只回掩码；
+                Worker Secret <span class="mono">ANYNS_API_TOKEN</span> 优先级更高。
+              </div>
+              <div style="margin-bottom:8px">
+                <span class="dim">管理令牌</span>
+                <input id="sAnynsToken" type="password" autocomplete="new-password" placeholder="留空则不修改">
+              </div>
+              <div class="grid2" style="margin-bottom:8px">
+                <div><span class="dim">生效根域名（逗号分隔，默认 meoy.top）</span><input id="sAnynsRoots" type="text" autocomplete="off" placeholder="meoy.top"></div>
+                <div><span class="dim">Zone ID（可选，留空则按域名自动查）</span><input id="sAnynsZoneId" type="text" autocomplete="off" placeholder="4821"></div>
+              </div>
+              <div style="margin-bottom:8px">
+                <span class="dim">多根 Zone 映射（可选）</span>
+                <input id="sAnynsZoneIds" type="text" autocomplete="off" placeholder="meoy.top:4821,noxc.uk:4822">
+              </div>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px">
+                <input id="sAnynsClearToken" type="checkbox"> 清除已保存的令牌
+              </label>
+              <div class="hint" style="margin:10px 0 8px;border-top:1px solid var(--zx-hair);padding-top:10px">
+                <b>迁移期「暂停解析」</b>：下面这些根域名的子域名会显示「暂停解析」并暂停用户编辑 DNS 记录；
+                迁移完成后<b>清空第一格</b>即一次性全部恢复，不用改数据库。
+              </div>
+              <div class="grid2">
+                <div><span class="dim">暂停解析根域名</span><input id="sDnsPausedRoots" type="text" autocomplete="off" placeholder="meoy.top"></div>
+                <div><span class="dim">迁移提示文案</span><input id="sMigrationNotice" type="text" autocomplete="off" placeholder="meoy.top 正在迁移至 anyns…"></div>
+              </div>
+              <div class="hint" id="anynsHint"></div>
+            </div>
+            <div class="field">
               <label>保留域名</label>
               <div><span class="dim">额外保留名称</span><input id="sReservedLabels" type="text" autocomplete="off" placeholder="例如：pay,live,lab" value="${esc(s.reserved_labels || '')}"></div>
               <div class="hint">系统基线始终生效，包含 ai、dash、nic、www、mail、admin、whois 等，不能在这里删除。</div>
@@ -960,6 +993,13 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             hostingPanelName: document.getElementById('sPanelName').value,
             dnsheApiKey: document.getElementById('sDnsheKey').value,
             dnsheApiSecret: document.getElementById('sDnsheSecret').value,
+            anynsApiToken: document.getElementById('sAnynsToken').value,
+            anynsClearToken: document.getElementById('sAnynsClearToken').checked,
+            anynsRoots: document.getElementById('sAnynsRoots').value,
+            anynsZoneId: document.getElementById('sAnynsZoneId').value,
+            anynsZoneIds: document.getElementById('sAnynsZoneIds').value,
+            dnsPausedRoots: document.getElementById('sDnsPausedRoots').value,
+            dnsMigrationNotice: document.getElementById('sMigrationNotice').value,
             fontBody: document.getElementById('sFontBody').value,
             fontDisplay: document.getElementById('sFontDisplay').value,
             mailProvider: document.getElementById('sMailProvider').value,
@@ -1195,6 +1235,33 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             aiModelHint.innerHTML = `当前审核模型 <b>${esc(a.model)}</b>，正在核对可用模型列表…`;
           }
           probeModels(false);
+        }
+      }
+
+      // AnyNS 站点级管理 API：令牌只回掩码，留空不修改；迁移期暂停名单也在这里管
+      {
+        const a = d.anyns || {};
+        const tokEl = document.getElementById('sAnynsToken') as HTMLInputElement | null;
+        const rootsEl = document.getElementById('sAnynsRoots') as HTMLInputElement | null;
+        const zoneEl = document.getElementById('sAnynsZoneId') as HTMLInputElement | null;
+        const zonesEl = document.getElementById('sAnynsZoneIds') as HTMLInputElement | null;
+        const pausedEl = document.getElementById('sDnsPausedRoots') as HTMLInputElement | null;
+        const noticeEl = document.getElementById('sMigrationNotice') as HTMLInputElement | null;
+        const hint = document.getElementById('anynsHint');
+        if (rootsEl) rootsEl.value = a.roots || '';
+        if (zoneEl) zoneEl.value = a.zoneId || '';
+        if (zonesEl) zonesEl.value = a.zoneIds || '';
+        if (pausedEl) pausedEl.value = a.dnsPausedRoots || '';
+        if (noticeEl) noticeEl.value = a.migrationNotice || '';
+        if (a.fromEnv) {
+          if (tokEl) { tokEl.disabled = true; tokEl.placeholder = '已由 Worker Secret 配置，后台只读'; }
+          if (hint) hint.innerHTML = '<span class="badge ok">已由环境变量配置</span> ANYNS_API_TOKEN 优先级更高，后台修改的令牌不会生效。';
+        } else if (a.tokenSet) {
+          if (tokEl) tokEl.placeholder = (a.tokenMasked || '已配置') + '（留空不修改）';
+          if (hint) hint.innerHTML = '<span class="badge ok">已配置</span> 站点后端会用这个 nhtdns_ 管理令牌给根域名 zone 写记录。要换令牌填新值；要停用它勾选「清除」。';
+        } else {
+          if (tokEl) tokEl.placeholder = 'nhtdns_...（留空则暂不启用，原 DNS 后端照常工作）';
+          if (hint) hint.innerHTML = '未配置。meoy.top 的记录仍走原来的 Cloudflare / Spaceship 后端，部署不中断。';
         }
       }
 

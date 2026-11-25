@@ -46,9 +46,10 @@ DDNS / ACME 令牌不能用于管理接口（服务端会返回 `token_scope_mis
 **查看已有记录、WHOIS 查询、续期、用户案例展示与公开统计都不受影响**；
 管理员仍可操作，迁移记录由站点后端的 AnyNS 管理令牌补进根域名区域。
 
-这里不需要你在页面填任何 API key：站点使用 Worker Secret 里配置的
-`ANYNS_API_TOKEN`，DNS 记录会写到 AnyNS 的 `meoy.top` 区域。
-迁移完成后管理员清空 `dns_paused_roots` 即一次性恢复。
+这里不需要普通用户填任何 API key：管理员在「站点设置 → AnyNS」填入
+`nhtdns_` 管理令牌（或配置 Worker Secret `ANYNS_API_TOKEN`，优先级更高），
+DNS 记录就会写到 AnyNS 的 `meoy.top` 区域。令牌只存服务端，页面只回掩码。
+迁移完成后管理员在同一张卡片清空「暂停解析根域名」即一次性恢复。
 
 ## 平台验证
 

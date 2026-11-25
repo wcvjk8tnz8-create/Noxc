@@ -1,7 +1,7 @@
 // ============================================================
 //  DNS API 封装（自动选择后端）
-//  1) AnyNS（站点级）：Worker Secret 里配 ANYNS_API_TOKEN，指定根域名走
-//     anyns.io 官方管理 API（站长用 api key 给根域名 zone 加记录，用户无感）
+//  1) AnyNS（站点级）：后台「站点设置」或 Worker Secret 配 ANYNS_API_TOKEN，
+//     指定根域名走 anyns.io 官方管理 API（站长用 api key 给根域名 zone 加记录）
 //  2) 自定义提供商：站点设置里填了 API URL → 用它（可突破 200 条记录限制）
 //  3) Cloudflare    ：默认，调用 https://api.cloudflare.com/client/v4
 //  4) Mock（CF_MOCK=1）：内存模拟，方便本地跑通全部流程
@@ -13,7 +13,7 @@ import {
   toSpaceshipRecord, spRecordId, parseSpRecordId,
 } from './spaceshipDns.js';
 import {
-  anynsServerConfig, anynsRootEnabled, anynsBackendCreate, anynsBackendUpdate,
+  anynsServerConfigFull, anynsRootEnabled, anynsBackendCreate, anynsBackendUpdate,
   anynsBackendDelete, anynsBackendList,
 } from './anynsBackend.js';
 
@@ -69,7 +69,7 @@ export async function dnsProvider(env) {
       zone: String(env.CF_ZONE_ID || '').trim(),
       auth: { key: String(env.DNS_API_KEY || '').trim(), secret: String(env.DNS_API_SECRET || '').trim() },
       backends: {}, dynamicRoots: [], extraZones: {},
-      anyns: anynsServerConfig(env),
+      anyns: await anynsServerConfigFull(env),
     };
   }
   // 未设环境变量则查 D1（每次部署只查一次，结果缓存 60 秒）
@@ -81,7 +81,7 @@ export async function dnsProvider(env) {
   let cfg = {
     custom: false, base: BASE, zone, auth: null,
     backends: {}, dynamicRoots: [], extraZones: {},
-    anyns: anynsServerConfig(env),
+    anyns: await anynsServerConfigFull(env),
   };
   try {
     const rows = await env.DB

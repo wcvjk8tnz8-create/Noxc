@@ -42,6 +42,11 @@ import {
   clearDnsProviderCache,
 } from '../src/lib/cf.js';
 import recordsRoutes from '../src/routes/records.js';
+import adminRoutes from '../src/routes/admin.js';
+import { SENSITIVE_SETTING_KEYS } from '../src/lib/backupFormat.js';
+import {
+  anynsServerConfigFull, clearAnynsConfigCache, anynsTokenSource,
+} from '../src/lib/anynsBackend.js';
 
 const ok: string[] = [];
 const bad: string[] = [];
@@ -81,6 +86,11 @@ function exec(sql: string, args: any[] = []) {
   let lastRowId = 0, changes = 0;
   if (/^SELECT key, value FROM settings/.test(s)) {
     for (const [key, value] of S.settings) rows.push({ key, value: String(value) });
+  } else if (/^SELECT value FROM settings WHERE key = \?$/.test(s)) {
+    const v = S.settings.get(String(args[0]));
+    if (v !== undefined) rows.push({ value: v });
+  } else if (/^INSERT INTO settings\(key, value\)/.test(s)) {
+    S.settings.set(String(args[0]), String(args[1])); changes = 1;
   } else if (/^SELECT \* FROM subdomains WHERE id = \?$/.test(s)) {
     const r = S.subs.find((x) => Number(x.id) === Number(args[0]));
     if (r) rows.push({ ...r });
@@ -432,6 +442,99 @@ async function main() {
   check(restored.status !== 403,
     '清空 dns_paused_roots 后普通用户恢复写记录（迁移完成即恢复）');
 
+  /* ═════════ A7. 后台「站点设置」真跑（Hono） ═════════ */
+  const adminApp = new Hono();
+  adminApp.use('*', async (c, next) => {
+    c.set('user', { id: 1, email: 'admin@example.com', role: 'admin' });
+    await next();
+  });
+  adminApp.route('/api/admin', adminRoutes);
+  const adminCall = (method: string, url: string, body?: any, e2: any = env({ ANYNS_API_TOKEN: '' })) =>
+    adminApp.fetch(new Request('https://nic.test' + url, {
+      method, headers: { 'content-type': 'application/json', 'X-Lang': 'zh' },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    }), e2, CTX);
+
+  /* GET：只回掩码，敏感 key 从 items 剔除，绝不回明文 */
+  S = fresh();
+  S.settings.set('anyns_api_token', TOKEN);
+  invalidateSettings(); clearDnsProviderCache(); clearAnynsConfigCache();
+  const gs = await adminCall('GET', '/api/admin/settings');
+  const gj: any = await gs.json();
+  check(gs.status === 200 && gj.anyns?.tokenSet === true
+    && gj.anyns.tokenMasked === '••••••••' + TOKEN.slice(-4),
+    '后台 GET /settings 返回 AnyNS 配置状态与掩码');
+  check(!JSON.stringify(gj).includes(TOKEN),
+    '后台 GET 绝不回传令牌明文');
+  check(gj.items?.anyns_api_token === undefined,
+    '敏感 key anyns_api_token 从 items 明文表里剔除');
+  check(gj.anyns?.dnsPausedRoots !== undefined && gj.anyns?.migrationNotice !== undefined,
+    '同一张卡片也回显暂停解析名单与迁移提示');
+
+  /* POST：显式提交新值才写，留空不覆盖 */
+  S = fresh();
+  invalidateSettings(); clearDnsProviderCache(); clearAnynsConfigCache();
+  const ps = await adminCall('POST', '/api/admin/settings', {
+    anynsApiToken: 'nhtdns_from_admin',
+    anynsRoots: 'MEOY.TOP, noxc.uk ',
+    anynsZoneId: '4821',
+    anynsZoneIds: 'meoy.top:4821,noxc.uk:4822',
+    dnsPausedRoots: 'meoy.top',
+    dnsMigrationNotice: 'meoy.top 正在迁移至 anyns',
+  });
+  check(ps.status === 200 && S.settings.get('anyns_api_token') === 'nhtdns_from_admin'
+    && S.settings.get('anyns_roots') === 'meoy.top,noxc.uk'
+    && S.settings.get('anyns_zone_id') === '4821'
+    && S.settings.get('dns_migration_notice') === 'meoy.top 正在迁移至 anyns',
+    '后台保存 AnyNS 令牌 / 根域名 / Zone / 迁移提示（域名归一化）');
+  const ps2 = await adminCall('POST', '/api/admin/settings', { siteName: 'Noxc' });
+  check(ps2.status === 200 && S.settings.get('anyns_api_token') === 'nhtdns_from_admin',
+    '表单留空时不覆盖已保存的令牌');
+  /* 非法 Zone ID 不写库 */
+  await adminCall('POST', '/api/admin/settings', { anynsZoneId: 'not-a-number' });
+  check(S.settings.get('anyns_zone_id') === '',
+    'Zone ID 只接受数字，非法值置空而不是存进库');
+
+  /* 完整配置：Secret 没配时从后台 settings 读到令牌 */
+  S.settings.set('anyns_zone_id', '4821');
+  invalidateSettings(); clearAnynsConfigCache(); clearDnsProviderCache();
+  const full = await anynsServerConfigFull(env({ ANYNS_API_TOKEN: '' }));
+  check(!!full && full.token === 'nhtdns_from_admin'
+    && full.roots.includes('meoy.top') && full.defaultZoneId === '4821',
+    'anynsServerConfigFull 从站点设置兜底读令牌（走统一 settings 缓存）');
+
+  /* cf.ts 用「后台填的令牌」真写 AnyNS zone */
+  anynsCallsEnabled = true;
+  clearAnynsZoneCache(); clearDnsProviderCache();
+  calls.length = 0;
+  anynsReply = () => ({ status: 200, body: { code: 200, data: { record: { id: 9200, name: '@', type: 'A', value: '1.2.3.4' } } } });
+  const viaSettings = await cfCreate(env({ ANYNS_API_TOKEN: '' }), {
+    type: 'A', name: 'meoy.top', content: '1.2.3.4', ttl: 1,
+  }, 'meoy.top');
+  check(viaSettings.ok && calls.some((c) => c.auth === 'Bearer nhtdns_from_admin'
+    && c.url.includes('/api/dns/v1/zones/4821/records')),
+    '后台填的令牌即刻生效：cfCreate 真用 nhtdns_from_admin 写 AnyNS zone');
+  check(!calls.some((c) => c.url.includes('api.cloudflare.com')),
+    '后台启用后不再往 Cloudflare 写 meoy.top 记录');
+
+  /* 清除令牌：回落原后端 */
+  const pc = await adminCall('POST', '/api/admin/settings', { anynsClearToken: true });
+  check(pc.status === 200 && S.settings.get('anyns_api_token') === '',
+    '「清除已保存的令牌」真的清空 settings');
+  invalidateSettings(); clearAnynsConfigCache(); clearDnsProviderCache();
+  check((await anynsServerConfigFull(env({ ANYNS_API_TOKEN: '' }))) === null,
+    '清除后站点级 AnyNS 后端停用，其它 DNS 后端照常工作');
+
+  /* Worker Secret 优先级更高 */
+  const envCfg = await anynsServerConfigFull(env({ ANYNS_API_TOKEN: TOKEN }));
+  check(envCfg?.token === TOKEN
+    && anynsTokenSource(env({ ANYNS_API_TOKEN: TOKEN }), 'nhtdns_from_admin') === 'env',
+    'Worker Secret ANYNS_API_TOKEN 优先于后台设置，后台标 fromEnv 只读');
+  check(anynsTokenSource(env({ ANYNS_API_TOKEN: '' }), '') === 'none',
+    '两个来源都没配时 source=none');
+  check(SENSITIVE_SETTING_KEYS.has('anyns_api_token'),
+    '备份脱敏副本会把 anyns_api_token 置空（默认完整备份仍含真值）');
+
   /* ═════════ B. 静态断言 ═════════ */
   anynsCallsEnabled = false;
   const schema = read('schema.sql');
@@ -469,7 +572,7 @@ async function main() {
   const backend = read('src/lib/anynsBackend.ts');
   check(/ANYNS_API_TOKEN/.test(backend) && /Worker Secret/.test(backend)
     && !/localStorage|body\.apiKey/i.test(backend),
-    '站点级令牌只来自 Secret，不是用户自带 key 的 BYOS');
+    '站点级令牌只来自服务端（Secret / 站点设置），不是用户自带 key 的 BYOS');
   const deploy = read('.github/workflows/deploy.yml');
   check(/anyns-migration-regression\.ts/.test(deploy), '专项回归挂进 CI');
   const readme = read('README.md');
@@ -477,6 +580,24 @@ async function main() {
     'README 正文写能力、错误按约定收在文末 Z.12');
   const hc = read('scripts/health-check.ts');
   check(/anynsBackend|dnsPause|dns-migration/.test(hc), '健康巡检有防回流断言');
+  const adm = read('src/routes/admin.ts');
+  const admUi = read('src/app/legacy/admin.ts');
+  check(/'anyns_api_token'/.test(adm) && /anynsApiToken/.test(adm) && /anynsClearToken/.test(adm)
+    && /clearAnynsConfigCache/.test(adm) && /invalidateSettings/.test(adm),
+    '后台保存/清除/缓存失效三件套齐全');
+  check(/id="sAnynsToken"/.test(admUi) && /id="sDnsPausedRoots"/.test(admUi)
+    && /anynsApiToken:/.test(admUi) && /d\.anyns/.test(admUi),
+    '站点设置页面有 AnyNS 卡片、保存字段与掩码渲染');
+  check(/SENSITIVE_SETTING_KEYS/.test(read('src/lib/backupFormat.ts'))
+    && /'anyns_api_token'/.test(read('src/lib/backupFormat.ts')),
+    '凭据名单纳入备份脱敏');
+  check(/anynsServerConfigFull/.test(read('src/lib/cf.ts'))
+    && /anynsServerConfigFull/.test(read('src/lib/anynsBackend.ts')),
+    'cf.ts 用完整配置（Secret + 后台）决定后端');
+  const cfgKeysLine = read('src/index.ts').match(/const CONFIG_KEYS = \[[^\]]*\]/)?.[0] || '';
+  check(/anynsBackendEnabled/.test(idx) && !/'anyns_api_token'/.test(cfgKeysLine),
+    '公开 config 只给布尔，密钥不进 CONFIG_KEYS');
+
 
   for (const m of ok) console.log('  ✓ ' + m);
   for (const m of bad) console.error('  ✗ ' + m);

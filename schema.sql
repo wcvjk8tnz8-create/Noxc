@@ -489,6 +489,14 @@ INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_unlimited_roots', 'v-1.t
 INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_paused_roots', 'meoy.top');
 INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_migration_notice', 'meoy.top 正在迁移至 anyns，期间该后缀下的域名暂停解析');
 
+-- AnyNS（n.ht 社区）站点级管理令牌：后台「站点设置 → AnyNS」可填，
+-- 不填则回落 Worker Secret ANYNS_API_TOKEN，都没有就走原 DNS 后端。
+-- 令牌是敏感项：后台只回掩码，公开 /api/config 不下发，脱敏备份会置空。
+INSERT OR IGNORE INTO settings(key, value) VALUES ('anyns_api_token', '');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('anyns_roots', '');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('anyns_zone_id', '');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('anyns_zone_ids', '');
+
 -- 第三方邮箱注册：精确白名单（命中即在任何规则模式下都放行）
 CREATE TABLE IF NOT EXISTS email_allowlist (
   email      TEXT PRIMARY KEY,
