@@ -181,6 +181,11 @@ jobs:
       - name: NodeLoc 3.0 风格皮肤回归（全圆角 / 效果层 / 颜色保持）
         run: npx tsx scripts/nodeloc-skin-regression.ts
 
+      # 手机 / 平板适配：静态断言必跑（浏览器逐元素实拍在 mobile-render.py，
+      # CI 无 Chromium 时自动跳过，本地有 Playwright 时出明暗实拍图）。
+      - name: 移动端适配回归（顶栏 / 触控 / 断点 / 表格横滚）
+        run: npx tsx scripts/mobile-regression.ts
+
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
       - name: 统计展开回归
         run: npx tsx scripts/stats-breakdown-regression.ts

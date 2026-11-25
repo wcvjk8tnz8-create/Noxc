@@ -594,13 +594,16 @@ html body .main-in {
 }
 
 /* ── 8.2 查询卡柔光晕：9s 呼吸，被卡片圆角裁住，不干扰文字 ── */
+/* 以前 right:-130px + 固定 360px 会让卡片 scrollWidth 比可见宽度多出
+   一百多像素（内容被裁、长按 / 复制区域错位）。贴住右上角即可保留光晕，
+   又不制造「看不见的横向内容」。 */
 html body.page-home .yn-panel::before {
   content: '';
   position: absolute;
   top: -170px;
-  right: -130px;
-  width: 360px;
-  height: 360px;
+  right: 0;
+  width: min(300px, 85%);
+  height: min(300px, 85%);
   z-index: 0;
   border-radius: var(--nl-r-round);
   background: radial-gradient(circle, var(--zx-blue-a8), transparent 68%);
@@ -720,4 +723,218 @@ html[data-motion="paused"] body .rv-pill.ink.lg {
   transition-duration: 0s !important;
   transition-property: none !important;
   animation: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   9 · 移动端收口（NodeLoc 社区反馈「手机适配垃圾」）
+   ──────────────────────────────────────────────────────────────────────
+   320 / 360 / 375 / 390 / 414 / 430 / 768 / 横屏逐元素实拍后定位的四类问题：
+
+   1. 顶栏 .top-search / .tb-stow 在手机上根本没隐藏。历史层
+      `button:not(...) { display:inline-flex !important }` 特异性 (0,4,1)
+      压过了 @media 里的 display:none，结果面包屑被挤成 0 宽、整条顶栏
+      右溢出 25–68px。源头已在 shell.css 把两者排除出选择器，这里再用
+      #id 兜底一次，防止以后有人改回去。
+   2. .tabs 五个标签横排到屏幕外，手机要点不到后面的标签。
+   3. 触控目标大量停在 22–38px（yn-sample / yn-try / tab / iconbtn /
+      tb-stow），iOS 上还会因输入框字号小于 16px 触发自动缩放。
+   4. 长域名 / 长邮箱把卡片、输入框、表格单元格撑破；多套历史断点
+      （640/700/760/860/900/1000…）互相用 !important 打架。
+
+   本段不改任何颜色、不动桌面布局，只按 ≤1000 / ≤700 / ≤380 三档统一
+   收口，仍保留「形态层最后加载、删掉即可回滚」的架构。
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 9.1 全宽度基础：盒子不越界、长文本可断、表单不撑破 ── */
+html, body { max-width: 100%; }
+html body .main-in,
+html body .card, html body .pane, html body .stat-card, html body .quick,
+html body .modal-card, html body .yn-panel, html body .field,
+html body .tablewrap, html body .site-announcement, html body .alert,
+html body .notice, html body .rv-col, html body .nk-sk {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+html body input, html body select, html body textarea, html body .input {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+html body .grid2 > *,
+html body .stat-row > *, html body .stat-grid > *, html body .stats > *,
+html body .quick-row > *, html body .zx-metrics > *, html body .rv-cols > *,
+html body .rv-bd-head > *, html body .rv-bd-row > *, html body .zx-facts > *,
+html body .yn-hero-grid > *, html body .detail-layout > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+html body .mono, html body .fqdn, html body td, html body th,
+html body .hint, html body .dim, html body .page-title,
+html body .page-sub, html body .badge, html body .crumb,
+html body .rv-bd-head, html body .rv-bd-row {
+  overflow-wrap: anywhere;
+}
+
+/* ── 9.2 平板 / 小桌面（≤1000）：搜索框收起，图标按钮够大 ── */
+@media (max-width: 1000px) {
+  html body .topbar-in #topSearch,
+  html body .topbar-in .top-search { display: none !important; }
+  html body .topbar-in .iconbtn,
+  html body .topbar-in .tb-stow,
+  html body .topbar-in .btn.sm {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+  html body .topbar-in { overflow: hidden; }
+  html body .stat-card, html body .quick { overflow-wrap: anywhere; }
+  /* 公告条历史层带侧栏补偿的 margin-left，平板下会多出几像素；
+     这里收进容器，避免整页出现 3px 的隐形横向滚动。 */
+  html body .site-announcement {
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 触控目标 ≥44px（iPad / 小桌面同样按触控收口）。
+     壁纸缩略图是装饰性小圆点，保持紧凑。 */
+  html body button,
+  html body .btn, html body a.btn,
+  html body .iconbtn, html body .tab, html body .rv-pill,
+  html body .yn-try button, html body .yn-sample,
+  html body .side-toggle, html body .root-picker-btn,
+  html body select {
+    min-height: 44px !important;
+  }
+  html body .bgswitch button { min-height: 25px !important; }
+}
+
+/* ── 9.3 手机（≤700）：顶栏只留四项、标签换行、触控 44px、网格收敛 ── */
+@media (max-width: 700px) {
+  /* 顶栏：汉堡 / 面包屑 / 通知 / 头像，其余全部收起 */
+  html body .topbar-in #topSearch,
+  html body .topbar-in #tbStow,
+  html body .topbar-in .top-search,
+  html body .topbar-in .tb-stow,
+  html body .topbar-in .theme-paw,
+  html body .topbar-in .u-meta,
+  html body .topbar-in .brand-txt,
+  html body .topbar-in .brand-sub,
+  html body .topbar-in .user-chip .chev {
+    display: none !important;
+  }
+  html body .topbar-in {
+    flex-wrap: nowrap;
+    overflow: hidden;
+    min-width: 0;
+  }
+  html body .topbar-in .crumb {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 输入框 16px 防 iOS 自动缩放（历史层已有，这里再锁一次） */
+  html body input:not([type="checkbox"]):not([type="radio"]),
+  html body textarea, html body select, html body .input {
+    font-size: 16px !important;
+  }
+
+  /* 标签栏：换行而不是横排到屏幕外 */
+  html body .tabs {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: visible !important;
+    gap: 6px !important;
+  }
+  html body .tabs .tab {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    min-height: 44px !important;
+    white-space: normal !important;
+    line-height: 1.25 !important;
+  }
+
+  /* 多列一律收敛；统计/快捷保持两列，不再被历史层压成通栏单列 */
+  html body .grid2, html body .profile-grid, html body .msg-grid,
+  html body .two, html body .detail-layout, html body .auth-wrap,
+  html body .kv, html body .steps,
+  html body .nk-hero-in, html body .nk-svc, html body .nk-dns3,
+  html body .nk-tools, html body .yn-hero-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  html body .stat-row, html body .stat-grid, html body .stats,
+  html body .zx-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  /* 两列后卡片变窄：数字必须不断行，否则「1,204」会被 overflow-wrap
+     拆成「1,2 / 04」。字号随视口缩，标签仍可换行。 */
+  html body .stat-v, html body .stat h2, html body .stat-card b,
+  html body .stat-card .stat-num, html body .sc-num {
+    font-size: clamp(18px, 5.6vw, 24px) !important;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+  html body .stat-card { overflow-wrap: normal !important; }
+  /* 快捷入口实际有 7 个：固定 2 列会让最后一个孤零零换行。
+     沿用设计系统的 auto-fit，但用高特异性压过历史层的单列。 */
+  html body .quick-row {
+    grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)) !important;
+  }
+
+  /* 表格在自己的容器里横滚，不能把整页撑宽 */
+  html body .tablewrap {
+    max-width: 100%;
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* 弹窗 / 抽屉 / 下拉不越出屏幕 */
+  html body .modal-card, html body .modal .box {
+    width: min(640px, calc(100vw - 24px)) !important;
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+    overflow-y: auto !important;
+  }
+  html body .user-menu, html body .notif-panel,
+  html body .root-picker-menu {
+    max-width: calc(100vw - 16px) !important;
+  }
+  html body .mask { padding: 12px !important; }
+}
+
+/* ── 9.4 窄屏（≤380）：更紧的间距与字号，但统计卡仍保持两列 ──
+     360 / 375 两列完全放得下，压成通栏单列会把首屏拉得极长，正是社区
+     吐槽的「手机上一堆大卡片滚不到底」。单列只留给真正的超窄屏。 */
+@media (max-width: 380px) {
+  html body .topbar-in { padding: 0 6px !important; gap: 6px !important; }
+  html body .main {
+    padding-left: calc(10px + var(--safe-l, 0px)) !important;
+    padding-right: calc(10px + var(--safe-r, 0px)) !important;
+  }
+  html body .card, html body .pane, html body .reg-card,
+  html body .auth-card, html body .modal-card { padding: 14px !important; }
+  html body .rv-title, html body .yn-title {
+    font-size: clamp(28px, 8.4vw, 40px) !important;
+  }
+}
+/* ── 9.4b 超窄屏（≤340，例如 320px 老设备）：统计 / 快捷回单列 ── */
+@media (max-width: 340px) {
+  html body .stat-row, html body .stat-grid, html body .stats,
+  html body .quick-row, html body .zx-metrics {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* ── 9.5 横屏矮（手机横放）：别让顶栏和侧栏吃掉半屏 ── */
+@media (orientation: landscape) and (max-height: 520px) {
+  html body .main { padding-top: calc(48px + var(--safe-t, 0px) + 12px) !important; }
+  html body .modal-card, html body .modal .box {
+    max-height: calc(100dvh - 16px) !important;
+  }
 }

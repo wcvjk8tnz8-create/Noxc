@@ -5692,7 +5692,10 @@ table td a, .cell-fqdn, td:first-child { font-family: var(--td-mono);}
 
 
 
-button:not(.root-opt):not(.op-btn):not(.iconbtn):not(.side-toggle),
+/* 移动端收口：top-search / tb-stow 必须能被 @media 隐藏。
+   以前这条 (0,4,1) 的 !important 压过了所有 display:none，导致手机上
+   搜索框和收起按钮仍占位、面包屑被挤成 0 宽、顶栏整体右溢出。 */
+button:not(.root-opt):not(.op-btn):not(.iconbtn):not(.side-toggle):not(.top-search):not(.tb-stow),
 .zx-search-btn, .pc-av-btn {
   display: inline-flex !important;
   align-items: center !important;

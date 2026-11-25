@@ -2090,6 +2090,30 @@ check(/### 根域名管理：拉取域名/.test(read('README.md'))
   && /批量勾选只生效最后一个/.test(read('README.md')),
   'README 写清拉取流程、下拉选项与批量踩踏错误');
 
+/* ── 移动端适配防回流（NodeLoc 社区反馈「手机适配垃圾」） ── */
+const mobShell = read('src/app/styles/shell.css');
+const mobSkin = read('src/app/styles/nodeloc-skin.css');
+const btnNotLine = mobShell.split('\n').find((l) => l.includes('button:not(') && l.includes('.zx-search-btn') === false && l.includes(':not(')) || '';
+check(/:not\(\.top-search\)/.test(btnNotLine) && /:not\(\.tb-stow\)/.test(btnNotLine),
+  '全局 button inline-flex 已排除 top-search / tb-stow，手机顶栏 display:none 能生效');
+check(/9 · 移动端收口/.test(mobSkin)
+  && /@media \(max-width: 1000px\)/.test(mobSkin)
+  && /@media \(max-width: 700px\)/.test(mobSkin)
+  && /@media \(max-width: 380px\)/.test(mobSkin)
+  && /@media \(max-width: 340px\)/.test(mobSkin),
+  '移动端收口段：统一断点 1000 / 700 / 380 / 340，不再各层各自为政');
+check(/#topSearch/.test(mobSkin) && /#tbStow/.test(mobSkin)
+  && /flex-wrap: wrap !important/.test(mobSkin)
+  && /min-height: 44px !important/.test(mobSkin),
+  '顶栏收起 / 标签换行 / 44px 触控目标三层齐全');
+check(/right:\s*0;/.test(mobSkin.match(/yn-panel::before\s*\{[^}]*\}/s)?.[0] || '')
+  && /min\(300px, 85%\)/.test(mobSkin),
+  '查询卡柔光晕不再撑大 scrollWidth');
+check(/mobile-render\.py/.test(read('scripts/mobile-regression.ts'))
+  && /mobile-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  '浏览器实拍 + CI 静态回归成对存在');
+check(/### Z\.13/.test(read('README.md')), 'README 文末 Z.13 记录手机适配');
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

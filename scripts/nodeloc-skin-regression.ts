@@ -54,7 +54,9 @@ const readme = read('README.md');
     '未重定义任何 --zx-* 颜色令牌' + (redefined.length ? '：' + redefined.join(',') : ''));
 
   const used = [...skin.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]);
-  const unknown = [...new Set(used)].filter((v) => !/^--(zx-|rv-|td-|lg-|nl-|radius|mono|sans|yn-)/.test(v));
+  /* --safe-* 是 shell.css 里定义的 env(safe-area-inset-*) 安全区变量，
+     移动端收口段在 padding 里引用它们，属于既有令牌。 */
+  const unknown = [...new Set(used)].filter((v) => !/^--(zx-|rv-|td-|lg-|nl-|radius|mono|sans|yn-|safe-)/.test(v));
   check(unknown.length === 0,
     'var() 引用的都是既有令牌' + (unknown.length ? '：' + unknown.join(',') : ''));
 
