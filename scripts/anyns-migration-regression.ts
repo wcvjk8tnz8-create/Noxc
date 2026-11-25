@@ -783,6 +783,10 @@ async function main() {
     '站点级令牌只来自服务端（Secret / 站点设置），不是用户自带 key 的 BYOS');
   const deploy = read('.github/workflows/deploy.yml');
   check(/anyns-migration-regression\.ts/.test(deploy), '专项回归挂进 CI');
+  const anStep = deploy.indexOf('anyns-migration-regression.ts');
+  check(anStep > 0 && /node-version: 24/.test(deploy.slice(Math.max(0, anStep - 500), anStep))
+    && /node-version: 20/.test(deploy.slice(anStep, anStep + 500)),
+    'CI 为该回归临时切 Node 24（node:sqlite 真跑 schema）并切回 20');
   const readme = read('README.md');
   check(/### 21\./.test(readme) && /### Z\.12/.test(readme),
     'README 正文写能力、错误按约定收在文末 Z.12');

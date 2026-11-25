@@ -161,8 +161,19 @@ jobs:
       - name: AnyNS 管理 API 接入回归（n.ht 社区官方文档）
         run: npx tsx scripts/anyns-api-regression.ts
 
+      # 该回归里用 node:sqlite 真跑 schema.sql 验证「迁移收尾」的幂等性，
+      # Node 20 没有这个内置模块（Node 22.5+ 才有），临时切 24 只跑这一步，
+      # 随后立刻切回 20，其余回归 / 构建 / 部署的运行时版本都不变。
+      - name: 切换 Node 24（仅 AnyNS 迁移收尾回归）
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - name: meoy.top 暂停解析与站点级 AnyNS 后端回归
         run: npx tsx scripts/anyns-migration-regression.ts
+      - name: 切回 Node 20（其余回归沿用既有版本）
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
       - name: SEUS DNS 接入回归（MCP Streamable HTTP）
         run: npx tsx scripts/seus-dns-regression.ts

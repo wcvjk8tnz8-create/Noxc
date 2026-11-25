@@ -218,6 +218,14 @@ check(/discount-code-regression\.ts/.test(dcCI),
   'DC 码注册抵扣专项回归进 CI');
 check(/node-version: 24[\s\S]{0,400}discount-code-regression\.ts[\s\S]{0,400}node-version: 20/.test(dcCI),
   'CI 在 DC 抵扣回归处临时切 Node 24（node:sqlite 真跑 schema）并切回 20 构建部署');
+/* AnyNS 迁移收尾回归也用 node:sqlite 真跑 schema.sql，Node 20 无该内置模块。
+   锁住「临时切 24 → 跑回归 → 切回 20」这三步，防止误删后 CI 再次失败。 */
+const migrationCI = read('.github/workflows/deploy.yml');
+const anIdx = migrationCI.indexOf('anyns-migration-regression.ts');
+check(anIdx > 0
+  && /node-version: 24/.test(migrationCI.slice(Math.max(0, anIdx - 500), anIdx))
+  && /node-version: 20/.test(migrationCI.slice(anIdx, anIdx + 500)),
+  'CI 在 AnyNS 迁移收尾回归处也临时切 Node 24 并切回 20');
 
 /* 9b. 奖励中心：已生成的券可编辑（用量 / 面值 / 有效期 / 备注） */
 const rcRedeem = read('src/routes/redeem.ts');
