@@ -40,6 +40,20 @@ the same token — AnyNS has no dedicated delegation-check endpoint, so this
 only reports zone state and its recorded NS; confirm the registrar NS with
 `dig NS` or the panel.
 
+## Resolution paused (meoy.top migration)
+
+`meoy.top` is being migrated to AnyNS. During the migration every subdomain
+under this suffix shows **"Resolution paused"**, and a notice
+"meoy.top is being migrated to anyns" appears at the top of the console
+and domain detail pages. Regular users cannot add, edit or delete DNS
+records temporarily; **viewing records, WHOIS, renewal, showcase entries
+and public statistics are unaffected**. Administrators remain able to write
+records, which are added to the root zone via the site-level AnyNS token.
+
+You do not need to paste any API key here: the site uses the
+`ANYNS_API_TOKEN` Worker Secret, and records are written to the AnyNS
+`meoy.top` zone. Clearing `dns_paused_roots` restores everything at once.
+
 ## Platform verification
 
 Root-domain verification uses a TXT record with one-click write and re-check. The Cloudflare proxy toggle only applies to supported record types.

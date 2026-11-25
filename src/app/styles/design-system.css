@@ -911,3 +911,42 @@ html body .site-announcement .sa-text {
     font-size: 12.5px !important;
   }
 }
+
+/* ── 「暂停解析」迁移提示条（meoy.top → AnyNS）────────────────────────
+   与站点公告同一套纸白/墨黑语言，纯黑白灰、零 emoji、纯文本渲染。
+   只挂在 .main 顶部（控制台 / 域名详情），首页与公开落地页不显示。 */
+html body .dns-migration-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 11px 18px;
+  background: var(--zx-paper-2);
+  border: 1px solid var(--zx-hair);
+  border-radius: var(--nl-r-pill, 999px);
+  box-shadow: none;
+  color: var(--zx-body);
+  font-family: var(--zx-sans, var(--sans, system-ui, sans-serif));
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.7;
+}
+html body .dns-migration-notice .dm-dot {
+  display: block;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  margin-top: .55em;
+  border-radius: 50%;
+  background: var(--zx-ink);
+}
+html body .dns-migration-notice .dm-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--zx-body);
+}
+@media (max-width: 640px) {
+  html body .dns-migration-notice { padding: 10px 14px; font-size: 12.5px; }
+}

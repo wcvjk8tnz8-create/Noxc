@@ -161,6 +161,9 @@ jobs:
       - name: AnyNS 管理 API 接入回归（n.ht 社区官方文档）
         run: npx tsx scripts/anyns-api-regression.ts
 
+      - name: meoy.top 暂停解析与站点级 AnyNS 后端回归
+        run: npx tsx scripts/anyns-migration-regression.ts
+
       - name: SEUS DNS 接入回归（MCP Streamable HTTP）
         run: npx tsx scripts/seus-dns-regression.ts
 
@@ -291,6 +294,14 @@ jobs:
           else
             echo "• 未配置 DNSHE 凭证，DNSHE 域名查询走公开模式（2 次/分钟/IP）"
           fi
+          # AnyNS（n.ht 社区）管理令牌：站点后端用它给根域名 zone 写记录。
+          # 可选：不填则 meoy.top 仍走原 DNS 后端，部署不中断。
+          if [ -n "$ANYNS_API_TOKEN" ]; then
+            printf '%s' "$ANYNS_API_TOKEN" | npx wrangler secret put ANYNS_API_TOKEN >/dev/null
+            echo "✓ 已写入 ANYNS_API_TOKEN（meoy.top 记录下发走 AnyNS 管理 API）"
+          else
+            echo "• 未配置 ANYNS_API_TOKEN，meoy.top 记录仍走原 DNS 后端"
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ env.CF_AUTH_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -298,6 +309,7 @@ jobs:
           CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
           DNSHE_API_KEY: ${{ secrets.DNSHE_API_KEY }}
           DNSHE_API_SECRET: ${{ secrets.DNSHE_API_SECRET }}
+          ANYNS_API_TOKEN: ${{ secrets.ANYNS_API_TOKEN }}
 
       # 建表（幂等：CREATE TABLE IF NOT EXISTS，重复部署不会丢数据）
       # /docs 改由 VitePress 静态站提供，确认产物已并入 Worker 静态目录

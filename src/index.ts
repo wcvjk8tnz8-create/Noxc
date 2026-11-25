@@ -1,4 +1,5 @@
 import { effectiveRootList } from './lib/rootStore.js';
+import { parsePausedRoots as parseDnsPausedRoots, DEFAULT_MIGRATION_NOTICE } from './lib/dnsPause.js';
 import { DEFAULT_MESSAGE } from './lib/applyGate.js';
 import { loadAiConfig } from './lib/aiReview.js';
 import { parseRootCosts } from './lib/points.js';
@@ -210,7 +211,7 @@ app.use('/api/stats', publicCors);
 async function buildConfigData(c: any) {
   /* 白名单挑字段：整张 settings 只在 Worker 内存里，绝不下发敏感 key。
      统一配置层命中缓存时这里是 0 次 D1，未命中也只 1 次全表读。 */
-  const CONFIG_KEYS = ['site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota','announcement','root_apply_paused'] as const;
+  const CONFIG_KEYS = ['site_name','logo_url','favicon_url','footer_icp_html','footer_contact_html','font_body','font_display','mail_verify_required','mail_provider','mail_from','apply_paused','apply_paused_message','ai_review_roots','dns_unlimited_roots','root_point_costs','domain_cost','short_domain_cost','short_domain_len','checkin_points','initial_points','default_quota','announcement','root_apply_paused','dns_paused_roots','dns_migration_notice'] as const;
   const s = await pickSettings(c.env, CONFIG_KEYS);
   // 注册是否需要邮箱验证码（后台开启且邮件服务已配置时才真正启用）
   const mailOk = !!(String(s.mail_provider || c.env.MAIL_PROVIDER || '').trim()
@@ -289,6 +290,11 @@ async function buildConfigData(c: any) {
     // 以前漏在 SELECT 清单外，前端永远读到 undefined，公告条一次都没出现过。
     // 只回纯文本（不解析 HTML），前端用 textContent 渲染，管理员写什么就显示什么。
     announcement: String(s.announcement || '').trim().slice(0, 300),
+    // 「暂停解析」：公开名单 + 迁移提示，前端据此渲染状态徽标与顶部提示条。
+    // 不含任何密钥；ANYNS_API_TOKEN 只留在 Worker Secret，绝不下发浏览器。
+    dnsPausedRoots: parseDnsPausedRoots(s.dns_paused_roots === undefined ? 'meoy.top' : s.dns_paused_roots),
+    migrationNotice: String(s.dns_migration_notice || '').trim().slice(0, 300) || DEFAULT_MIGRATION_NOTICE,
+    anynsBackendEnabled: !!String(c.env.ANYNS_API_TOKEN || '').trim(),
     fontBody: s.font_body || 'system',
     fontDisplay: s.font_display || 'system',
     // 首页展示的额度跟着后台「站点设置」走，与注册同一逐级回落口径

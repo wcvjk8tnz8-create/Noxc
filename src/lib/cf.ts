@@ -1,8 +1,10 @@
 // ============================================================
 //  DNS API 封装（自动选择后端）
-//  1) 自定义提供商：站点设置里填了 API URL → 用它（可突破 200 条记录限制）
-//  2) Cloudflare    ：默认，调用 https://api.cloudflare.com/client/v4
-//  3) Mock（CF_MOCK=1）：内存模拟，方便本地跑通全部流程
+//  1) AnyNS（站点级）：Worker Secret 里配 ANYNS_API_TOKEN，指定根域名走
+//     anyns.io 官方管理 API（站长用 api key 给根域名 zone 加记录，用户无感）
+//  2) 自定义提供商：站点设置里填了 API URL → 用它（可突破 200 条记录限制）
+//  3) Cloudflare    ：默认，调用 https://api.cloudflare.com/client/v4
+//  4) Mock（CF_MOCK=1）：内存模拟，方便本地跑通全部流程
 // ============================================================
 
 import { zoneIdFor, matchRoot, parseRootList, parseZoneMap, normalizeDomain } from './roots.js';
@@ -10,6 +12,10 @@ import {
   spDnsSave, spDnsDelete, spDnsList,
   toSpaceshipRecord, spRecordId, parseSpRecordId,
 } from './spaceshipDns.js';
+import {
+  anynsServerConfig, anynsRootEnabled, anynsBackendCreate, anynsBackendUpdate,
+  anynsBackendDelete, anynsBackendList,
+} from './anynsBackend.js';
 
 const BASE = 'https://api.cloudflare.com/client/v4';
 
@@ -21,7 +27,7 @@ function parseBackendMap(raw) {
     if (i <= 0) continue;
     const d = normalizeDomain(seg.slice(0, i));
     const v = String(seg.slice(i + 1)).trim().toLowerCase();
-    if (d && (v === 'spaceship' || v === 'cloudflare')) map[d] = v;
+    if (d && (v === 'spaceship' || v === 'cloudflare' || v === 'anyns')) map[d] = v;
   }
   return map;
 }
@@ -63,6 +69,7 @@ export async function dnsProvider(env) {
       zone: String(env.CF_ZONE_ID || '').trim(),
       auth: { key: String(env.DNS_API_KEY || '').trim(), secret: String(env.DNS_API_SECRET || '').trim() },
       backends: {}, dynamicRoots: [], extraZones: {},
+      anyns: anynsServerConfig(env),
     };
   }
   // 未设环境变量则查 D1（每次部署只查一次，结果缓存 60 秒）
@@ -74,6 +81,7 @@ export async function dnsProvider(env) {
   let cfg = {
     custom: false, base: BASE, zone, auth: null,
     backends: {}, dynamicRoots: [], extraZones: {},
+    anyns: anynsServerConfig(env),
   };
   try {
     const rows = await env.DB
@@ -108,7 +116,10 @@ export async function dnsProvider(env) {
 export function backendFor(env, p, domain) {
   const d = normalizeDomain(domain);
   if (!d) return p.custom ? 'custom' : 'cloudflare';
+  /* 站点级 AnyNS：Secret 配了 ANYNS_API_TOKEN 且根域名在 ANYNS_ROOTS
+     （或后台显式写 anyns）时优先走官方管理 API，与其他后端互斥。 */
   const explicit = p.backends?.[d];
+  if (explicit === 'anyns' || anynsRootEnabled(p.anyns, d)) return 'anyns';
   if (explicit === 'spaceship' || explicit === 'cloudflare') return explicit;
   const hasZone = !!(p.extraZones?.[d] || zoneFor(env, d));
   if (p.dynamicRoots?.includes(d) && !hasZone) return 'spaceship';
@@ -136,7 +147,7 @@ export async function dnsProviderFor(env, domain) {
 }
 
 function noBackendError(domain) {
-  const msg = `根域名 ${domain || '（未指定）'} 未配置可用的 DNS 后端：请在后台「根域名管理」把它设为 Spaceship，或填写对应的 Cloudflare Zone ID`;
+  const msg = `根域名 ${domain || '（未指定）'} 未配置可用的 DNS 后端：请在后台「根域名管理」把它设为 Spaceship，填写对应的 Cloudflare Zone ID，或在 Worker Secret 配置 ANYNS_API_TOKEN / ANYNS_ZONE_ID`;
   return { ok: false, errors: [{ message: msg }], message: msg };
 }
 
@@ -192,6 +203,7 @@ export async function cfCreate(env, payload, domain) {
   if (env.CF_MOCK === '1' || env.CF_MOCK === 'true') return mockCreate(payload);
   const d = resolveDomain(env, domain, payload?.name);
   const p = await dnsProviderFor(env, d);
+  if (p.backend === 'anyns') return anynsBackendCreate(env, payload, d);
   if (p.backend === 'spaceship') {
     const conv = toSpaceshipRecord(payload, d);
     if (!conv.ok) return { ok: false, errors: [{ message: conv.error }], message: conv.error };
@@ -227,6 +239,7 @@ export async function cfUpdate(env, id, payload, domain) {
   const spOld = parseSpRecordId(id);
   const d = resolveDomain(env, spOld?.domain || domain, payload?.name);
   const p = await dnsProviderFor(env, d);
+  if (p.backend === 'anyns') return anynsBackendUpdate(env, id, payload, d);
   if (p.backend === 'spaceship') {
     const conv = toSpaceshipRecord(payload, d);
     if (!conv.ok) return { ok: false, errors: [{ message: conv.error }], message: conv.error };
@@ -257,6 +270,7 @@ export async function cfDelete(env, id, domain) {
   if (spOld) return spDnsDelete(env, spOld.domain, [spOld.record]);
   const d = resolveDomain(env, domain, '');
   const p = await dnsProviderFor(env, d);
+  if (p.backend === 'anyns') return anynsBackendDelete(env, id, d);
   if (p.backend === 'spaceship') {
     // 历史数据：域名后来切到了 Spaceship，但旧记录 id 是 Cloudflare 的。
     // 无法凭 id 构造删除对象，不阻断本地删除，只提示远端可能残留。
@@ -276,6 +290,7 @@ export async function cfList(env, params = {}, domain) {
   }
   const d = resolveDomain(env, domain, params?.name);
   const p = await dnsProviderFor(env, d);
+  if (p.backend === 'anyns') return anynsBackendList(env, params, d);
   if (p.backend === 'spaceship') {
     const r = await spDnsList(env, d);
     if (!r.ok) return r;
@@ -314,8 +329,8 @@ export async function cfSoa(env) {
   }
   const d = normalizeDomain(env.ROOT_DOMAIN);
   const p = await dnsProviderFor(env, d);
-  // Spaceship DNS 不暴露 SOA 记录接口，返回空结果即可（前端只做展示）
-  if (p.backend === 'spaceship') return { ok: true, result: [] };
+  // Spaceship / AnyNS 不暴露 SOA 记录接口，返回空结果即可（前端只做展示）
+  if (p.backend === 'spaceship' || p.backend === 'anyns') return { ok: true, result: [] };
   if (!p.zone) return noBackendError(d);
   const r = await fetch(`${recordsPath(p)}?type=SOA${p.custom ? '&zone=' + encodeURIComponent(p.zone) : ''}`, {
     headers: authHeaders(env, p),

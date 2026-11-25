@@ -38,6 +38,18 @@ DDNS / ACME 令牌不能用于管理接口（服务端会返回 `token_scope_mis
 注意 AnyNS 官方没有独立的委派校验端点，这里只查区域状态与它记录的 NS，
 注册商 NS 是否生效请用 `dig NS` 或其面板确认。
 
+## 暂停解析（meoy.top 迁移中）
+
+`meoy.top` 正在迁移至 AnyNS。迁移期间该后缀下所有子域名的状态显示为
+**「暂停解析」**，控制台与域名详情页顶部会显示
+「meoy.top 正在迁移至 anyns」。普通用户暂时不能增删改 DNS 记录，
+**查看已有记录、WHOIS 查询、续期、用户案例展示与公开统计都不受影响**；
+管理员仍可操作，迁移记录由站点后端的 AnyNS 管理令牌补进根域名区域。
+
+这里不需要你在页面填任何 API key：站点使用 Worker Secret 里配置的
+`ANYNS_API_TOKEN`，DNS 记录会写到 AnyNS 的 `meoy.top` 区域。
+迁移完成后管理员清空 `dns_paused_roots` 即一次性恢复。
+
 ## 平台验证
 
 根域名验证用 TXT 记录，控制台提供一键写入与重新校验。Cloudflare 代理开关仅对支持的记录类型生效。

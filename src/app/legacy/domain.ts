@@ -210,6 +210,10 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
   
   function renderStatusAlert() {
     const el = document.getElementById('statusAlert');
+    if (sub.dnsPaused) {
+      el.innerHTML = `<div class="alert warn">${esc(String(sub.statusLabel || '暂停解析'))}：${esc(String(sub.dnsPausedRoot || ''))} 正在迁移至 anyns，期间暂不能修改 DNS 记录。</div>`;
+      return;
+    }
     if (sub.status === 'pending') el.innerHTML = `<div class="alert warn">该子域名仍在审核中，审核通过后才能添加 DNS 记录。</div>`;
     else if (sub.status === 'rejected') el.innerHTML = `<div class="alert danger">申请已被驳回：${esc(sub.reason || '')}</div>`;
     else if (sub.status === 'suspended') el.innerHTML = `<div class="alert danger">已停用：${esc(sub.reason || '')}，无法操作 DNS 记录。</div>`;
@@ -567,7 +571,8 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
       expText = left > 0 ? left + ' 天后到期' : '已过期';
       expCls = left > 180 ? 'var(--ok)' : left > 0 ? 'var(--warn)' : 'var(--danger)';
     }
-    const st = sub.status === 'approved' ? '<span style="color:var(--ok)">正常</span>'
+    const st = sub.dnsPaused ? '<span style="color:var(--warn)">暂停解析</span>'
+             : sub.status === 'approved' ? '<span style="color:var(--ok)">正常</span>'
              : sub.status === 'pending' ? '<span style="color:var(--warn)">审核中</span>'
              : sub.status === 'suspended' ? '<span style="color:var(--danger)">已停用</span>'
              : esc(sub.status);

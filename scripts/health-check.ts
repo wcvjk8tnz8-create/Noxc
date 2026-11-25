@@ -1991,3 +1991,33 @@ check(/anyns-api-regression\.ts/.test(anynsReg) && /anyns-api-regression\.ts/.te
   'AnyNS 专项回归挂进 CI');
 check(/### 19\. AnyNS/.test(read('README.md')) && /### Z\.10 AnyNS/.test(read('README.md')),
   'README 正文写能力、错误按约定收在文末 Z.10');
+
+/* ── meoy.top 暂停解析 + 站点级 AnyNS 后端（n.ht 社区管理 API）防回流 ── */
+const dnsPauseLib = read('src/lib/dnsPause.ts');
+const anynsBackendLib = read('src/lib/anynsBackend.ts');
+const cfLib = read('src/lib/cf.ts');
+const migrationReg = read('scripts/anyns-migration-regression.ts');
+check(/DNS_PAUSED_DEFAULT = 'meoy.top'/.test(dnsPauseLib)
+  && /DNS_PAUSED_LABEL = '暂停解析'/.test(dnsPauseLib)
+  && /settingsCache/.test(dnsPauseLib),
+  '暂停解析默认名单 meoy.top、状态文案、统一配置缓存');
+check(!/UPDATE subdomains SET status/.test(dnsPauseLib)
+  && /status 仍是 approved|保留 status/.test(dnsPauseLib),
+  '暂停解析不批量改 subdomains.status，公开统计 / 续期 / 配额不受影响');
+check(/ANYNS_API_TOKEN/.test(anynsBackendLib)
+  && /Worker Secret/.test(anynsBackendLib)
+  && /anynsRelativeName/.test(anynsBackendLib),
+  '站点级 AnyNS 令牌只来自 Secret，根域名用官方 @ 相对名');
+check(/p.backend === 'anyns'/.test(cfLib)
+  && /anynsRootEnabled/.test(cfLib)
+  && (cfLib.match(/backend === 'anyns'/g) || []).length >= 4,
+  'cf.ts 四个写/读入口都接了 AnyNS 后端');
+check(/dnsWriteBlock/.test(read('src/routes/records.ts'))
+  && /dnsPausedRoots/.test(read('src/index.ts'))
+  && /mountMigrationNotice/.test(read('src/app/lib/runtime.ts')),
+  '写闸门 / config 下发 / 迁移提示条三处一致');
+check(/anyns-migration-regression\.ts/.test(migrationReg)
+  && /anyns-migration-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  '暂停解析专项回归挂进 CI');
+check(/### 21\. meoy\.top/.test(read('README.md')) && /### Z\.12/.test(read('README.md')),
+  'README 正文写能力、错误按约定收在文末 Z.12');

@@ -482,6 +482,13 @@ INSERT OR IGNORE INTO settings(key, value) VALUES ('ai_model', '');
 -- 不限制「单个子域名最多 50 条 DNS 记录」的根域名（逗号分隔）
 INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_unlimited_roots', 'v-1.top');
 
+-- 「暂停解析」与迁移提示（meoy.top 迁移至 AnyNS 期间，不改后台 UI）
+-- dns_paused_roots：逗号分隔根域名；留空即全部恢复，不用逐行改数据。
+-- 注意：这里只加展示状态，不把 subdomains.status 从 approved 改掉，
+--       公开统计 / 续期 / 配额 / 用户案例展示一律不受影响。
+INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_paused_roots', 'meoy.top');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_migration_notice', 'meoy.top 正在迁移至 anyns，期间该后缀下的域名暂停解析');
+
 -- 第三方邮箱注册：精确白名单（命中即在任何规则模式下都放行）
 CREATE TABLE IF NOT EXISTS email_allowlist (
   email      TEXT PRIMARY KEY,

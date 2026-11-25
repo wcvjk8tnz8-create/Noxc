@@ -22,6 +22,7 @@
 | **错误 / 故障 / 限制 / 排查**（统一在文末） | **附录 Z · 故障排查与已知错误** |
 | KV / R2 没自动绑上、D1 读取超限 | 附录 Z.2 / Z.1 |
 | AnyNS / n.ht 管理 API 接入 | 第 19 节 / 附录 Z.10 |
+| meoy.top 暂停解析与迁移提示 | 第 21 节 / 附录 Z.12 |
 
 ---
 
@@ -628,6 +629,51 @@ Token 只在本次调用内存里用；SEUS 的相对名称规则（区顶点 `@
 
 > 与 AnyNS 一样，SEUS 只作为**供应商适配**存在；第三方域名接入仍保持
 > 「即将上线」（503 `comingSoon`）。**注意事项与常见错误**见文末「Z.11」。
+
+### 21. meoy.top 暂停解析 · 迁移至 AnyNS（站点级 API 令牌）
+
+`meoy.top` 正在迁移至 **AnyNS**（n.ht 社区的免费权威 DNS）。迁移期间：
+
+- 该后缀下**所有**子域名的状态显示为「**暂停解析**」，控制台与域名详情页
+  顶部显示「meoy.top 正在迁移至 anyns」；
+- 普通用户暂时不能增删改 DNS 记录（避免记录一边写旧后端、一边迁走），
+  **查看记录、WHOIS、续期、用户案例展示、公开统计全部不受影响**；
+- **管理员豁免**：迁移记录正是由管理员用站点级 API 令牌补进根域名 zone 的。
+
+**这里澄清上一轮的理解偏差**：第 19 节把 AnyNS 接成了「用户自带令牌」的
+NS 委派 / 第三方域名接入（BYOS）。本节的 AnyNS 是**站点后端的 API**：
+管理员在 Worker Secret 里配一次 `ANYNS_API_TOKEN`（anyns.io 面板建的
+`nhtdns_` **管理令牌**），`cf.ts` 就把 `meoy.top` 的记录下发切到
+`https://anyns.io/api/dns/v1/zones/:id/records`。用户完全无感，不用填任何 key。
+
+```bash
+# 一行即可启用（CI 会自动读取同名 GitHub Secret 并写入 Worker）
+npx wrangler secret put ANYNS_API_TOKEN
+# GitHub：Settings → Secrets and variables → Actions → New repository secret
+#          Name = ANYNS_API_TOKEN，Value = nhtdns_xxxxxxxx
+```
+
+**不改后台 UI**。其余都是可选：`ANYNS_ROOTS`（默认取 `ROOT_DOMAIN`，即
+`meoy.top`）、`ANYNS_ZONE_ID` / `ANYNS_ZONE_IDS`（都没配时按域名调
+`GET /api/dns/v1/zones` 查一次并缓存 15 秒）。没配令牌时后端完全不启用，
+`meoy.top` 仍走原来的 Cloudflare / Spaceship，部署也不会中断。
+
+**为什么不动 `subdomains.status`**：`status='approved'` 被公开统计、续期、
+配额、用户案例展示等十几处判定依赖，硬改成新值会让几百个域名从统计里
+凭空消失、续期被拒。这里只叠加 `dnsPaused` 展示状态；配置在
+`settings.dns_paused_roots`（默认 `meoy.top`）与
+`settings.dns_migration_notice`。**迁移完成后把 `dns_paused_roots` 清空
+即可一次性全部恢复**，不用逐行改数据。
+
+记录名按官方口径转换：完整 FQDN → 相对名，根域 `meoy.top` 用 `@`，
+`www.meoy.top` 用 `www`；MX / SRV / CAA 的优先级与结构化字段拼进 `value`；
+`ttl=1`（Cloudflare auto）转 AnyNS 的 `300`。DDNS / ACME 令牌不能用于
+管理接口，返回 `token_scope_mismatch` 时会明确提示换「管理令牌」。
+
+专项回归 `scripts/anyns-migration-regression.ts` mock 官方接口 + 内存 D1
+真跑：暂停判定、记录转换、`cf.ts` 后端选择、Hono 写闸门（普通用户 403 /
+管理员用 API 令牌真写进 zone）、清空配置即时恢复。
+**注意事项与常见错误**统一见文末「Z.12」。
 
 ## 二、项目结构
 
@@ -1544,3 +1590,25 @@ DNSHE 同理要等委派检查通过。改 NS 前还常要先在注册商**关�
   `nhtdns_` 令牌不能混用。
 - **误以为接入即开放**：闸门仍为 `EXTERNAL_DOMAINS_COMING_SOON = true`，
   前端只显示状态卡片。
+
+### Z.12 meoy.top 暂停解析 / AnyNS 站点级后端的常见错误
+
+- **把 `subdomains.status` 批量改成新状态**：公开统计、续期、配额、用户案例
+  展示都会失真。只叠加 `dnsPaused`，库里 `status` 保持 `approved`。
+- **把站点级令牌做成「用户自带 key」**：本节是 Worker Secret 里的
+  `ANYNS_API_TOKEN`，用户页面不填任何凭据；第 19 节的 BYOS 是另一条链路，
+  两者不要混。`src/lib/anynsDns.ts`（客户端）与
+  `src/lib/anynsBackend.ts`（站点后端）分工不同。
+- **忘了 CI 也要传 Secret**：只在本机 `wrangler secret put` 而没在 GitHub
+  Actions 的 Secrets 里加同名项，下次自动部署会被覆盖。CI 步骤会打印
+  「已写入 / 未配置 ANYNS_API_TOKEN」，看 Job 日志即可确认。
+- **拿 DDNS / ACME 令牌当管理令牌**：三种 scope 都是 `nhtdns_` 开头，
+  服务端返回 `403 token_scope_mismatch`，错误文案会提示去面板建「管理令牌」。
+- **以为暂停解析会清掉已有记录**：只是冻结编辑，读取与已有解析不受影响；
+  迁移完成清空 `dns_paused_roots` 即恢复。
+- **以为「检查委派」验证了注册商 NS**：AnyNS 官方没有独立委派校验端点，
+  记录写进 zone 也不等于解析生效，请用 `dig NS` 或面板确认（见 Z.10）。
+- **管理员被闸门误拦**：写闸门对 `role='admin'` 豁免，迁移记录必须能补；
+  若管理员也 403，先看 `dns_paused_roots` 是否配错成了 `*` 之类。
+- **迁移后旧 Cloudflare 记录改不了**：`cf_record_id` 是旧的非数字 id，
+  接口会明确提示「删除后重新添加」，不要把它当 AnyNS 记录 id 传出去。

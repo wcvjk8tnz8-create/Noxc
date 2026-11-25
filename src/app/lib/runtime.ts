@@ -96,6 +96,8 @@ export function refreshRuntime() {
   try { mountContactBadge(); } catch {}
   // 站点公告：每个页面都要出现。loadBranding 有缓存，切页不会重复发请求。
   try { void loadBranding().then((b) => mountAnnouncement(b.announcement)); } catch {}
+  // 「暂停解析」迁移提示：同一份品牌配置（缓存命中零额外请求），只在 .main 页显示
+  try { void loadBranding().then((b) => mountMigrationNotice((b.dnsPausedRoots || []).length ? b.migrationNotice : '')); } catch {}
   // 首屏还没取到品牌配置时补一次（缓存命中，不额外阻塞渲染）
   if (!icpBadgeLoaded() || !contactBadgeLoaded()) {
     try {
@@ -325,7 +327,7 @@ document.addEventListener('click', (e) => {
 });
 
 /* ---------- 站点品牌（站点名 / Logo，管理员可在后台改） ---------- */
-export const DEFAULT_BRAND = { siteName: 'Noxc', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', footerContactHtml: '', fontBody: 'system', fontDisplay: 'system', defaultQuota: 5, announcement: '' };
+export const DEFAULT_BRAND = { siteName: 'Noxc', logoUrl: '/img/logo.jpg', faviconUrl: '/favicon.ico', footerIcpHtml: '', footerContactHtml: '', fontBody: 'system', fontDisplay: 'system', defaultQuota: 5, announcement: '', dnsPausedRoots: [] as string[], migrationNotice: '' };
 export let brandPromise = null;
 /* stale-while-revalidate：切页先用上一次的值立刻渲染，网络刷新放后台。
    以前每个页面都 await 一次 /api/config，接口一慢整页就卡在骨架上。 */
@@ -357,6 +359,9 @@ function normalizeBrand(d) {
     footerContactHtml: typeof d.footerContactHtml === 'string' ? d.footerContactHtml : '',
     // 站点公告是管理员自填的纯文本，不是 HTML，渲染时必须走 textContent
     announcement: typeof d.announcement === 'string' ? d.announcement.trim() : '',
+    // 「暂停解析」迁移提示：只有名单非空时才显示，纯文本、不解析 HTML
+    dnsPausedRoots: Array.isArray(d.dnsPausedRoots) ? d.dnsPausedRoots.map(String) : [],
+    migrationNotice: typeof d.migrationNotice === 'string' ? d.migrationNotice.trim() : '',
   };
 }
 
@@ -472,6 +477,39 @@ export function applyBranding(b) {
   try { applyDefaultQuota(b.defaultQuota); } catch {}
   // 后台保存后不用刷新整页，公告条当场出现 / 更新 / 隐藏
   try { mountAnnouncement(b.announcement); } catch {}
+  try { mountMigrationNotice((b.dnsPausedRoots || []).length ? b.migrationNotice : ''); } catch {}
+}
+
+/**
+ * 「暂停解析」迁移提示条（meoy.top 正在迁移至 anyns）。
+ * 与站点公告同样用纯文本 textContent 渲染、标 data-no-i18n，管理员写什么就显示什么；
+ * 但只在控制台 / 域名详情等有 .main 的页面出现，首页与公开落地页不挂，
+ * 免得迁移期把注册首屏也盖上一条劝退提示。
+ */
+export function mountMigrationNotice(text: string) {
+  const id = 'dnsMigrationNotice';
+  const msg = String(text ?? '').trim();
+  let bar = document.getElementById(id) as HTMLElement | null;
+  const host = document.querySelector('.main') as HTMLElement | null;
+  if (!msg || !host) { if (bar) bar.remove(); return; }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = id;
+    bar.className = 'dns-migration-notice';
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('data-no-i18n', '');
+    const dot = document.createElement('span');
+    dot.className = 'dm-dot';
+    const body = document.createElement('span');
+    body.className = 'dm-text';
+    bar.append(dot, body);
+  }
+  const body = bar.querySelector('.dm-text');
+  if (body) body.textContent = msg;
+  if (!bar.isConnected) {
+    const ann = document.getElementById('siteAnnouncement');
+    host.insertBefore(bar, ann && ann.parentElement === host ? ann.nextSibling : host.firstChild);
+  }
 }
 
 /**
@@ -575,7 +613,12 @@ export const STATUS_MAP = {
   suspended: { cls: 'danger', text: '已停用' },
 };
 
-export function statusBadge(s) {
+export function statusBadge(s, row?: any) {
+  /* 「暂停解析」是叠加状态：库里 status 仍是 approved，避免统计/续期/展示失真，
+     但列表与详情页要如实显示迁移期的状态。 */
+  if (row && row.dnsPaused) {
+    return `<span class="badge warn" data-dns-paused="1">暂停解析</span>`;
+  }
   const m = STATUS_MAP[s] || { cls: '', text: s };
   return `<span class="badge ${m.cls}">${m.text}</span>`;
 }

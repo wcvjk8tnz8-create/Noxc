@@ -10,6 +10,7 @@ import { defaultRoot, isAllowedRoot, listRoots } from '../lib/roots.js';
 import { rootRegLimitOf, userRootRegCount, bumpRootRegCount } from '../lib/rootLimits.js';
 import { applyGate, isRootApplyPaused, rootApplyMessage } from '../lib/applyGate.js';
 import { aiReviewDetailed } from '../lib/aiReview.js';
+import { dnsPauseConfig, dnsPauseFields } from '../lib/dnsPause.js';
 import { ensureAiColumns, queueAiBatch } from '../lib/aiBatch.js';
 import { captchaEnabled, consumePass } from '../lib/captcha.js';
 import { ensureShowcaseColumns, cleanShowcaseInput } from '../lib/showcase.js';
@@ -162,6 +163,7 @@ const listMine = async (c) => {
   await ensureExpiryColumns(c.env);
   await migrateLegacyPerpetual(c.env);
   const rules = await expiryRules(c.env);
+  const pauseCfg = await dnsPauseConfig(c.env);
   const pending = await c.env.DB
     .prepare("SELECT id, fqdn FROM subdomains WHERE user_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1")
     .bind(u.id)
@@ -170,9 +172,13 @@ const listMine = async (c) => {
   return ok(c, {
     items: results.map((s) => ({
       ...s,
+      /* 暂停解析只是展示状态，status 仍是 approved：统计/续期/配额不受影响 */
+      ...dnsPauseFields(s.root_domain || s.fqdn, pauseCfg),
       countsTowardQuota: s.status !== 'rejected',
       expiry: expiryState(s, { renewWindowDays: rules.renewWindowDays }),
     })),
+    migrationNotice: pauseCfg.roots.length ? pauseCfg.notice : '',
+    dnsPausedRoots: pauseCfg.roots,
     quota: u.quota,
     quotaUnlimited: !!u.quotaUnlimited,
     used,
@@ -494,7 +500,12 @@ app.get('/:id', async (c) => {
   )
     .bind(id)
     .all();
-  return ok(c, { subdomain: row, records: results });
+  const pauseCfg = await dnsPauseConfig(c.env);
+  return ok(c, {
+    subdomain: { ...row, ...dnsPauseFields(row.root_domain || row.fqdn, pauseCfg) },
+    records: results,
+    migrationNotice: dnsPauseFields(row.root_domain || row.fqdn, pauseCfg).dnsPaused ? pauseCfg.notice : '',
+  });
 });
 
 // 编辑备注 / 用户案例展示设置（全部是可选字段，未传的不覆盖）

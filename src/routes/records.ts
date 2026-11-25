@@ -1,5 +1,6 @@
 import { matchRoot } from '../lib/roots.js';
 import { dnsUnlimited } from '../lib/aiReview.js';
+import { dnsPauseConfig, dnsPauseBlockMessage } from '../lib/dnsPause.js';
 
 /**
  * 取某条子域名所属的根域名，用于选择对应的 Cloudflare Zone。
@@ -33,6 +34,20 @@ function requireActive(sub) {
   if (sub.status === 'rejected') return '子域名申请已被驳回';
   if (sub.status === 'suspended') return '子域名已被停用，无法操作 DNS 记录';
   return null;
+}
+
+/**
+ * 「暂停解析」写闸门：根域名迁移至 AnyNS 期间，普通用户不能增删改 DNS 记录，
+ * 避免记录一边写进旧后端、一边迁走造成两边不一致。管理员豁免——迁移记录
+ * 正是由管理员用站点级 ANYNS_API_TOKEN 补进根域名 zone 的。
+ * 读取（列表 / 详情 / WHOIS）不受影响。
+ */
+async function dnsWriteBlock(c, sub) {
+  const u = c.get('user');
+  try {
+    const cfg = await dnsPauseConfig(c.env);
+    return dnsPauseBlockMessage(sub.root_domain || sub.fqdn, cfg, u?.role === 'admin');
+  } catch { return ''; }
 }
 
 function shape(r) {
@@ -79,6 +94,8 @@ app.post('/subdomains/:id/records', async (c) => {
   if (error) return fail(c, error, 404);
   const block = requireActive(sub);
   if (block) return fail(c, block, 403);
+  const pauseBlock = await dnsWriteBlock(c, sub);
+  if (pauseBlock) return fail(c, pauseBlock, 403);
 
   const body = await c.req.json().catch(() => ({}));
   const type = String(body.type || '').toUpperCase();
@@ -167,6 +184,8 @@ app.patch('/records/:id', async (c) => {
   if (rec.verify_lock) return fail(c, '该记录已被「根域名验证」锁定，请先点击“确认认证完成”解除锁定', 403);
   const block = requireActive(sub);
   if (block) return fail(c, block, 403);
+  const pauseBlock = await dnsWriteBlock(c, sub);
+  if (pauseBlock) return fail(c, pauseBlock, 403);
 
   const body = await c.req.json().catch(() => ({}));
   const type = String(body.type || rec.type).toUpperCase();
@@ -226,6 +245,8 @@ app.delete('/records/:id', async (c) => {
   if (rec.verify_lock) return fail(c, '该记录已被「根域名验证」锁定，请先点击“确认认证完成”解除锁定', 403);
   const block = requireActive(sub);
   if (block && sub.status !== 'rejected') return fail(c, block, 403);
+  const pauseBlock = await dnsWriteBlock(c, sub);
+  if (pauseBlock) return fail(c, pauseBlock, 403);
 
   const cf = await cfDelete(c.env, rec.cf_record_id, rootOf(c, sub));
   if (!cf.ok) return fail(c, `DNS 删除失败：${cfErrorMessage(cf)}`, 502, { cf: cf.errors });
@@ -242,6 +263,8 @@ app.post('/subdomains/:id/verify', async (c) => {
   if (error) return fail(c, error, 404);
   const block = requireActive(sub);
   if (block) return fail(c, block, 403);
+  const pauseBlock = await dnsWriteBlock(c, sub);
+  if (pauseBlock) return fail(c, pauseBlock, 403);
 
   const body = await c.req.json().catch(() => ({}));
   const presetKey = String(body.preset || 'custom');
@@ -330,6 +353,8 @@ app.post('/records/:id/verify-confirm', async (c) => {
   const { rec, sub, error } = await loadRecord(c, rid);
   if (error) return fail(c, error, 404);
   if (!rec.verify_lock) return fail(c, '该记录未被锁定');
+  const pauseBlock = await dnsWriteBlock(c, sub);
+  if (pauseBlock) return fail(c, pauseBlock, 403);
 
   const body = await c.req.json().catch(() => ({}));
   const keep = Boolean(body.keep);
