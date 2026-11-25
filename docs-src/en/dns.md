@@ -52,10 +52,15 @@ records, which are added to the root zone via the site-level AnyNS token.
 
 Regular users never paste an API key: the administrator enters the
 `nhtdns_` management token under **Site Settings → AnyNS** (or uses the
-`ANYNS_API_TOKEN` Worker Secret, which takes priority). Records are then
-written to the AnyNS `meoy.top` zone. The token stays server-side and the
-admin page shows only a mask. Clearing "paused roots" on the same card
-restores everything at once.
+`ANYNS_API_TOKEN` Worker Secret, which takes priority), then clicks
+**"Fetch domains from AnyNS"** under **Root Domain Management**. Selecting a
+zone either adds it as a root domain or switches that suffix's DNS backend to
+**AnyNS** (a new option in each row's dropdown; the Zone ID is saved
+automatically). The token stays server-side and the admin page shows only a
+mask. Remember to point the domain's NS at the servers shown in the dialog.
+
+Clearing "paused roots" on the same card restores everything at once, and the
+dropdown can switch the backend back to Cloudflare / Spaceship at any time.
 
 ## Platform verification
 

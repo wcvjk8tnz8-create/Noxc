@@ -116,11 +116,15 @@ export async function dnsProvider(env) {
 export function backendFor(env, p, domain) {
   const d = normalizeDomain(domain);
   if (!d) return p.custom ? 'custom' : 'cloudflare';
-  /* 站点级 AnyNS：Secret 配了 ANYNS_API_TOKEN 且根域名在 ANYNS_ROOTS
-     （或后台显式写 anyns）时优先走官方管理 API，与其他后端互斥。 */
+  /* 后端优先级：管理员在「根域名管理」里显式选的后端 > 自动推断。
+     以前 AnynsRootEnabled 放在显式判断之前，导致管理员把某域名从 AnyNS
+     切回 Cloudflare / Spaceship 时仍被强制走 AnyNS —— 「选项」形同虚设。
+     现在显式 spaceship/cloudflare 先返回，剩下的再看 anyns。 */
   const explicit = p.backends?.[d];
-  if (explicit === 'anyns' || anynsRootEnabled(p.anyns, d)) return 'anyns';
   if (explicit === 'spaceship' || explicit === 'cloudflare') return explicit;
+  /* 站点级 AnyNS：后台显式写 anyns，或根域名在 ANYNS_ROOTS / ANYNS_ROOTS
+     默认范围里且配了管理令牌 → 走官方管理 API。 */
+  if (explicit === 'anyns' || anynsRootEnabled(p.anyns, d)) return 'anyns';
   const hasZone = !!(p.extraZones?.[d] || zoneFor(env, d));
   if (p.dynamicRoots?.includes(d) && !hasZone) return 'spaceship';
   return p.custom ? 'custom' : 'cloudflare';

@@ -3,7 +3,8 @@
  *
  * 背景：meoy.top 正在迁移至 AnyNS。要求：
  *   1) 所有 meoy.top 子域名状态显示「暂停解析」，控制台 / 域名详情顶部
- *      显示「meoy.top 正在迁移至 anyns」；不改后台 UI。
+ *      显示「meoy.top 正在迁移至 anyns」；管理员在「站点设置 → AnyNS」填令牌，
+ *      在「根域名管理」拉取域名并把后端下拉切到 AnyNS。
  *   2) 澄清上一轮理解偏差：AnyNS 不是「用户自带 token 的 BYOS」，而是
  *      **站点后端持有 ANYNS_API_TOKEN（管理令牌）**，用它给根域名
  *      meoy.top 的 zone 添加/修改/删除 DNS 记录。
@@ -44,6 +45,7 @@ import {
 import recordsRoutes from '../src/routes/records.js';
 import adminRoutes from '../src/routes/admin.js';
 import { SENSITIVE_SETTING_KEYS } from '../src/lib/backupFormat.js';
+import { parseBackendMap as parseRootBackendMap } from '../src/lib/rootStore.js';
 import {
   anynsServerConfigFull, clearAnynsConfigCache, anynsTokenSource,
 } from '../src/lib/anynsBackend.js';
@@ -361,7 +363,7 @@ async function main() {
   clearDnsProviderCache();
   const pNoToken = await dnsProviderFor(env({ ANYNS_API_TOKEN: '' }), 'meoy.top');
   check(pNoToken.backend !== 'anyns', '没配令牌时 meoy.top 回落原后端，不误报成功');
-  /* 后台显式 anyns 写法也认（虽然本轮不新增后台 UI） */
+  /* 后台「根域名管理」下拉写入的显式 anyns 映射也认 */
   const mapEnv = env({ ANYNS_API_TOKEN: '' });
   const fakeP = { backends: { 'meoy.top': 'anyns' }, custom: false, anyns: null };
   check(backendFor(mapEnv, fakeP as any, 'meoy.top') === 'anyns',
@@ -535,6 +537,125 @@ async function main() {
   check(SENSITIVE_SETTING_KEYS.has('anyns_api_token'),
     '备份脱敏副本会把 anyns_api_token 置空（默认完整备份仍含真值）');
 
+  /* ═════════ A8. 后台「拉取域名 → 下拉选项 AnyNS」真跑（Hono） ═════════ */
+  anynsCallsEnabled = true;
+  clearAnynsZoneCache(); clearAnynsConfigCache(); clearDnsProviderCache(); invalidateSettings();
+  S = fresh();
+  S.settings.set('anyns_api_token', TOKEN);      // 只用「站点设置」里填的令牌
+  S.settings.set('anyns_zone_ids', '');
+  S.settings.set('root_dns_backends', '');
+  const eAdmin = env({ ANYNS_API_TOKEN: '' });   // 不配 Worker Secret
+
+  const zonesReply = { code: 200, data: { zones: [
+    { id: 4821, zone_name: 'meoy.top', ns: ['ns1.anyns.io', 'ns2.anyns.io'] },
+    { id: 4822, zone_name: 'noxc.uk', ns: ['ns7.anyns.io', 'ns8.anyns.io'] },
+    { id: 4823, zone_name: 'new-domain.xyz', ns: ['ns1.anyns.io'] },
+  ] } };
+  anynsReply = (u, init) => {
+    if (/\/zones$/.test(u) && init.method !== 'POST') return { status: 200, body: zonesReply };
+    if (/\/records$/.test(u) && init.method === 'POST') {
+      return { status: 200, body: { code: 200, data: { record: { id: 9300, name: '@', type: 'A', value: '1.2.3.4' } } } };
+    }
+    return { status: 200, body: { code: 200, data: {} } };
+  };
+
+  /* GET：用后台令牌拉取解析区域，标注哪些已是根域名 */
+  calls.length = 0;
+  const gRes = await adminCall('GET', '/api/admin/anyns/domains', undefined, eAdmin);
+  const gJson: any = await gRes.json();
+  check(gRes.status === 200 && gJson.total === 3
+    && gJson.items.some((x: any) => x.domain === 'meoy.top' && x.alreadyAdded === true && x.zoneId === '4821')
+    && gJson.items.some((x: any) => x.domain === 'new-domain.xyz' && x.alreadyAdded === false),
+    '后台用站点设置里的令牌拉取到 3 个 AnyNS 解析区域（含 Zone ID / 已添加标记）');
+  check(!JSON.stringify(gJson).includes(TOKEN) && !JSON.stringify(calls.at(-1)?.url || '').includes(TOKEN),
+    '拉取响应与 URL 都不含令牌明文');
+  check(calls.at(-1)?.auth === `Bearer ${TOKEN}`
+    && calls.at(-1)?.url === 'https://anyns.io/api/dns/v1/zones',
+    '拉取走官方 GET /api/dns/v1/zones + 管理令牌');
+  check(gJson.items.find((x: any) => x.domain === 'meoy.top')?.ns?.includes('ns1.anyns.io'),
+    '拉取结果带回官方 NS，方便管理员到注册商改委派');
+
+  /* 未配令牌：明确 400 notConfigured，不假装成功 */
+  S = fresh();
+  invalidateSettings(); clearAnynsConfigCache();
+  const noTok = await adminCall('GET', '/api/admin/anyns/domains', undefined, env({ ANYNS_API_TOKEN: '' }));
+  const noTokJson: any = await noTok.json();
+  check(noTok.status === 400 && noTokJson.notConfigured === true
+    && /站点设置/.test(String(noTokJson.message)),
+    '没令牌时返回 400 + 指引去站点设置，不谎报成功');
+
+  /* POST：已存在的 meoy.top 切后端，新域名添加；zone id 单独存 */
+  S = fresh();
+  S.settings.set('anyns_api_token', TOKEN);
+  invalidateSettings(); clearAnynsConfigCache(); clearDnsProviderCache();
+  const pRes = await adminCall('POST', '/api/admin/anyns/add', { domains: [
+    { domain: 'meoy.top', zoneId: '4821' },
+    { domain: 'new-domain.xyz', zoneId: '4823' },
+  ] }, eAdmin);
+  const pJson: any = await pRes.json();
+  check(pRes.status === 200 && pJson.switched?.includes('meoy.top')
+    && pJson.added?.includes('new-domain.xyz'),
+    '已存在的根域名切换为 AnyNS，新解析区域添加为根域名（一次勾选两件事都办）');
+  const backendMap = parseRootBackendMap(S.settings.get('root_dns_backends') || '');
+  check(backendMap['meoy.top'] === 'anyns' && backendMap['new-domain.xyz'] === 'anyns',
+    'root_dns_backends 真的写入 meoy.top:anyns（下拉选项生效）');
+  check(/meoy\.top:4821/.test(S.settings.get('anyns_zone_ids') || '')
+    && /new-domain\.xyz:4823/.test(S.settings.get('anyns_zone_ids') || ''),
+    'AnyNS 数字 Zone ID 存进 anyns_zone_ids，写记录不用再查 /zones');
+  check(!/4821|4823/.test(S.settings.get('cf_zone_ids_extra') || ''),
+    'AnyNS zone id 绝不混进 Cloudflare cf_zone_ids_extra（否则后端会误判）');
+  check(!JSON.stringify(pJson).includes(TOKEN), '添加响应不含令牌');
+
+  /* GET /roots 回显后端与 AnyNS zone id（前端下拉 / badge 用它） */
+  invalidateSettings();
+  const rootsRes = await adminCall('GET', '/api/admin/roots', undefined, eAdmin);
+  const rootsJson: any = await rootsRes.json();
+  const meoyRow = (rootsJson.items || []).find((x: any) => x.domain === 'meoy.top');
+  check(!!meoyRow && meoyRow.backend === 'anyns' && meoyRow.backendAuto === false
+    && meoyRow.anynsZoneId === '4821',
+    '根域名管理列表显示 ANYNS DNS · #4821，且不是「自动」');
+
+  /* 非法 Zone ID 不落库、不误加根域名 */
+  const badRes = await adminCall('POST', '/api/admin/anyns/add',
+    { domains: [{ domain: 'evil.example', zoneId: 'not-a-number' }] }, eAdmin);
+  check(badRes.status === 400 && !S.settings.get('root_domains_extra')?.includes('evil.example'),
+    '非法 Zone ID 被拒，不会把域名加进根域名列表');
+
+  /* 关键：显式切回 Cloudflare 必须能覆盖 ANYNS_ROOTS 自动推断。
+     以前 backendFor 把 anynsRootEnabled 放在显式判断之前，下拉「切回去」形同虚设。 */
+  invalidateSettings(); clearDnsProviderCache();
+  const backCf = await adminCall('POST', '/api/admin/roots/meoy.top/backend',
+    { backend: 'cloudflare' }, eAdmin);
+  check(backCf.status === 200, '下拉切回 Cloudflare 接口成功');
+  invalidateSettings(); clearDnsProviderCache();
+  check((await dnsProviderFor(eAdmin, 'meoy.top')).backend === 'cloudflare',
+    '显式 cloudflare 覆盖 ANYNS_ROOTS 自动推断，下拉真的切得回去');
+  const backAn = await adminCall('POST', '/api/admin/roots/meoy.top/backend',
+    { backend: 'anyns' }, eAdmin);
+  check(backAn.status === 200, '下拉切到 AnyNS 接口成功（选项真的存在且合法）');
+  invalidateSettings(); clearDnsProviderCache();
+  check((await dnsProviderFor(eAdmin, 'meoy.top')).backend === 'anyns',
+    '下拉选中 AnyNS 后该根域名走 AnyNS 后端');
+  check(parseRootBackendMap('a.com:anyns,b.com:cloudflare')['a.com'] === 'anyns',
+    'rootStore 的后端白名单已包含 anyns');
+
+  /* 用拉取到的 zone id 真写记录：不再额外查 /zones */
+  calls.length = 0;
+  const write = await cfCreate(eAdmin, { type: 'A', name: 'meoy.top', content: '1.2.3.4', ttl: 1 }, 'meoy.top');
+  check(write.ok && calls.some((c) => c.url.includes('/api/dns/v1/zones/4821/records') && c.method === 'POST')
+    && !calls.some((c) => /\/zones$/.test(c.url) && c.method !== 'POST'),
+    '写记录直接用拉取到的 Zone ID，不再重复请求 /zones');
+  check(!calls.some((c) => c.url.includes('api.cloudflare.com')),
+    '下拉选 AnyNS 后记录不再写去 Cloudflare');
+
+  /* 未配置令牌时 /anyns/add 也不能偷偷启用后端 */
+  S = fresh();
+  invalidateSettings(); clearAnynsConfigCache();
+  const noTokAdd = await adminCall('POST', '/api/admin/anyns/add',
+    { domains: [{ domain: 'meoy.top', zoneId: '4821' }] }, env({ ANYNS_API_TOKEN: '' }));
+  check(noTokAdd.status === 400 && (await noTokAdd.json()).notConfigured === true,
+    '没有令牌时导入也返回 400，不写入任何后端映射');
+
   /* ═════════ B. 静态断言 ═════════ */
   anynsCallsEnabled = false;
   const schema = read('schema.sql');
@@ -597,6 +718,21 @@ async function main() {
   const cfgKeysLine = read('src/index.ts').match(/const CONFIG_KEYS = \[[^\]]*\]/)?.[0] || '';
   check(/anynsBackendEnabled/.test(idx) && !/'anyns_api_token'/.test(cfgKeysLine),
     '公开 config 只给布尔，密钥不进 CONFIG_KEYS');
+  const rootStore = read('src/lib/rootStore.ts');
+  const cfSrc = read('src/lib/cf.ts');
+  check(/const BACKENDS = \['spaceship', 'cloudflare', 'anyns'\]/.test(rootStore)
+    && /anyns_zone_ids/.test(rootStore),
+    '根域名后端白名单含 anyns，AnyNS zone 映射与 CF Zone 分开存');
+  check(/value="anyns"/.test(admUi) && /ANYNS DNS/.test(admUi)
+    && /id="anFetch"/.test(admUi) && /openAnynsPicker/.test(admUi),
+    '根域名管理下拉有 AnyNS 选项、拉取按钮与选择弹窗');
+  check(/anyns\/domains/.test(adm) && /anyns\/add/.test(adm)
+    && /anynsAdminFetchDomains/.test(adm) && /anynsAdminAddRoots/.test(adm),
+    '后台有拉取域名与导入接口');
+  check(/explicit === 'spaceship' \|\| explicit === 'cloudflare'\) return explicit;/.test(cfSrc)
+    && cfSrc.indexOf("explicit === 'spaceship' || explicit === 'cloudflare') return explicit")
+       < cfSrc.indexOf("explicit === 'anyns' || anynsRootEnabled"),
+    '显式后端优先于 ANYNS_ROOTS 自动推断，下拉切回去真的生效');
 
 
   for (const m of ok) console.log('  ✓ ' + m);

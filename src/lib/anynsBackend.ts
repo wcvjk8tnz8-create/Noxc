@@ -28,11 +28,14 @@
  * 根域（name === 根域名）用官方口径 `@`，子域只传前缀标签。
  */
 import {
-  AnynsDnsError, ANYNS_RECORD_TYPES, anynsFindZone, anynsListRecords,
+  AnynsDnsError, ANYNS_RECORD_TYPES, anynsFindZone, anynsListZones, anynsListRecords,
   anynsWriteRecord, anynsDeleteRecord, anynsRelativeName,
 } from './anynsDns.js';
 import { normalizeDomain } from './roots.js';
-import { allSettings } from './settingsCache.js';
+import { allSettings, invalidateSettings } from './settingsCache.js';
+import { addExtraRoots, setDnsBackend, effectiveRootList } from './rootStore.js';
+
+const DOMAIN_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 
 export type AnynsServerConfig = {
   token: string;
@@ -279,4 +282,140 @@ export async function anynsBackendList(env: any, params: any, root: string) {
     if (params?.name) arr = arr.filter((x) => x.name === normalizeDomain(params.name));
     return { ok: true, result: arr };
   } catch (e) { return asCfError(e); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   后台「根域名管理」：拿到令牌后拉取账号下的域名，并一键设为 AnyNS 后端
+   ──────────────────────────────────────────────────────────────────────
+   与 Spaceship 导入的区别：AnyNS 拉取回来的是「解析区域（zone）」而不是
+   注册商域名，且**自带数字 zone id**。这个 id 必须单独存进
+   settings.anyns_zone_ids，绝不能写进 cf_zone_ids_extra —— 后者会让
+   backendFor 误判「已配 Cloudflare Zone」，把记录写去错误的后端。
+   ══════════════════════════════════════════════════════════════════════ */
+
+async function writeSetting(env: any, key: string, value: string) {
+  await env.DB.prepare(
+    'INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+  ).bind(key, String(value || '')).run();
+}
+
+/** 拉取结果的一项（响应里绝不含令牌） */
+export type AnynsAdminZone = {
+  domain: string;
+  zoneId: string;
+  ns: string[];
+  nsSource: string;
+  alreadyAdded: boolean;
+  hasCfZone: boolean;
+};
+
+/**
+ * 用「站点设置 / Worker Secret」里的管理令牌拉取 AnyNS 账号下全部解析区域，
+ * 并标注哪些已经是本站根域名。未配置令牌时明确返回 notConfigured，
+ * 不假装成功、不回显任何凭据。
+ */
+export async function anynsAdminFetchDomains(env: any): Promise<{
+  ok: boolean; notConfigured?: boolean; message?: string;
+  items: AnynsAdminZone[]; total: number;
+}> {
+  const cfg = await anynsServerConfigFull(env);
+  if (!cfg) {
+    return {
+      ok: false, notConfigured: true,
+      message: '未配置 AnyNS 管理令牌：请到「站点设置 → AnyNS」填入 nhtdns_ 令牌并保存，或配置 Worker Secret ANYNS_API_TOKEN',
+      items: [], total: 0,
+    };
+  }
+  try {
+    const zones = await anynsListZones(cfg.token);
+    const roots = await effectiveRootList(env);
+    const known = new Map(roots.map((r) => [r.domain, r.zoneId || '']));
+    const items: AnynsAdminZone[] = zones
+      .filter((z) => z.name && DOMAIN_RE.test(z.name))
+      .map((z) => ({
+        domain: z.name,
+        zoneId: z.id,
+        ns: z.ns,
+        nsSource: z.nsSource,
+        alreadyAdded: known.has(z.name),
+        hasCfZone: !!known.get(z.name),
+      }));
+    return { ok: true, items, total: items.length };
+  } catch (e: any) {
+    return {
+      ok: false,
+      message: e instanceof AnynsDnsError ? e.message : `拉取 AnyNS 域名失败：${String(e?.message || e).slice(0, 180)}`,
+      items: [], total: 0,
+    };
+  }
+}
+
+/**
+ * 把勾选的解析区域添加为根域名 / 切换为 AnyNS 后端。
+ *   · 还不是根域名 → addExtraRoots(backend='anyns')
+ *   · 已经是根域名（如环境变量里的 meoy.top）→ setDnsBackend('anyns')，
+ *     这样截图中「meoy.top = CLOUDFLARE DNS」也能一键切成 AnyNS
+ *   · 无论如何都把 zone id 记进 anyns_zone_ids，写记录时不用再查 /zones
+ */
+export async function anynsAdminAddRoots(env: any, entries: any) {
+  const cfg = await anynsServerConfigFull(env);
+  if (!cfg) return { ok: false, notConfigured: true, message: '未配置 AnyNS 管理令牌' };
+  const list = Array.isArray(entries) ? entries.slice(0, 100) : [];
+  if (!list.length) return { ok: false, message: '请至少选择一个域名' };
+
+  const valid: Array<{ domain: string; zoneId: string }> = [];
+  const invalid: string[] = [];
+  for (const e of list) {
+    const d = normalizeDomain(e?.domain);
+    const z = String(e?.zoneId || '').trim();
+    if (!d || !DOMAIN_RE.test(d)) { invalid.push(String(e?.domain || '').slice(0, 60)); continue; }
+    if (!/^\d+$/.test(z)) { invalid.push(d + '（缺少合法的 AnyNS Zone ID）'); continue; }
+    valid.push({ domain: d, zoneId: z });
+  }
+  if (!valid.length) return { ok: false, message: '域名格式不正确：' + invalid.join('、') };
+
+  /* 合并 zone 映射：保留其它域名，不覆盖用户手填的多根映射 */
+  let s: Map<string, string>;
+  try { s = await allSettings(env); } catch { s = new Map(); }
+  const zoneMap = parseZoneMap(s.get('anyns_zone_ids'));
+  for (const v of valid) zoneMap.set(v.domain, v.zoneId);
+  await writeSetting(env, 'anyns_zone_ids',
+    [...zoneMap.entries()].map(([d, z]) => `${d}:${z}`).join(','));
+
+  const roots = (await effectiveRootList(env)).map((r) => r.domain);
+  const toAdd = valid.filter((v) => !roots.includes(v.domain));
+  const toSwitch = valid.filter((v) => roots.includes(v.domain));
+  let added: string[] = [];
+  const switched: string[] = [];
+
+  if (toAdd.length) {
+    const r = await addExtraRoots(env, toAdd.map((v) => ({ domain: v.domain, backend: 'anyns' })));
+    added = r.added;
+    invalid.push(...r.invalid);
+    /* 关键：addExtraRoots 用 writeSetting 直接写 DB，不经过统一缓存。
+       紧接着的 setDnsBackend 若还读旧快照，会用「只有它自己一条」的 map
+       覆盖掉刚写入的 backend，表现为「批量勾选只生效最后一个」。 */
+    invalidateSettings();
+  }
+  for (const v of toSwitch) {
+    const r = await setDnsBackend(env, v.domain, 'anyns');
+    if (r.ok) switched.push(v.domain);
+    else invalid.push(v.domain + '（' + (r.reason || '切换失败') + '）');
+  }
+
+  /* 四层缓存一起失效：settings 统一缓存 / 站点级 AnyNS 配置 / zone id 查询缓存；
+     dnsProvider 由路由再清（避免 lib 反向依赖 cf.ts 形成循环）。 */
+  invalidateSettings();
+  clearAnynsConfigCache();
+  clearAnynsZoneCache();
+
+  return {
+    ok: true,
+    added,
+    switched,
+    skipped: valid.length - added.length - switched.length,
+    invalid,
+    rootDomains: (await effectiveRootList(env)).map((r) => r.domain),
+    zoneMap: Object.fromEntries(zoneMap),
+  };
 }

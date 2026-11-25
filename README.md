@@ -681,14 +681,33 @@ Cloudflare / Spaceship，部署也不会中断。
 `settings.dns_migration_notice`。**迁移完成后把 `dns_paused_roots` 清空
 即可一次性全部恢复**，不用逐行改数据。
 
+### 根域名管理：拉取域名与「AnyNS」下拉选项
+
+管理员在站点设置保存令牌后，到**「根域名管理」**点 **「从 AnyNS 拉取域名」**：
+
+1. 服务端用该管理令牌调 `GET /api/dns/v1/zones`，列出账号下全部解析区域，
+   带上数字 **Zone ID**、官方 NS，并标注哪些已经是本站根域名；
+2. 弹窗里勾选 → 还不是根域名的**添加为根域名**；已经是根域名的（例如环境变量
+   里配的 `meoy.top`，截图里显示 `CLOUDFLARE DNS`）**把 DNS 写入后端切换成 AnyNS**；
+3. Zone ID 自动存进 `settings.anyns_zone_ids`，写记录时直接用，不再查一次 `/zones`。
+
+每行右侧的下拉现在有 **自动 / Spaceship / Cloudflare / AnyNS** 四项，选中后会显示
+`ANYNS DNS · #4821` 徽标。**显式选择优先于 `ANYNS_ROOTS` 的自动推断** —— 所以
+随时可以切回 Cloudflare 或 Spaceship，不会出现「切不回去」。
+
+> AnyNS 的 zone id 与 Cloudflare Zone ID **分开存**：前者进 `anyns_zone_ids`，
+> 后者进 `cf_zone_ids_extra`。混在一起会让后端误判「已配 CF Zone」，把记录
+> 写去错误的服务商。
+
 记录名按官方口径转换：完整 FQDN → 相对名，根域 `meoy.top` 用 `@`，
 `www.meoy.top` 用 `www`；MX / SRV / CAA 的优先级与结构化字段拼进 `value`；
 `ttl=1`（Cloudflare auto）转 AnyNS 的 `300`。DDNS / ACME 令牌不能用于
 管理接口，返回 `token_scope_mismatch` 时会明确提示换「管理令牌」。
 
 专项回归 `scripts/anyns-migration-regression.ts` mock 官方接口 + 内存 D1
-真跑：暂停判定、记录转换、`cf.ts` 后端选择、Hono 写闸门（普通用户 403 /
-管理员用 API 令牌真写进 zone）、清空配置即时恢复。
+真跑：暂停判定、记录转换、`cf.ts` 后端选择、后台令牌读写、拉取域名与批量
+导入（含缓存踩踏防护）、下拉切到 / 切回 AnyNS、写记录直接复用 Zone ID、
+Hono 写闸门（普通用户 403 / 管理员真写进 zone）、清空配置即时恢复。
 **注意事项与常见错误**统一见文末「Z.12」。
 
 ## 二、项目结构
@@ -1637,3 +1656,16 @@ DNSHE 同理要等委派检查通过。改 NS 前还常要先在注册商**关�
   要把备份发给别人排查时勾「生成脱敏副本」，`anyns_api_token` 会被置空。
 - **迁移完忘了恢复**：在「站点设置 → AnyNS」把「暂停解析根域名」清空保存，
   不用去数据库改 `dns_paused_roots`。
+- **以为「选项 AnyNS」只是显示用**：下拉写入 `root_dns_backends`，立即改变
+  DNS 记录下发后端；切换后列表会显示 `ANYNS DNS · #<zone id>`。
+- **切回 Cloudflare 没反应**：以前 `ANYNS_ROOTS` 的自动推断压过了显式选择，
+  现已改成显式优先。若仍无变化，强清浏览器缓存并确认没有 Worker Secret
+  里的 `ANYNS_ROOTS` 与之冲突。
+- **在站点设置填了令牌却没去「拉取域名」**：令牌只让后端可用，域名与 Zone ID
+  要点「从 AnyNS 拉取域名」勾选后才会登记；否则写记录时会按域名现查 `/zones`，
+  查不到就明确报错。
+- **从 AnyNS 拉到的域名 NS 没改**：拉取只登记本站配置，**不会**替你到注册商
+  改 NS。请按弹窗里显示的 NS 到注册商处修改，否则记录写进 AnyNS 也不生效
+  （见 Z.10）。
+- **批量勾选只生效最后一个**：`addExtraRoots` 与 `setDnsBackend` 之间必须失效
+  settings 统一缓存，否则第二次写入会用旧快照覆盖第一次的后端映射。回归已锁死。

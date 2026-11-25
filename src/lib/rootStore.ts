@@ -23,11 +23,13 @@ import { readSetting as cachedSetting } from './settingsCache.js';
 const ROOT_KEY = 'root_domains_extra';
 const ZONE_KEY = 'cf_zone_ids_extra';
 const DISABLED_KEY = 'root_domains_disabled';
-/** 根域名 → DNS 后端："example.com:spaceship,other.com:cloudflare" */
+/** 根域名 → DNS 后端："example.com:spaceship,other.com:anyns" */
 const BACKEND_KEY = 'root_dns_backends';
+/** AnyNS（n.ht 社区）解析区域映射："example.com:4821"，由「拉取域名」自动写入 */
+const ANYNS_ZONE_KEY = 'anyns_zone_ids';
 const DOMAIN_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 const ZONE_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const BACKENDS = ['spaceship', 'cloudflare'];
+const BACKENDS = ['spaceship', 'cloudflare', 'anyns'];
 
 /** 解析后端映射，只接受合法域名 + 合法后端值 */
 export function parseBackendMap(raw) {
@@ -64,18 +66,22 @@ async function writeSetting(env, key, value) {
 
 /** 读取后台配置（动态域名 / zone / 屏蔽名单） */
 export async function loadExtra(env) {
-  const [rawRoots, rawZones, rawDisabled, rawBackends] = await Promise.all([
+  const [rawRoots, rawZones, rawDisabled, rawBackends, rawAnynsZones] = await Promise.all([
     readSetting(env, ROOT_KEY),
     readSetting(env, ZONE_KEY),
     readSetting(env, DISABLED_KEY),
     readSetting(env, BACKEND_KEY),
+    readSetting(env, ANYNS_ZONE_KEY),
   ]);
   return {
     domains: parseRootList(rawRoots),
     zones: parseZoneMap(rawZones),
     disabled: parseRootList(rawDisabled),
     backends: parseBackendMap(rawBackends),
-    rawRoots, rawZones, rawDisabled, rawBackends,
+    /* AnyNS 的 zone id 是数字，与 Cloudflare Zone ID 分开存，绝不混进
+       cf_zone_ids_extra —— 否则 backendFor 会误以为「已配 CF Zone」。 */
+    anynsZones: parseZoneMap(rawAnynsZones),
+    rawRoots, rawZones, rawDisabled, rawBackends, rawAnynsZones,
   };
 }
 
@@ -153,6 +159,7 @@ export async function rootSources(env) {
         ...r,
         source: dyn.has(r.domain) ? 'dynamic' : 'env',
         hasZone: !!r.zoneId,
+        anynsZoneId: extra.anynsZones[r.domain] || '',
         backend: explicit || auto,
         backendAuto: !explicit,
       };
@@ -160,6 +167,7 @@ export async function rootSources(env) {
     // 被移除但可恢复（环境变量域名 + 已不在生效列表里的屏蔽项）
     disabled: extra.disabled.filter((d) => !active.some((r) => r.domain === d)),
     backends: extra.backends,
+    anynsZones: extra.anynsZones,
   };
 }
 
@@ -168,7 +176,7 @@ export async function setDnsBackend(env, domain, kind) {
   const d = normalizeDomain(domain);
   const k = String(kind || '').trim().toLowerCase();
   if (!d || !DOMAIN_RE.test(d)) return { ok: false, reason: '域名格式不正确' };
-  if (k && !BACKENDS.includes(k)) return { ok: false, reason: '后端只支持 spaceship / cloudflare' };
+  if (k && !BACKENDS.includes(k)) return { ok: false, reason: '后端只支持 spaceship / cloudflare / anyns' };
   const active = (await effectiveRootList(env)).map((r) => r.domain);
   if (!active.includes(d)) return { ok: false, reason: '该根域名不存在或已被移除' };
 
@@ -205,6 +213,7 @@ export async function addExtraRoots(env, entries) {
     domains.push(d);
     if (z) zones[d] = z;
     // 'auto' / 未指定 → 不写映射，交给自动判断（有 Zone 走 CF，无 Zone 走 Spaceship）
+    // 从 AnyNS 拉取导入时显式传 backend=anyns，这里必须认，否则记录会写去 CF。
     if (BACKENDS.includes(b)) backends[d] = b;
     added.push(d);
   }

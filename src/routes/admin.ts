@@ -25,7 +25,8 @@ import { githubConfig, GITHUB_CALLBACK_PATH, httpsCallbackUrl as ghCallbackUrl,
 import { parseRootRegLimits, serializeRootRegLimits } from '../lib/rootLimits.js';
 import { parsePausedRoots, serializePausedRoots } from '../lib/applyGate.js';
 import { invalidateSettings } from '../lib/settingsCache.js';
-import { clearAnynsConfigCache, anynsTokenSource } from '../lib/anynsBackend.js';
+import { clearAnynsConfigCache, anynsTokenSource,
+         anynsAdminFetchDomains, anynsAdminAddRoots } from '../lib/anynsBackend.js';
 
 const app = new Hono();
 
@@ -1273,6 +1274,40 @@ app.post('/spaceship/test', async (c) => {
   return ok(c, { total: r.total, base: r.base });
 });
 
+/** AnyNS：用站点设置 / Worker Secret 里的管理令牌拉取账号下全部解析区域 */
+app.get('/anyns/domains', async (c) => {
+  const r = await anynsAdminFetchDomains(c.env);
+  if (!r.ok) {
+    return fail(c, r.message || '拉取 AnyNS 域名失败',
+      r.notConfigured ? 400 : 502, { notConfigured: !!r.notConfigured });
+  }
+  await audit(c, c.get('user').id, 'admin.anyns.list', 'anyns',
+    `拉取 ${r.total} 个解析区域`);
+  return ok(c, { items: r.items, total: r.total });
+});
+
+/** AnyNS：把勾选的解析区域添加为根域名 / 切换为 AnyNS 后端 */
+app.post('/anyns/add', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const r = await anynsAdminAddRoots(c.env, body.domains);
+  if (!r.ok) {
+    return fail(c, r.message || '添加失败', r.notConfigured ? 400 : 400,
+      { notConfigured: !!r.notConfigured });
+  }
+  /* 后端映射刚变，清掉 dnsProvider 快照，下一次写记录立即走 AnyNS */
+  clearDnsProviderCache();
+  await audit(c, c.get('user').id, 'admin.anyns.add', 'anyns',
+    `添加 ${r.added.join(',') || '（无）'} · 切换 ${r.switched.join(',') || '（无）'}`);
+  return ok(c, {
+    added: r.added,
+    switched: r.switched,
+    skipped: r.skipped,
+    invalid: r.invalid,
+    rootDomains: r.rootDomains,
+    note: '已生效：这些根域名的 DNS 记录会写进对应的 AnyNS 解析区域。若之后要改回 Cloudflare / Spaceship，在「根域名管理」的下拉里切换即可。',
+  });
+});
+
 /** 拉取账号下的域名，并标注哪些已经是本站根域名 */
 app.get('/spaceship/domains', async (c) => {
   const cfg = await spaceshipConfig(c.env);
@@ -1317,6 +1352,7 @@ app.post('/spaceship/add', async (c) => {
   // 关键：不清缓存的话，dnsProvider 里 60 秒内的旧快照仍会把这个域名
   // 判成 Cloudflare（无 Zone → 写入必失败），表现为「导入后改不了 DNS 记录」。
   clearDnsProviderCache();
+  invalidateSettings();
   if (!r.added.length) {
     return fail(c, r.invalid.length
       ? '域名格式不正确：' + r.invalid.join('、')
@@ -1337,6 +1373,7 @@ app.delete('/roots/:domain', async (c) => {
   const d = String(c.req.param('domain') || '').toLowerCase();
   const r = await removeRoot(c.env, d);
   clearDnsProviderCache();
+  invalidateSettings();
   if (!r.removed) return fail(c, r.reason || '移除失败', 400);
   await audit(c, c.get('user').id, 'admin.root.remove', 'root', `移除根域名：${d}（${r.mode}）`);
   return ok(c, { rootDomains: r.roots, mode: r.mode });
@@ -1357,6 +1394,7 @@ app.post('/roots/:domain/restore', async (c) => {
   const d = String(c.req.param('domain') || '').toLowerCase();
   const r = await restoreRoot(c.env, d);
   clearDnsProviderCache();
+  invalidateSettings();
   if (!r.restored) return fail(c, '该域名不在已移除列表中', 404);
   await audit(c, c.get('user').id, 'admin.root.restore', 'root', '恢复根域名：' + d);
   return ok(c, { rootDomains: r.roots });
@@ -1370,6 +1408,7 @@ app.post('/roots/:domain/backend', async (c) => {
   const r = await setDnsBackend(c.env, d, kind);
   if (!r.ok) return fail(c, r.reason || '切换失败', 400);
   clearDnsProviderCache();
+  invalidateSettings();   // 下拉切完立刻 GET /roots 要能看到新后端
   await audit(c, c.get('user').id, 'admin.root.backend', 'root', `${d} → ${kind || '自动'}`);
   return ok(c, { backend: r.backend, backends: r.backends });
 });

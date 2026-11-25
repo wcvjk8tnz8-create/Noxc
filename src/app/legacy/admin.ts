@@ -94,6 +94,71 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
     };
   }
   
+  /* ---------- AnyNS 解析区域选择弹窗 ----------
+     拉取回来的是「解析区域」而不是注册商域名，自带数字 Zone ID。
+     已存在的根域名照样可勾选：勾选后会把它的 DNS 后端切换成 AnyNS
+     （截图里 meoy.top 显示 CLOUDFLARE DNS 的场景就是这么切过来的）。 */
+  function openAnynsPicker(items, showRoots, renderRoots) {
+    let mask = document.getElementById('anMask');
+    if (mask) mask.remove();
+    mask = document.createElement('div');
+    mask.id = 'anMask';
+    mask.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(20,28,50,.45);display:grid;place-items:center;padding:16px';
+    const rows = items.map((it, i) => `
+      <label class="an-row" style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line);cursor:pointer">
+        <input type="checkbox" class="an-chk" data-i="${i}" style="width:16px;height:16px;flex-shrink:0">
+        <span style="flex:1;min-width:0">
+          <b class="mono">${esc(it.domain)}</b>
+          <span class="badge" style="margin-left:8px">Zone #${esc(it.zoneId)}</span>
+          ${it.alreadyAdded ? '<span class="badge ok" style="margin-left:6px">已添加 · 勾选后切换为 AnyNS</span>' : ''}
+          <div class="hint" style="margin-top:2px">NS：${esc((it.ns || []).join(' / '))}${it.hasCfZone ? ' · 本站已配 Cloudflare Zone（切换后不再使用）' : ''}</div>
+        </span>
+      </label>`).join('');
+    mask.innerHTML = `
+      <div style="background:#fff;border-radius:18px;width:min(640px,96vw);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 18px 50px rgba(20,28,50,.25);overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px">
+          <b style="font-size:16px">从 AnyNS 添加根域名</b>
+          <span class="dim" style="margin-left:auto;font-size:12px">共 ${items.length} 个解析区域</span>
+        </div>
+        <div style="padding:6px 20px;overflow-y:auto;flex:1">
+          ${items.length ? rows : '<div class="empty" style="padding:40px 0">该令牌下没有解析区域，请先到 anyns.io 面板添加域名</div>'}
+          <div class="hint" style="padding:12px 4px">勾选后：还不是根域名的会被添加，已经是根域名的会把 DNS 写入后端切换为 <b>AnyNS</b>。Zone ID 会自动保存，写记录时不用再查一次。记得把该域名的 NS 指向 AnyNS 给出的服务器。</div>
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn" id="anCancel">取消</button>
+          <button class="btn primary" id="anAdd">添加选中 / 切换为 AnyNS</button>
+        </div>
+      </div>`;
+    document.body.appendChild(mask);
+    const close = () => mask.remove();
+    mask.addEventListener('click', (e) => { if (e.target === mask) close(); });
+    document.getElementById('anCancel').onclick = close;
+    document.getElementById('anAdd').onclick = async () => {
+      const picked = [];
+      mask.querySelectorAll('.an-chk:checked').forEach((cb) => {
+        const i = Number(cb.dataset.i);
+        picked.push({ domain: items[i].domain, zoneId: items[i].zoneId });
+      });
+      if (!picked.length) return settingsFeedback('请先勾选要添加的域名', 'err');
+      const btn = document.getElementById('anAdd');
+      btn.disabled = true; btn.textContent = '处理中…';
+      try {
+        const r = await api.post('/api/admin/anyns/add', { domains: picked });
+        const parts = [];
+        if (r.added && r.added.length) parts.push('已添加 ' + r.added.join('、'));
+        if (r.switched && r.switched.length) parts.push('已切换为 AnyNS ' + r.switched.join('、'));
+        if (r.invalid && r.invalid.length) parts.push('跳过 ' + r.invalid.join('、'));
+        settingsFeedback(parts.join('；') || '已完成');
+        if (showRoots) showRoots(r.rootDomains);
+        if (renderRoots) renderRoots();
+        close();
+      } catch (e) {
+        btn.disabled = false; btn.textContent = '添加选中 / 切换为 AnyNS';
+        settingsFeedback(e.message, 'err');
+      }
+    };
+  }
+
   async function load() {
     const s = await api.get('/api/admin/stats');
     document.getElementById('stats').innerHTML = [
@@ -611,6 +676,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
                 下面「生效根域名」的 DNS 记录会直接写进 AnyNS 的 zone，用户无需自带 key。
                 DDNS / ACME 令牌不能用于管理接口。令牌只存服务端，页面只回掩码；
                 Worker Secret <span class="mono">ANYNS_API_TOKEN</span> 优先级更高。
+                <b>保存后到下方「根域名管理」点「从 AnyNS 拉取域名」</b>，勾选即可把域名添加或切换为 AnyNS 后端。
               </div>
               <div style="margin-bottom:8px">
                 <span class="dim">管理令牌</span>
@@ -798,7 +864,11 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             <div class="field">
               <label>根域名管理</label>
               <div id="rootAdmin" style="margin:2px 0 8px">读取中…</div>
-              <div class="hint">「移除」后该后缀立即从注册页、WHOIS 与 DNS 中消失，<b>无需重新部署</b>：后台导入的直接删除，环境变量配置的写入屏蔽名单，可随时点「恢复」。已注册在该根域名下的子域名不会被删除。至少要保留一个根域名。</div>
+              <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 8px">
+                <button class="btn sm" id="anFetch" type="button">从 AnyNS 拉取域名</button>
+                <span class="dim" style="font-size:12px">用「站点设置 → AnyNS」里的管理令牌拉取账号下的解析区域，勾选后即可添加为根域名或切换为 AnyNS 后端</span>
+              </div>
+              <div class="hint">「移除」后该后缀立即从注册页、WHOIS 与 DNS 中消失，<b>无需重新部署</b>：后台导入的直接删除，环境变量配置的写入屏蔽名单，可随时点「恢复」。已注册在该根域名下的子域名不会被删除。至少要保留一个根域名。每行右侧下拉可把该后缀的 DNS 写入后端切到 <b>AnyNS / Cloudflare / Spaceship</b>。</div>
             </div>
             <div class="alert info" style="margin-bottom:12px">
               Logo 可以是站内路径（<span class="mono">/img/logo.jpg</span>）或外链图片地址（<span class="mono">https://…</span>）。
@@ -1343,11 +1413,12 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               ${gone
                 ? '<span class="badge warn">已移除</span>'
                 : `<span class="badge ${x.source === 'dynamic' ? 'ok' : ''}">${x.source === 'dynamic' ? '后台导入' : '环境变量'}</span><span class="dim" style="font-size:12px">${x.hasZone ? '已配 Zone' : '未配 Zone'}</span>
-                   <span class="badge ${x.backend === 'spaceship' ? 'ok' : ''}" style="font-size:11px">${x.backend === 'spaceship' ? 'Spaceship DNS' : 'Cloudflare DNS'}${x.backendAuto ? ' · 自动' : ''}</span>
+                   <span class="badge ${x.backend === 'anyns' || x.backend === 'spaceship' ? 'ok' : ''}" style="font-size:11px">${x.backend === 'anyns' ? 'ANYNS DNS' + (x.anynsZoneId ? ' · #' + esc(x.anynsZoneId) : '') : x.backend === 'spaceship' ? 'Spaceship DNS' : 'Cloudflare DNS'}${x.backendAuto ? ' · 自动' : ''}</span>
                    <select class="input" data-backend="${esc(x.domain)}" title="DNS 记录写入后端" style="width:auto;padding:5px 8px;font-size:12px">
                      <option value="auto"${x.backendAuto ? ' selected' : ''}>自动</option>
                      <option value="spaceship"${!x.backendAuto && x.backend === 'spaceship' ? ' selected' : ''}>Spaceship</option>
                      <option value="cloudflare"${!x.backendAuto && x.backend === 'cloudflare' ? ' selected' : ''}>Cloudflare</option>
+                     <option value="anyns"${!x.backendAuto && x.backend === 'anyns' ? ' selected' : ''}>AnyNS</option>
                    </select>`}
               <span style="flex:1"></span>
               ${gone
@@ -1418,6 +1489,23 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
           } catch (e) {
             fetchBtn.disabled = false;
             fetchBtn.textContent = '拉取我的域名';
+            settingsFeedback(e.message, 'err');
+          }
+        };
+
+        /* AnyNS：用站点设置里的管理令牌拉取解析区域 → 勾选添加 / 切换后端 */
+        const anFetchBtn = document.getElementById('anFetch');
+        if (anFetchBtn) anFetchBtn.onclick = async () => {
+          anFetchBtn.disabled = true;
+          anFetchBtn.textContent = '拉取中…';
+          try {
+            const r = await api.get('/api/admin/anyns/domains');
+            anFetchBtn.disabled = false;
+            anFetchBtn.textContent = '从 AnyNS 拉取域名';
+            openAnynsPicker(r.items || [], showRoots, renderRoots);
+          } catch (e) {
+            anFetchBtn.disabled = false;
+            anFetchBtn.textContent = '从 AnyNS 拉取域名';
             settingsFeedback(e.message, 'err');
           }
         };

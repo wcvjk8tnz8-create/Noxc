@@ -1881,10 +1881,7 @@ check(!/dashboard#externalCard/.test(read('src/app/pages/Register.tsx'))
   && !/api\.(post|del)\(/.test(d1Dash.slice(d1Dash.indexOf('function ExternalDomains'), d1Dash.indexOf('/** Dashboard'))),
   '注册页不给跳转、控制台卡片不含表单提交');
 
-for (const m of ok) console.log('  ✓ ' + m);
-for (const m of errors) console.error('  ✗ ' + m);
-console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);
-if (errors.length) process.exit(1);
+
 
 
 /* ── 数据备份导出 / 重新汇入防回流 ── */
@@ -1909,7 +1906,9 @@ check(/生成脱敏副本/.test(read('src/app/legacy/admin.ts')),
 check(/app\.route\('\/api\/admin\/backup', backupRoutes\)/.test(bkIdx)
   && /requireAdmin\(c\)/.test(bkRoute),
   '备份路由挂在管理员前缀下，且路由内二次校验身份');
-check(/dryRun/.test(bkRoute) && /dryRun === true/.test(bkLegacy) && /dryRun: false/.test(bkLegacy),
+check(/dryRun/.test(bkRoute) && /dryRun === true/.test(bkRoute)
+  && /dryRun: true/.test(bkLegacy) && /dryRun: false/.test(bkLegacy)
+  && /bkConfirm'\)\.disabled = false/.test(bkLegacy),
   '汇入两步：预览不写库，确认才入库');
 check(/密码哈希与角色永远不动|永不覆盖|不覆盖/.test(bkRoute)
   && /脱敏的空密钥/.test(bkRoute),
@@ -2039,3 +2038,32 @@ check(/'anyns_api_token'/.test(read('src/lib/backupFormat.ts')),
   '备份脱敏副本会把 anyns_api_token 置空');
 check(/anyns_api_token/.test(read('schema.sql')),
   'schema 预置空的配置项，后台首次打开不会显示 undefined');
+
+/* 后台「根域名管理」：拉取 AnyNS 域名 + 下拉 AnyNS 选项 */
+const rootStoreSrc = read('src/lib/rootStore.ts');
+const anynsBackendSrc = read('src/lib/anynsBackend.ts');
+const cfBackendSrc = read('src/lib/cf.ts');
+check(/const BACKENDS = \['spaceship', 'cloudflare', 'anyns'\]/.test(rootStoreSrc)
+  && /anyns_zone_ids/.test(rootStoreSrc) && /anynsZoneId/.test(rootStoreSrc),
+  '根域名后端白名单含 anyns，AnyNS zone 映射与 CF Zone 分开存');
+check(/anynsAdminFetchDomains/.test(anynsBackendSrc)
+  && /anynsAdminAddRoots/.test(anynsBackendSrc)
+  && /anynsListZones/.test(anynsBackendSrc)
+  && /invalidateSettings\(\);[\s\S]{0,200}setDnsBackend/.test(anynsBackendSrc),
+  '拉取域名 / 批量导入齐全，且写入之间失效缓存避免互相覆盖');
+check(/value="anyns"/.test(admSettingsUi) && /id="anFetch"/.test(admSettingsUi)
+  && /openAnynsPicker/.test(admSettingsUi) && /ANYNS DNS/.test(admSettingsUi),
+  '根域名管理有 AnyNS 下拉选项、拉取按钮与选择弹窗');
+check(/anyns\/domains/.test(admSettings) && /anyns\/add/.test(admSettings),
+  '后台有 AnyNS 拉取与导入接口');
+check(cfBackendSrc.indexOf("explicit === 'spaceship' || explicit === 'cloudflare') return explicit")
+    < cfBackendSrc.indexOf("explicit === 'anyns' || anynsRootEnabled"),
+  '显式后端优先于 ANYNS_ROOTS 自动推断，下拉能切回 Cloudflare');
+check(/### 根域名管理：拉取域名/.test(read('README.md'))
+  && /批量勾选只生效最后一个/.test(read('README.md')),
+  'README 写清拉取流程、下拉选项与批量踩踏错误');
+
+for (const m of ok) console.log('  ✓ ' + m);
+for (const m of errors) console.error('  ✗ ' + m);
+console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);
+if (errors.length) process.exit(1);
