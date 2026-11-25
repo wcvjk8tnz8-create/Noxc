@@ -1,5 +1,5 @@
 import { effectiveRootList } from './lib/rootStore.js';
-import { parsePausedRoots as parseDnsPausedRoots, DEFAULT_MIGRATION_NOTICE } from './lib/dnsPause.js';
+import { parsePausedRoots as parseDnsPausedRoots, DNS_PAUSED_DEFAULT } from './lib/dnsPause.js';
 import { allSettings } from './lib/settingsCache.js';
 import { DEFAULT_MESSAGE } from './lib/applyGate.js';
 import { loadAiConfig } from './lib/aiReview.js';
@@ -291,10 +291,11 @@ async function buildConfigData(c: any) {
     // 以前漏在 SELECT 清单外，前端永远读到 undefined，公告条一次都没出现过。
     // 只回纯文本（不解析 HTML），前端用 textContent 渲染，管理员写什么就显示什么。
     announcement: String(s.announcement || '').trim().slice(0, 300),
-    // 「暂停解析」：公开名单 + 迁移提示，前端据此渲染状态徽标与顶部提示条。
-    // 不含任何密钥；ANYNS_API_TOKEN 只留在 Worker Secret，绝不下发浏览器。
-    dnsPausedRoots: parseDnsPausedRoots(s.dns_paused_roots === undefined ? 'meoy.top' : s.dns_paused_roots),
-    migrationNotice: String(s.dns_migration_notice || '').trim().slice(0, 300) || DEFAULT_MIGRATION_NOTICE,
+    // 「暂停解析」：meoy.top 迁移已完成，默认名单为空、解析正常。
+    // 名单与提示仍由后台配置驱动（通用维护开关），但代码不再塞默认值。
+    // 不含任何密钥；管理令牌只留在服务端，绝不下发浏览器。
+    dnsPausedRoots: parseDnsPausedRoots(s.dns_paused_roots === undefined ? DNS_PAUSED_DEFAULT : s.dns_paused_roots),
+    migrationNotice: String(s.dns_migration_notice || '').trim().slice(0, 300),
     // 只给布尔：Worker Secret 或后台「站点设置」任一配了管理令牌即为 true，
     // 但令牌本体绝不进公开配置（后台 GET 也只回掩码）。
     anynsBackendEnabled: !!String(c.env.ANYNS_API_TOKEN || '').trim()

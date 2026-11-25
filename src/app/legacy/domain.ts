@@ -211,7 +211,7 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
   function renderStatusAlert() {
     const el = document.getElementById('statusAlert');
     if (sub.dnsPaused) {
-      el.innerHTML = `<div class="alert warn">${esc(String(sub.statusLabel || '暂停解析'))}：${esc(String(sub.dnsPausedRoot || ''))} 正在迁移至 anyns，期间暂不能修改 DNS 记录。</div>`;
+      el.innerHTML = `<div class="alert warn">${esc(String(sub.statusLabel || '暂停解析'))}：${esc(String(sub.dnsPausedRoot || ''))} 暂停解析期间暂不能修改 DNS 记录。</div>`;
       return;
     }
     if (sub.status === 'pending') el.innerHTML = `<div class="alert warn">该子域名仍在审核中，审核通过后才能添加 DNS 记录。</div>`;

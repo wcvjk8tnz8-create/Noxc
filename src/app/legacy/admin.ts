@@ -694,13 +694,15 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
                 <input id="sAnynsClearToken" type="checkbox"> 清除已保存的令牌
               </label>
               <div class="hint" style="margin:10px 0 8px;border-top:1px solid var(--zx-hair);padding-top:10px">
-                <b>迁移期「暂停解析」</b>：下面这些根域名的子域名会显示「暂停解析」并暂停用户编辑 DNS 记录；
-                迁移完成后<b>清空第一格</b>即一次性全部恢复，不用改数据库。
+                <b>「暂停解析」维护开关</b>：meoy.top 迁移已完成，<b>保持第一格留空即全部正常解析</b>。
+                以后需要临时冻结某个后缀时再填（该后缀的子域名会显示「暂停解析」并暂停用户编辑 DNS 记录），
+                <b>清空即一次性恢复</b>，不用改数据库。
               </div>
               <div class="grid2">
-                <div><span class="dim">暂停解析根域名</span><input id="sDnsPausedRoots" type="text" autocomplete="off" placeholder="meoy.top"></div>
-                <div><span class="dim">迁移提示文案</span><input id="sMigrationNotice" type="text" autocomplete="off" placeholder="meoy.top 正在迁移至 anyns…"></div>
+                <div><span class="dim">暂停解析根域名（留空 = 全部恢复）</span><input id="sDnsPausedRoots" type="text" autocomplete="off" placeholder="留空 = 解析正常"></div>
+                <div><span class="dim">维护提示文案（可选）</span><input id="sMigrationNotice" type="text" autocomplete="off" placeholder="仅暂停时显示"></div>
               </div>
+              <div class="hint" id="dnsPauseStateHint"></div>
               <div class="hint" id="anynsHint"></div>
             </div>
             <div class="field">
@@ -1323,6 +1325,12 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
         if (zonesEl) zonesEl.value = a.zoneIds || '';
         if (pausedEl) pausedEl.value = a.dnsPausedRoots || '';
         if (noticeEl) noticeEl.value = a.migrationNotice || '';
+        const pauseHint = document.getElementById('dnsPauseStateHint');
+        if (pauseHint) {
+          pauseHint.innerHTML = (a.dnsPausedRoots || '').trim()
+            ? '<span class="badge warn">当前暂停中</span> ' + esc(a.dnsPausedRoots) + ' 下的子域名暂不能编辑 DNS 记录；清空第一格保存即恢复。'
+            : '<span class="badge ok">解析已恢复</span> 当前没有暂停任何后缀，meoy.top 等域名的 DNS 记录可正常增删改。';
+        }
         if (a.fromEnv) {
           if (tokEl) { tokEl.disabled = true; tokEl.placeholder = '已由 Worker Secret 配置，后台只读'; }
           if (hint) hint.innerHTML = '<span class="badge ok">已由环境变量配置</span> ANYNS_API_TOKEN 优先级更高，后台修改的令牌不会生效。';

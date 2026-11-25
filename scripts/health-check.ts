@@ -1996,10 +1996,11 @@ const dnsPauseLib = read('src/lib/dnsPause.ts');
 const anynsBackendLib = read('src/lib/anynsBackend.ts');
 const cfLib = read('src/lib/cf.ts');
 const migrationReg = read('scripts/anyns-migration-regression.ts');
-check(/DNS_PAUSED_DEFAULT = 'meoy.top'/.test(dnsPauseLib)
+check(/DNS_PAUSED_DEFAULT = ''/.test(dnsPauseLib)
+  && /DEFAULT_MIGRATION_NOTICE = ''/.test(dnsPauseLib)
   && /DNS_PAUSED_LABEL = '暂停解析'/.test(dnsPauseLib)
   && /settingsCache/.test(dnsPauseLib),
-  '暂停解析默认名单 meoy.top、状态文案、统一配置缓存');
+  '迁移完成：默认不暂停、不下发迁移提示，状态文案与统一配置缓存保留');
 check(!/UPDATE subdomains SET status/.test(dnsPauseLib)
   && /status 仍是 approved|保留 status/.test(dnsPauseLib),
   '暂停解析不批量改 subdomains.status，公开统计 / 续期 / 配额不受影响');
@@ -2019,6 +2020,24 @@ check(/dnsWriteBlock/.test(read('src/routes/records.ts'))
 check(/anyns-migration-regression\.ts/.test(migrationReg)
   && /anyns-migration-regression\.ts/.test(read('.github/workflows/deploy.yml')),
   '暂停解析专项回归挂进 CI');
+/* 迁移收尾：重新开启 meoy.top 解析（一次性幂等迁移，不误伤管理员后续设置） */
+const schemaSrc = read('schema.sql');
+check(/VALUES \('dns_paused_roots', ''\)/.test(schemaSrc)
+  && /VALUES \('dns_migration_notice', ''\)/.test(schemaSrc)
+  && /runtime_migrations_dns_pause_anyns_done/.test(schemaSrc)
+  && /AND value = 'meoy\.top'/.test(schemaSrc)
+  && /UPDATE settings SET value = ''/.test(schemaSrc),
+  'schema 默认恢复解析 + 一次性幂等迁移清线上旧值，marker 防重复清');
+check(/DNS_PAUSED_DEFAULT/.test(read('src/index.ts'))
+  && !/DEFAULT_MIGRATION_NOTICE/.test(read('src/index.ts'))
+  && !/\? 'meoy\.top' :/.test(read('src/index.ts'))
+  && /dnsPausedRoots: raw\.dns_paused_roots === undefined \? '' :/.test(read('src/routes/admin.ts')),
+  '公开 config 与后台 GET 默认值也为空，不再默认冻结解析');
+check(/解析已恢复/.test(read('src/app/legacy/admin.ts'))
+  && /dnsPauseStateHint/.test(read('src/app/legacy/admin.ts')),
+  '后台站点设置显示「解析已恢复」状态提示');
+check(/老库跑一次 schema/.test(migrationReg) && /node:sqlite/.test(migrationReg),
+  '专项回归用 node:sqlite 真跑 schema 迁移幂等性');
 check(/### 21\. meoy\.top/.test(read('README.md')) && /### Z\.12/.test(read('README.md')),
   'README 正文写能力、错误按约定收在文末 Z.12');
 /* 后台「站点设置 → AnyNS」：令牌可填、只回掩码、保存即生效 */

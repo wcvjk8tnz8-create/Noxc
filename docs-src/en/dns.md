@@ -40,15 +40,19 @@ the same token — AnyNS has no dedicated delegation-check endpoint, so this
 only reports zone state and its recorded NS; confirm the registrar NS with
 `dig NS` or the panel.
 
-## Resolution paused (meoy.top migration)
+## Resolution restored (meoy.top migration complete)
 
-`meoy.top` is being migrated to AnyNS. During the migration every subdomain
-under this suffix shows **"Resolution paused"**, and a notice
-"meoy.top is being migrated to anyns" appears at the top of the console
-and domain detail pages. Regular users cannot add, edit or delete DNS
-records temporarily; **viewing records, WHOIS, renewal, showcase entries
-and public statistics are unaffected**. Administrators remain able to write
-records, which are added to the root zone via the site-level AnyNS token.
+`meoy.top` has been migrated to AnyNS and **resolution is enabled again**.
+No suffix is paused by default, DNS records under this suffix can be added,
+edited and deleted normally, and the migration notice no longer appears in
+the console or on domain detail pages.
+
+During the migration a "Resolution paused" switch temporarily froze edits
+(to avoid writing to the old backend while records were being moved). At the
+time regular users could not change DNS records, while **viewing records,
+WHOIS, renewal, showcase entries and public statistics were unaffected**;
+administrators were exempt so they could backfill records. The mechanism is
+kept as a general maintenance switch for future use.
 
 Regular users never paste an API key: the administrator enters the
 `nhtdns_` management token under **Site Settings → AnyNS** (or uses the
@@ -59,8 +63,10 @@ zone either adds it as a root domain or switches that suffix's DNS backend to
 automatically). The token stays server-side and the admin page shows only a
 mask. Remember to point the domain's NS at the servers shown in the dialog.
 
-Clearing "paused roots" on the same card restores everything at once, and the
-dropdown can switch the backend back to Cloudflare / Spaceship at any time.
+**Site Settings → AnyNS** now shows a "resolution restored" status. Keeping
+"paused roots" empty means normal resolution; fill it for temporary
+maintenance and clear it to restore everything at once. The dropdown can
+switch the backend back to Cloudflare / Spaceship at any time.
 
 ## Platform verification
 

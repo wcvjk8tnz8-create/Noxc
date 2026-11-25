@@ -482,12 +482,30 @@ INSERT OR IGNORE INTO settings(key, value) VALUES ('ai_model', '');
 -- 不限制「单个子域名最多 50 条 DNS 记录」的根域名（逗号分隔）
 INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_unlimited_roots', 'v-1.top');
 
--- 「暂停解析」与迁移提示（meoy.top 迁移至 AnyNS 期间，不改后台 UI）
--- dns_paused_roots：逗号分隔根域名；留空即全部恢复，不用逐行改数据。
+-- 「暂停解析」与维护提示（通用开关；meoy.top 迁移已完成，默认全部恢复）
+-- dns_paused_roots：逗号分隔根域名；留空即解析正常，不用逐行改数据。
 -- 注意：这里只加展示状态，不把 subdomains.status 从 approved 改掉，
 --       公开统计 / 续期 / 配额 / 用户案例展示一律不受影响。
-INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_paused_roots', 'meoy.top');
-INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_migration_notice', 'meoy.top 正在迁移至 anyns，期间该后缀下的域名暂停解析');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_paused_roots', '');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('dns_migration_notice', '');
+
+-- 迁移收尾（一次性）：meoy.top 已迁到 AnyNS，把迁移期间预置在**线上库**里的
+-- 暂停名单与提示清掉，重新开启该后缀的解析。
+--   · 只清「仍等于迁移期默认值」的项；管理员后来主动暂停的其它后缀不动
+--   · INSERT OR IGNORE 不会覆盖已有行，所以老库里的 'meoy.top' 要靠这里清
+--   · marker 保证只执行一次：以后管理员若再次主动暂停 meoy.top，不会被重复清掉
+--   · runtime_migrations_* 属于内部运行态，备份导出不带、汇入忽略
+INSERT OR IGNORE INTO settings(key, value) VALUES ('runtime_migrations_dns_pause_anyns_done', '0');
+UPDATE settings SET value = ''
+  WHERE key = 'dns_paused_roots'
+    AND value = 'meoy.top'
+    AND (SELECT value FROM settings WHERE key = 'runtime_migrations_dns_pause_anyns_done') = '0';
+UPDATE settings SET value = ''
+  WHERE key = 'dns_migration_notice'
+    AND value = 'meoy.top 正在迁移至 anyns，期间该后缀下的域名暂停解析'
+    AND (SELECT value FROM settings WHERE key = 'runtime_migrations_dns_pause_anyns_done') = '0';
+UPDATE settings SET value = '1'
+  WHERE key = 'runtime_migrations_dns_pause_anyns_done' AND value = '0';
 
 -- AnyNS（n.ht 社区）站点级管理令牌：后台「站点设置 → AnyNS」可填，
 -- 不填则回落 Worker Secret ANYNS_API_TOKEN，都没有就走原 DNS 后端。

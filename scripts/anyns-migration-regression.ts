@@ -1,10 +1,11 @@
 /**
  * meoy.top 暂停解析 + AnyNS 作为「站点级 DNS 后端」· 专项回归
  *
- * 背景：meoy.top 正在迁移至 AnyNS。要求：
- *   1) 所有 meoy.top 子域名状态显示「暂停解析」，控制台 / 域名详情顶部
- *      显示「meoy.top 正在迁移至 anyns」；管理员在「站点设置 → AnyNS」填令牌，
- *      在「根域名管理」拉取域名并把后端下拉切到 AnyNS。
+ * 背景：meoy.top 曾迁移至 AnyNS，期间暂停解析；**迁移已完成，现已重新开启**。
+ * 要求：
+ *   1) 默认不再暂停任何后缀、不再显示迁移提示；管理员在「站点设置 → AnyNS」
+ *      填令牌，在「根域名管理」拉取域名并把后端下拉切到 AnyNS。
+ *      「暂停解析」保留为通用维护开关，显式配置时机制仍完整可用。
  *   2) 澄清上一轮理解偏差：AnyNS 不是「用户自带 token 的 BYOS」，而是
  *      **站点后端持有 ANYNS_API_TOKEN（管理令牌）**，用它给根域名
  *      meoy.top 的 zone 添加/修改/删除 DNS 记录。
@@ -12,8 +13,8 @@
  * 关键设计（回归会逐条锁住）：
  *   · 不改 subdomains.status（仍是 approved），否则公开统计 / 续期 / 配额 /
  *     用户案例展示十几处 `status='approved'` 判定会集体失效。只叠加 dnsPaused。
- *   · 配置在 settings + Worker Secret，不开后台界面；清空 dns_paused_roots
- *     即可一次性恢复，不用逐行改数据。
+ *   · 配置在 settings + Worker Secret；迁移收尾由 schema.sql 的一次性幂等
+ *     迁移清掉线上旧值，清空 dns_paused_roots 即可随时再恢复，不用逐行改数据。
  *   · 普通用户暂停期不能增删改 DNS 记录；管理员豁免（迁移记录正是管理员补的）。
  *   · API 令牌只在 Worker 侧内存使用，绝不下发 /api/config。
  *
@@ -185,10 +186,10 @@ const realFetch = globalThis.fetch;
 };
 
 async function main() {
-  /* ═════════ A1. 「暂停解析」判定 ═════════ */
-  check(DNS_PAUSED_DEFAULT === 'meoy.top' && DNS_PAUSED_LABEL === '暂停解析'
-    && /迁移至 anyns/.test(DEFAULT_MIGRATION_NOTICE),
-    '默认暂停根域名 meoy.top / 状态文案「暂停解析」/ 迁移提示含 anyns');
+  /* ═════════ A1. 「暂停解析」判定（迁移已完成，默认不暂停） ═════════ */
+  check(DNS_PAUSED_DEFAULT === '' && DEFAULT_MIGRATION_NOTICE === ''
+    && DNS_PAUSED_LABEL === '暂停解析',
+    '迁移完成：默认不暂停任何后缀、不再下发迁移提示；状态文案保留供维护开关复用');
   check(parsePausedRoots(' MEOY.TOP, noxc.uk ').join(',') === 'meoy.top,noxc.uk',
     '配置解析：大小写 / 空白 / 去重');
   check(parsePausedRoots(' , ').length === 0, '清空配置即全部恢复');
@@ -201,20 +202,28 @@ async function main() {
 
   invalidateSettings();
   const cfg = await dnsPauseConfig(env());
-  check(cfg.roots.join(',') === 'meoy.top' && cfg.notice === DEFAULT_MIGRATION_NOTICE,
-    'dnsPauseConfig 从统一 settings 缓存读配置（零额外 D1 单点查询）');
-  const fields = dnsPauseFields('demo.meoy.top', cfg);
-  check(fields.dnsPaused === true && fields.statusLabel === '暂停解析'
-    && fields.dnsPausedRoot === 'meoy.top',
-    'meoy.top 子域名 shape：status 保持 approved，另叠加 statusLabel=暂停解析');
+  check(cfg.roots.length === 0 && cfg.notice === ''
+    && dnsPauseFields('demo.meoy.top', cfg).dnsPaused === false
+    && dnsPauseBlockMessage('demo.meoy.top', cfg, false) === '',
+    '默认配置：meoy.top 解析正常、无提示条、普通用户不受闸门拦截');
   check(dnsPauseFields('x.noxc.uk', cfg).dnsPaused === false,
     'noxc.uk 子域名不受影响');
-  check(/暂停解析期间/.test(dnsPauseBlockMessage('demo.meoy.top', cfg, false))
-    && /迁移至 anyns/.test(dnsPauseBlockMessage('demo.meoy.top', cfg, false)),
-    '普通用户写记录被拦，提示带迁移说明');
-  check(dnsPauseBlockMessage('demo.meoy.top', cfg, true) === '',
+
+  /* 显式配置迁移期：机制仍完整可用（以后临时维护也走同一套逻辑） */
+  invalidateSettings();
+  S.settings.set('dns_paused_roots', 'meoy.top');
+  S.settings.set('dns_migration_notice', 'meoy.top 正在迁移至 anyns');
+  const pausedCfg = await dnsPauseConfig(env());
+  const fields = dnsPauseFields('demo.meoy.top', pausedCfg);
+  check(fields.dnsPaused === true && fields.statusLabel === '暂停解析'
+    && fields.dnsPausedRoot === 'meoy.top',
+    '显式配置名单后：status 保持 approved，另叠加 statusLabel=暂停解析');
+  check(/暂停解析期间/.test(dnsPauseBlockMessage('demo.meoy.top', pausedCfg, false))
+    && /迁移至 anyns/.test(dnsPauseBlockMessage('demo.meoy.top', pausedCfg, false)),
+    '普通用户写记录被拦，提示带自定义迁移说明');
+  check(dnsPauseBlockMessage('demo.meoy.top', pausedCfg, true) === '',
     '管理员豁免：可用站点级 API 令牌补迁移记录');
-  check(dnsPauseBlockMessage('x.noxc.uk', cfg, false) === '',
+  check(dnsPauseBlockMessage('x.noxc.uk', pausedCfg, false) === '',
     '未暂停后缀不拦普通用户');
 
   /* 清空配置 → 全部恢复 */
@@ -403,6 +412,9 @@ async function main() {
   role = 'user';
   invalidateSettings();
   S = fresh();
+  /* 默认现已恢复；这里显式模拟迁移期，只为验证闸门机制仍完整可用 */
+  S.settings.set('dns_paused_roots', 'meoy.top');
+  S.settings.set('dns_migration_notice', 'meoy.top 正在迁移至 anyns，期间该后缀下的域名暂停解析');
   const bodyRec = { type: 'A', host: '@', content: '192.0.2.10', ttl: 1 };
   const userAdd = await call('POST', '/api/subdomains/1/records', bodyRec);
   const userJson: any = await userAdd.json();
@@ -443,6 +455,14 @@ async function main() {
   const restored = await call('POST', '/api/subdomains/1/records', bodyRec);
   check(restored.status !== 403,
     '清空 dns_paused_roots 后普通用户恢复写记录（迁移完成即恢复）');
+
+  /* 全新默认配置（连手动清空都不做）也直接可写 */
+  S = fresh();
+  invalidateSettings();
+  clearDnsProviderCache();
+  const byDefault = await call('POST', '/api/subdomains/1/records', bodyRec);
+  check(byDefault.status !== 403,
+    '迁移完成后全新默认配置：普通用户直接可写，无需手动清库');
 
   /* ═════════ A7. 后台「站点设置」真跑（Hono） ═════════ */
   const adminApp = new Hono();
@@ -656,11 +676,72 @@ async function main() {
   check(noTokAdd.status === 400 && (await noTokAdd.json()).notConfigured === true,
     '没有令牌时导入也返回 400，不写入任何后端映射');
 
+  /* ═════════ A9. 迁移收尾真跑（node:sqlite 执行 schema.sql） ═════════ */
+  const { DatabaseSync } = await import('node:sqlite');
+  const SCHEMA_SQL = read('schema.sql');
+  const settingVal = (db: any, k: string) =>
+    (db.prepare('SELECT value FROM settings WHERE key = ?').get(k) as any)?.value;
+
+  /* 场景 1：线上老库里预置的迁移期值，本次部署跑一次 schema 后清空 */
+  {
+    const db = new DatabaseSync(':memory:');
+    db.exec(SCHEMA_SQL);                       // 模拟「上一次部署」：此时默认值还是旧的
+    db.prepare("UPDATE settings SET value = 'meoy.top' WHERE key = 'dns_paused_roots'").run();
+    db.prepare("UPDATE settings SET value = 'meoy.top 正在迁移至 anyns，期间该后缀下的域名暂停解析' WHERE key = 'dns_migration_notice'").run();
+    db.prepare("DELETE FROM settings WHERE key = 'runtime_migrations_dns_pause_anyns_done'").run();
+    db.exec(SCHEMA_SQL);                       // 本次部署：一次性迁移收尾
+    check(settingVal(db, 'dns_paused_roots') === ''
+      && settingVal(db, 'dns_migration_notice') === '',
+      '老库跑一次 schema：meoy.top 暂停名单与迁移提示都清空，解析重新开启');
+    check(settingVal(db, 'runtime_migrations_dns_pause_anyns_done') === '1',
+      'marker 置 1，迁移只执行一次');
+    /* 场景 2：管理员之后主动暂停别的后缀，再部署不会被重复清掉 */
+    db.prepare("UPDATE settings SET value = 'other.com' WHERE key = 'dns_paused_roots'").run();
+    db.exec(SCHEMA_SQL);
+    check(settingVal(db, 'dns_paused_roots') === 'other.com',
+      '后续部署不覆盖管理员主动设置的暂停名单（幂等，不重复清库）');
+    /* 场景 3：连跑两次 schema 也不把自定义提示抹掉 */
+    db.prepare("UPDATE settings SET value = '正在维护' WHERE key = 'dns_migration_notice'").run();
+    db.exec(SCHEMA_SQL); db.exec(SCHEMA_SQL);
+    check(settingVal(db, 'dns_migration_notice') === '正在维护',
+      'CI 连续执行 schema.sql 不抹掉管理员自定义文案');
+    db.close();
+  }
+  /* 场景 4：全新库第一次跑 schema 就是「解析正常」 */
+  {
+    const db = new DatabaseSync(':memory:');
+    db.exec(SCHEMA_SQL);
+    check(settingVal(db, 'dns_paused_roots') === ''
+      && settingVal(db, 'dns_migration_notice') === ''
+      && settingVal(db, 'runtime_migrations_dns_pause_anyns_done') === '1',
+      '全新库默认不暂停、无迁移提示、marker 已收尾');
+    db.close();
+  }
+  /* 场景 5：代码默认值（不经 schema）也同样是恢复态 */
+  invalidateSettings();
+  S = fresh();
+  const resumed = await dnsPauseConfig(env());
+  check(resumed.roots.length === 0 && resumed.notice === ''
+    && dnsPauseFields('demo.meoy.top', resumed).dnsPaused === false,
+    'dnsPauseConfig 默认返回「解析正常」，老库没跑迁移也不会误冻结');
+
+  /* 公开 /api/config 与后台 GET 的默认值同样是空 */
+  const idxSrc = read('src/index.ts');
+  const admSrc = read('src/routes/admin.ts');
+  check(/DNS_PAUSED_DEFAULT/.test(idxSrc) && !/DEFAULT_MIGRATION_NOTICE/.test(idxSrc)
+    && !/\? 'meoy\.top' :/.test(idxSrc)
+    && /dnsPausedRoots: raw\.dns_paused_roots === undefined \? '' :/.test(admSrc),
+    '公开 config 与后台 GET 都不再硬塞 meoy.top 默认值');
+
   /* ═════════ B. 静态断言 ═════════ */
   anynsCallsEnabled = false;
   const schema = read('schema.sql');
-  check(/dns_paused_roots', 'meoy.top'/.test(schema) && /dns_migration_notice/.test(schema),
-    'schema 写入默认暂停名单与提示（INSERT OR IGNORE，不覆盖管理员改动）');
+  check(/VALUES \('dns_paused_roots', ''\)/.test(schema)
+    && /VALUES \('dns_migration_notice', ''\)/.test(schema)
+    && /runtime_migrations_dns_pause_anyns_done/.test(schema)
+    && /AND value = 'meoy\.top'/.test(schema)
+    && /UPDATE settings SET value = ''/.test(schema),
+    'schema 默认不再暂停 + 一次性幂等迁移清掉线上迁移期旧值');
   check(!/UPDATE subdomains SET status/.test(schema),
     '绝不批量改 subdomains.status（统计 / 续期 / 配额不受影响）');
   const idx = read('src/index.ts');
@@ -670,6 +751,12 @@ async function main() {
     '/api/config 下发暂停名单 / 提示 / 后端启用布尔值');
   check(!/ANYNS_API_TOKEN.*migrationNotice|migrationNotice:.*ANYNS_API_TOKEN/.test(idx),
     '不下发令牌本体，只给布尔状态');
+  const dp = read('src/lib/dnsPause.ts');
+  check(/DNS_PAUSED_DEFAULT = ''/.test(dp) && /DEFAULT_MIGRATION_NOTICE = ''/.test(dp)
+    && !/\|\| DEFAULT_MIGRATION_NOTICE/.test(idx)
+    && /解析已恢复/.test(read('src/app/legacy/admin.ts'))
+    && /dnsPauseStateHint/.test(read('src/app/legacy/admin.ts')),
+    '四处默认值统一为空；后台卡片明确显示「解析已恢复」');
   const runtime = read('src/app/lib/runtime.ts');
   check(/export function mountMigrationNotice/.test(runtime)
     && /data-no-i18n/.test(runtime) && /textContent = msg/.test(runtime)

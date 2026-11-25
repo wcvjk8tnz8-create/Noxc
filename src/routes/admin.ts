@@ -610,8 +610,8 @@ app.get('/settings', async (c) => {
       zoneId: String(raw.anyns_zone_id || c.env.ANYNS_ZONE_ID || '').trim(),
       zoneIds: String(raw.anyns_zone_ids || c.env.ANYNS_ZONE_IDS || '').trim(),
       ready: !!(raw.anyns_api_token || String(c.env.ANYNS_API_TOKEN || '').trim()),
-      // 迁移期的「暂停解析」也在这里管：清空名单即一次性恢复，不用改数据库
-      dnsPausedRoots: raw.dns_paused_roots === undefined ? 'meoy.top' : String(raw.dns_paused_roots || ''),
+      // 迁移已完成，默认留空即解析正常；这里仍是通用维护开关，随时可临时冻结后缀
+      dnsPausedRoots: raw.dns_paused_roots === undefined ? '' : String(raw.dns_paused_roots || ''),
       migrationNotice: String(raw.dns_migration_notice || '').trim(),
     },
   });
