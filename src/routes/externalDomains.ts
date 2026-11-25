@@ -3,10 +3,13 @@
  *
  *   1. 提交域名 → 生成 _noxc-verify.<domain> TXT 验证值（状态 pending）
  *   2. 用户在**当前 DNS 服务商**加这条 TXT → 点验证 → 后端用 DoH 查到即 verified
- *   3. 填供应商 API key → 连接（找/建 zone，返回官方 NS）→ 添加 DNS 记录
+ *   3. 填供应商 API key / MCP Token → 连接（找/建 zone，返回官方 NS）→ 添加 DNS 记录
+ *
+ * 供应商：Cloudflare（API Token）、DNSHE（API Key）、SEUS DNS（s.eus 的 mbt_ MCP Token，
+ * 走官方 Streamable HTTP https://s.eus/api/mcp，见 src/lib/seusDns.ts）。
  *
  * 必须说清的前提：TXT 只证明所有权。记录要真正生效，域名 NS 必须指向
- * 提供 API key 的那家供应商（Cloudflare / DNSHE），这步由用户在注册商完成，
+ * 提供 API key 的那家供应商（Cloudflare / DNSHE / SEUS DNS），这步由用户在注册商完成，
  * 接口返回 ns + note 明确提示，绝不假装「加了 TXT 就能解析」。
  *
  * 与 subdomains 解耦：不参与 publicStats 全表聚合、不占注册配额、不写本站 zone。
@@ -18,12 +21,12 @@ import { matchRoot } from '../lib/roots.js';
 import {
   newVerifyToken, verifyHost, verifyValue, checkOwnership,
 } from '../lib/externalVerify.js';
-import { connectProvider, addRecord, RECORD_TYPES } from '../lib/providerDns.js';
+import { connectProvider, addRecord, RECORD_TYPES, recordTypesFor } from '../lib/providerDns.js';
 
 const app = new Hono();
 const MAX_PER_USER = 5;
 const DOMAIN_RE = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
-const PROVIDERS = ['cloudflare', 'dnshe'];
+export const PROVIDERS = ['cloudflare', 'dnshe', 'seus', 'anyns'];
 
 /** 统一标签：前端所有出现该域名的地方都用这一份文案，不各写各的 */
 export const EXTERNAL_LABEL = '（外部域名）';
@@ -118,6 +121,11 @@ app.get('/', async (c) => {
     max: MAX_PER_USER,
     providers: PROVIDERS,
     recordTypes: RECORD_TYPES,
+    /* SEUS DNS 比 Cloudflare / DNSHE 多支持 ALIAS / HTTPS / SVCB 等类型，
+       前端按所选供应商切换下拉，别让用户选了却写不进去。 */
+    recordTypesByProvider: Object.fromEntries(
+      PROVIDERS.map((p) => [p, recordTypesFor(p)])
+    ),
   });
 });
 
@@ -186,9 +194,9 @@ app.post('/:id/connect', async (c) => {
   if (String(row.verify_status || '') !== 'verified') return fail(c, '请先通过 TXT 所有权验证');
   const body = await c.req.json().catch(() => ({}));
   const provider = String(body.provider || '').trim().toLowerCase();
-  if (!PROVIDERS.includes(provider)) return fail(c, '请选择 Cloudflare 或 DNSHE');
+  if (!PROVIDERS.includes(provider)) return fail(c, '请选择 Cloudflare、DNSHE、SEUS DNS 或 anyns.io');
   const apiKey = String(body.apiKey || '').trim();
-  if (!apiKey) return fail(c, '请填写供应商 API key（不会保存）');
+  if (!apiKey) return fail(c, '请填写供应商 API key / MCP Token（不会保存）');
 
   const r: any = await connectProvider(provider, apiKey, String(row.fqdn));
   if (!r?.ok) return fail(c, r?.error || '连接供应商失败');
@@ -212,7 +220,7 @@ app.post('/:id/records', async (c) => {
   if (!row) return fail(c, '记录不存在或无权操作', 404);
   if (String(row.verify_status || '') !== 'verified') return fail(c, '请先通过 TXT 所有权验证');
   const key = String(row.provider_key || '');
-  if (!PROVIDERS.includes(key) || !row.zone_id) return fail(c, '请先连接供应商');
+  if (!PROVIDERS.includes(key) || !row.zone_id) return fail(c, '请先连接供应商（Cloudflare / DNSHE / SEUS DNS / anyns.io）');
   const body = await c.req.json().catch(() => ({}));
   const apiKey = String(body.apiKey || '').trim();
   const rec = {

@@ -21,9 +21,10 @@ function ExternalDomains() {
         接入你自己拥有的完整域名（如 example.com），统一标注「{externalLabel}」。
         <b>该功能正在准备中，暂未开放。</b>
       </p>
-      <div className="alert a-info" style={{ marginTop: '10px' }} data-en="Planned flow: 1) submit domain 2) add a TXT record to prove ownership 3) use your own DNS provider API key to add records. No quota usage, no site-stat impact, no writes to this site's DNS.">
+      <div className="alert a-info" style={{ marginTop: '10px' }} data-en="Planned flow: 1) submit domain 2) add a TXT record to prove ownership 3) use your own DNS provider API key / MCP token to add records. Providers: Cloudflare, DNSHE, SEUS DNS (s.eus), AnyNS (anyns.io). No quota usage, no site-stat impact, no writes to this site's DNS.">
         计划中的流程：<b>① 提交域名</b> → <b>② 加一条 TXT 验证所有权</b> →
-        <b>③ 填你自己的 DNS 供应商 API key 添加解析记录</b>。
+        <b>③ 填你自己的 DNS 供应商凭据添加解析记录</b>。
+        <br />已接入供应商：<b>Cloudflare</b> / <b>DNSHE</b> / <b>SEUS DNS（s.eus，用 mbt_ 开头的 MCP Token）</b> / <b>AnyNS（anyns.io，用 nhtdns_ 管理令牌）</b>。
         <br />不占注册配额、不计入站点统计、不写本站 DNS；开放时间请留意站点公告。
       </div>
     </div>

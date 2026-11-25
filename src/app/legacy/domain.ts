@@ -100,10 +100,10 @@ export async function mountDomain(_root: HTMLElement | null): Promise<void> {
           已把 <span class="mono">${esc(deleg.zone_name)}</span> 的解析权交给 ${esc(deleg.providerName)}。
           请到其控制台添加并管理该域名的解析记录；本站 DNS 记录页不再对它生效。
         </div>
-        ${deleg.provider === 'dnshe' ? `
+        ${['dnshe', 'anyns'].includes(deleg.provider) ? `
           <div class="row" style="margin-top:10px;align-items:flex-end">
             <div style="flex:1;min-width:180px">
-              <label>DNSHE API Token（用于检查委派状态）</label>
+              <label>${esc(deleg.providerName)} API Token（用于检查委派状态）</label>
               <input id="chkToken" type="password" placeholder="留空则不检查">
             </div>
             <button class="btn sm" id="btnChkDel">检查委派</button>

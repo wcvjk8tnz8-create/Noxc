@@ -1,11 +1,17 @@
 /**
  * 第三方域名接入 · 用「用户自己的供应商 API key」写 DNS 记录
  *
- * 支持两家：
+ * 支持四家：
  *   - Cloudflare：官方 v4 API，GET /zones?name= 找 zone，
  *     POST /zones/{id}/dns_records 写记录（Bearer Token，需 Zone Read + DNS Write）
  *   - DNSHE：沿用仓库已有 createZoneAtProvider 建区；记录端点按官方
  *     /v1/zones/{id}/records 惯例调用，若服务商路径不同会明确报错并提示到面板手动添加
+ *   - SEUS DNS（s.eus）：官方 MCP Streamable HTTP（https://s.eus/api/mcp），
+ *     用账户设置生成的 mbt_ Token 调 dns_zones / dns_record_create。
+ *     官方未公开裸 REST 路径，不猜；BYOS 与 NS 前提见 seusDns.ts。
+ *   - AnyNS（anyns.io / n.ht 社区）：官方管理 API（https://anyns.io/docs/api），
+ *     Bearer nhtdns_ 管理令牌；先查 zone 再幂等建区，记录用相对名（根域 @）。
+ *     完整客户端见 anynsDns.ts。
  *
  * 安全边界（很重要）：
  *   - API key 只在本次请求的内存里用，不落库、不写日志、不回传前端
@@ -16,9 +22,23 @@
  * 否则记录写进了供应商的 zone，但全球 DNS 不会向它查询，等于没生效。
  */
 import { findProvider, createZoneAtProvider } from './delegation.js';
+import {
+  SeusDnsError, SEUS_RECORD_TYPES, seusConnect, seusCreateRecord, seusRelativeName,
+} from './seusDns.js';
+import {
+  AnynsDnsError, ANYNS_RECORD_TYPES, anynsEnsureZone, anynsWriteRecord, anynsRelativeName,
+} from './anynsDns.js';
 
 const CF = 'https://api.cloudflare.com/client/v4';
 export const RECORD_TYPES = ['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'NS', 'SRV', 'CAA'] as const;
+
+/** 各供应商可写的记录类型：SEUS DNS 支持 ALIAS / HTTPS / SVCB 等本站其它两家没有的类型 */
+export function recordTypesFor(provider: string): readonly string[] {
+  const k = String(provider).toLowerCase();
+  if (k === 'seus') return SEUS_RECORD_TYPES;
+  if (k === 'anyns') return ANYNS_RECORD_TYPES;
+  return RECORD_TYPES;
+}
 
 export type DnsRecordInput = {
   type: string;
@@ -40,9 +60,9 @@ export function isNameInDomain(name: string, domain: string): boolean {
   return n === d || n.endsWith('.' + d);
 }
 
-function validate(rec: DnsRecordInput): string {
+function validate(rec: DnsRecordInput, provider = 'cloudflare'): string {
   const t = String(rec?.type || '').toUpperCase();
-  if (!(RECORD_TYPES as readonly string[]).includes(t)) return `不支持的记录类型：${t}`;
+  if (!recordTypesFor(provider).includes(t)) return `该供应商不支持的记录类型：${t}`;
   const name = String(rec?.name || '').trim();
   const content = String(rec?.content || '').trim();
   if (!name) return '请填写记录名称（@ 表示主域名）';
@@ -107,7 +127,40 @@ export async function connectProvider(providerKey: string, token: string, domain
         : '已创建解析区域，请到 DNSHE 面板查看分配给你的官方 NS 并修改注册商 NS',
     };
   }
-  return { ok: false, error: '不支持的供应商（可选 cloudflare / dnshe）' };
+  if (providerKey === 'seus') {
+    try {
+      const r = await seusConnect(token, domain);
+      if (!r.ok) return { ok: false, error: r.error, ns: r.ns };
+      return {
+        ok: true,
+        provider: 'seus',
+        zoneId: r.zoneId,
+        ns: r.ns,
+        zoneStatus: r.zoneStatus,
+        note: r.note,
+      };
+    } catch (e: any) {
+      return { ok: false, error: e instanceof SeusDnsError ? e.message : `SEUS 连接失败：${String(e?.message || e).slice(0, 180)}` };
+    }
+  }
+  if (providerKey === 'anyns') {
+    try {
+      const r = await anynsEnsureZone(token, domain);
+      return {
+        ok: true,
+        provider: 'anyns',
+        zoneId: r.id,
+        ns: r.ns,
+        zoneStatus: r.found ? 'existing' : 'created',
+        note: (r.found ? 'AnyNS 里已存在该解析区域，直接使用。' : '已在 AnyNS 创建解析区域。')
+          + `请到域名注册商把 NS 改成 ${r.ns.join(' / ')}；NS 未生效前，写进去的记录全球 DNS 不会查询。`
+          + (r.nsSource === 'default' ? '（AnyNS 未返回专属 NS，上面是平台默认，请到面板确认）' : ''),
+      };
+    } catch (e: any) {
+      return { ok: false, error: e instanceof AnynsDnsError ? e.message : `AnyNS 连接失败：${String(e?.message || e).slice(0, 180)}` };
+    }
+  }
+  return { ok: false, error: '不支持的供应商（可选 Cloudflare / DNSHE / SEUS DNS / anyns.io）' };
 }
 
 /** 写一条 DNS 记录：必须用已验证域名 + 用户本次提供的 key */
@@ -115,7 +168,7 @@ export async function addRecord(
   providerKey: string, token: string, domain: string,
   zoneId: string, rec: DnsRecordInput
 ) {
-  const err = validate(rec);
+  const err = validate(rec, providerKey);
   if (err) return { ok: false, error: err };
   const name = normalizeName(rec.name, domain);
   if (!isNameInDomain(name, domain)) {
@@ -165,5 +218,49 @@ export async function addRecord(
       return { ok: false, error: `调用 DNSHE 失败：${String(e?.message || e).slice(0, 160)}` };
     }
   }
-  return { ok: false, error: '不支持的供应商' };
+  if (providerKey === 'seus') {
+    if (!zoneId) return { ok: false, error: '缺少 SEUS zone id，请先点「连接供应商」' };
+    try {
+      const r = await seusCreateRecord(token, zoneId, {
+        type,
+        /* SEUS 的 name 是相对名称：区顶点传 @，子域只传标签；
+           完整 FQDN 会被当成区内的 FQDN 再拼一次后缀。 */
+        name: seusRelativeName(name, domain),
+        content: String(rec.content).trim(),
+        ttl,
+      });
+      return {
+        ok: true,
+        id: r.id,
+        name,
+        type,
+        note: '已通过 SEUS DNS API（MCP）提交记录。请确认注册商 NS 已指向 a.ns.fs5.net / b.ns.fs5.net，否则记录暂不生效',
+      };
+    } catch (e: any) {
+      return { ok: false, error: e instanceof SeusDnsError ? e.message : `SEUS 写入失败：${String(e?.message || e).slice(0, 180)}` };
+    }
+  }
+  if (providerKey === 'anyns') {
+    if (!zoneId) return { ok: false, error: '缺少 AnyNS zone id，请先点「连接供应商」' };
+    try {
+      const rel = anynsRelativeName(name, domain);
+      const r = await anynsWriteRecord(token, zoneId, {
+        name: rel,
+        type,
+        value: String(rec.content).trim(),
+        ttl,
+        line: 'default',
+      });
+      return {
+        ok: true,
+        id: r.id,
+        name,
+        type,
+        note: '已写入 AnyNS 解析记录。请确认注册商 NS 已指向 AnyNS 分配的 NS，否则记录暂不生效',
+      };
+    } catch (e: any) {
+      return { ok: false, error: e instanceof AnynsDnsError ? e.message : `AnyNS 写入失败：${String(e?.message || e).slice(0, 180)}` };
+    }
+  }
+  return { ok: false, error: '不支持的供应商（可选 Cloudflare / DNSHE / SEUS DNS / anyns.io）' };
 }

@@ -2,6 +2,7 @@
 //  NS 委派（把子域名托管到第三方 DNS 服务商）
 //  原理：在父区域（根域名）写入 NS 记录，把 xxx.meoy.top 的解析权交给服务商
 // ============================================================
+import { anynsEnsureZone, anynsDelegationCheck } from './anynsDns.js';
 
 /**
  * 服务商预设。
@@ -14,14 +15,20 @@ export const DELEGATION_PROVIDERS = [
   {
     key: 'anyns',
     name: 'anyns.io',
-    desc: 'n.ht 社区的免费权威 DNS，25 个 anycast 节点，支持分线解析 / DDNS / ACME',
+    desc: 'n.ht 社区的免费权威 DNS，Anycast 节点，支持分线解析 / DDNS / ACME / 管理 API',
     ns: ['ns1.anyns.io', 'ns2.anyns.io'],
     nsAlt: ['ns3.anyns.io', 'ns4.anyns.io'],
     panel: 'https://anyns.io/panel',
     addPath: '/panel/zone/add',
-    // anyns.io 未公开稳定的 REST API 端点，故不做自动创建，只做委派 + 指引
-    api: null,
-    note: 'anyns.io 未公开稳定的 REST API，托管后请到其面板手动添加该域名（会自动识别已有委派）。',
+    // 官方管理 API（https://anyns.io/docs/api）：Bearer nhtdns_ 管理令牌
+    api: {
+      base: 'https://anyns.io',
+      authHeader: 'Authorization',
+      // zone / records / lines / export / import 都在 anynsDns.ts 里实现
+      management: true,
+      note: '需要「管理令牌」；DDNS / ACME 令牌不能用于管理接口',
+    },
+    note: '填入 anyns.io 面板创建的「管理令牌」（nhtdns_ 开头）可自动创建解析区域并取回官方 NS；不填则用平台默认 NS 并自行到面板添加。令牌只在本次请求中使用，不会保存。',
   },
   {
     key: 'dnshe',
@@ -146,6 +153,29 @@ async function dnsheDelegation(provider, token, zoneId) {
   }
 }
 
+/** anyns.io 官方管理 API：幂等建区 + 取回 zone.ns（不是 public_ns） */
+async function anynsCreateZone(provider, token, zoneName) {
+  try {
+    const r = await anynsEnsureZone(token, zoneName);
+    return {
+      ok: true,
+      ns: r.ns,
+      zoneId: r.id,
+      found: r.found,
+      nsSource: r.nsSource,
+      brandNs: r.brandNs,
+      raw: r.raw,
+      note: r.found
+        ? 'AnyNS 里已存在该解析区域，直接使用（未重复创建）'
+        : (r.nsSource === 'default'
+            ? '已在 AnyNS 创建解析区域，但未返回专属 NS，请到面板确认'
+            : '已在 AnyNS 创建解析区域并使用其返回的官方 NS'),
+    };
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e).slice(0, 220) };
+  }
+}
+
 /**
  * 在服务商处创建解析区域（若支持 API 且提供了 token）。
  * 不抛异常，失败时返回 error 由调用方决定如何提示。
@@ -154,12 +184,22 @@ export async function createZoneAtProvider(provider, token, zoneName) {
   if (!provider || !provider.api) return { ok: false, skipped: true };
   if (!token) return { ok: false, skipped: true, error: '未提供 API Token' };
   if (provider.key === 'dnshe') return dnsheCreateZone(provider, token, zoneName);
+  if (provider.key === 'anyns') return anynsCreateZone(provider, token, zoneName);
   return { ok: false, skipped: true };
 }
 
-export async function checkDelegationAtProvider(provider, token, zoneId) {
+export async function checkDelegationAtProvider(provider, token, zoneId, zoneName = '') {
   if (!provider || !provider.api || !token) return { ok: false, error: '该服务商不支持委派检查' };
   if (provider.key === 'dnshe') return dnsheDelegation(provider, token, zoneId);
+  if (provider.key === 'anyns') {
+    try {
+      /* 官方没有独立的委派校验端点：只查 zone 状态与它记录的 NS，
+         明确提示「不等于注册商 NS 已生效」，不假装验证过。 */
+      return await anynsDelegationCheck(token, zoneName, zoneId);
+    } catch (e) {
+      return { ok: false, error: String(e?.message || e).slice(0, 220) };
+    }
+  }
   return { ok: false, error: '该服务商不支持委派检查' };
 }
 

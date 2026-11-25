@@ -21,6 +21,7 @@
 | 单项功能实现细节与沿革 | 附录 · 功能与实现细节 |
 | **错误 / 故障 / 限制 / 排查**（统一在文末） | **附录 Z · 故障排查与已知错误** |
 | KV / R2 没自动绑上、D1 读取超限 | 附录 Z.2 / Z.1 |
+| AnyNS / n.ht 管理 API 接入 | 第 19 节 / 附录 Z.10 |
 
 ---
 
@@ -568,6 +569,66 @@ pulse、几十条 hover 过渡与 JS 数字滚动全部停掉；用户点首页�
 `schema.sql` + 三条 Hono 链路，覆盖全额 / 部分抵扣、并发耗尽、撞车回滚等。
 该脚本需要 Node 22.5+（CI 主流程是 Node 20，故单独切到 24 执行后立刻切回）。
 
+### 19. AnyNS（n.ht 社区）管理 API 接入
+
+AnyNS（`anyns.io`）是 n.ht 技术社区出品、入驻 NodeLoc 的免费权威 DNS。
+此前仓库里它只是「NS 委派」的一个预设，注释写着「未公开稳定的 REST API」，
+托管后要自己到面板手工添加域名；现在按官方文档
+[anyns.io/docs/api](https://anyns.io/docs/api) 真正接进来了。
+
+**鉴权**：面板创建的 `nhtdns_` 前缀令牌，`Authorization: Bearer`。令牌分三种
+scope 且互不通用 —— 管理令牌（本轮用的）、DDNS 令牌（`/nic/update`）、
+ACME 令牌（`/api/dns/acme/present`、`/api/dns/certs/current`）。
+令牌只在本次请求的内存里用，**不落库、不写日志、不回传前端**。
+
+**接进来的两端**
+
+| 场景 | 之前 | 现在 |
+|---|---|---|
+| NS 委派 | 只写 NS 记录 + 面板指引 | 填管理令牌 → 幂等建区（已存在不重复建）→ 取回 `zone.ns` 写入父区域；已托管页可「检查委派」 |
+| 第三方域名接入 | 只有 Cloudflare / DNSHE / SEUS DNS | 供应商清单加入 `anyns`，用相对名（根域 `@`）写记录 |
+
+管理 API 客户端在 `src/lib/anynsDns.ts`，逐条照官方文档落地：
+`zones` 增删改查、`records` 新增/修改（`id>0`）/删除、`lines`、
+BIND zone file `export` / `import`、DDNS、ACME。错误按官方
+`{error, message}` 分支翻成中文，含 401 / 403 scope 不匹配 / 400
+重复记录 / 429 限流（60 次/分、1000 次/时）/ 409 DNSSEC 二次确认。
+
+**官方口径里最容易搞错的两点**
+
+- `zone.ns` 才是「应到注册商填的 NS」，`public_ns` 只是平台默认；
+  客户端优先用前者，没返回才回落并标记 `nsSource`。
+- **TXT 所有权验证 ≠ 解析生效，写入记录 ≠ 注册商 NS 已改**。
+  接口每次都回 `ns` 与警示；官方也**没有**独立的委派校验端点，
+  「检查委派」只查 zone 状态与它记录的 NS，并明确提示用 `dig NS` 确认。
+
+> 第三方域名接入仍按此前决定保持 **「即将上线」** 闸门：供应商代码已备好，
+> 但后端统一返回 503 `comingSoon`，前端只显示状态卡片。本轮接入 API
+> **不等于**重新开放该功能。
+
+专项回归 `scripts/anyns-api-regression.ts` mock 官方接口真跑客户端、
+委派预设与供应商适配（鉴权 / 限流 / 幂等 / NS 优先级 / 记录增删改 /
+相对名 / 导入导出 / DDNS / ACME / 越域拒绝）。
+**注意事项与常见错误**统一见文末「Z.10」。
+
+### 20. SEUS DNS（s.eus）MCP 接入
+
+工作区里同一批「第三方域名接入」供应商扩展还接入了 **SEUS DNS**。
+其开发者文档把 DNS 自动化列为 Domains & DNS APIs，但子页需站内会话；
+社区官方教程给出的自动化入口是 **MCP Streamable HTTP**：
+`https://s.eus/api/mcp` + 账户设置生成的 `mbt_` Token + `Authorization: Bearer`。
+适配层 `src/lib/seusDns.ts` 走 `initialize → notifications/initialized → tools/call`，
+同时吃得下 `application/json` 与 `text/event-stream`（SSE）两种响应，
+工具名照官方暴露的 `dns_zones` / `dns_record_create` 等，不猜裸 REST 路径。
+
+Token 只在本次调用内存里用；SEUS 的相对名称规则（区顶点 `@`）、
+`a.ns.fs5.net` / `b.ns.fs5.net` NS 前提、BYOS 需 KYC L2 等口径都在客户端注释里。
+专项回归 `scripts/seus-dns-regression.ts` mock 整条 MCP 会话链路，
+覆盖鉴权头、会话复用、相对名、错误路径与「即将上线」闸门不回退。
+
+> 与 AnyNS 一样，SEUS 只作为**供应商适配**存在；第三方域名接入仍保持
+> 「即将上线」（503 `comingSoon`）。**注意事项与常见错误**见文末「Z.11」。
+
 ## 二、项目结构
 
 ```
@@ -578,6 +639,7 @@ subdomain-hub/
 │   │   ├── records.ts           12 种记录类型的字段定义与校验
 │   │   ├── cf.ts                DNS API 封装（自动选 Cloudflare / Spaceship / 自定义）
 │   │   ├── spaceshipDns.ts      Spaceship DNS 记录读写适配
+│   │   ├── anynsDns.ts          AnyNS（n.ht 社区）管理 API 适配
 │   │   ├── crypto.ts            PBKDF2 密码哈希、会话令牌
 │   │   └── util.ts              统一响应、审计日志
 │   ├── middleware/auth.ts       会话解析、requireAuth / requireAdmin
@@ -1446,3 +1508,39 @@ DNSHE 同理要等委派检查通过。改 NS 前还常要先在注册商**关�
 `8.4` 的 `transition` 带 `!important` 且选择器特异性更高，shell.css 里还有不带
 `!important` 的 `.16s` 长属性过渡，必须按 8.5 / 8.6 / 8.7 三级收口。
 浏览器回归会逐项读 `transitionDuration`，默认态必须是 `0s`。
+
+### Z.10 AnyNS 管理 API 接入的常见错误
+
+- **把 `public_ns` 当成该域名的 NS**：官方明确 `zone.ns` 才是「应到注册商填的
+  NS」，`public_ns` 只是平台默认。只在没返回 `zone.ns` 时才回落，并标记
+  `nsSource: public_ns`，不要静默替换。
+- **重复点「连接供应商」把配额吃满**：`anynsEnsureZone` 必须先 `GET /zones`
+  按归一化域名找，命中就直接用；只有不存在才 `POST`。回归里断言
+  「已存在时零 POST」。
+- **拿 DDNS / ACME 令牌调管理接口**：三种 scope 都是 `nhtdns_` 开头，但
+  服务端返回 `403 token_scope_mismatch`。错误文案会提示去面板建「管理令牌」，
+  不要靠换前缀硬试。
+- **`name` 传完整 FQDN**：AnyNS 记录名是相对名，根域用官方口径 `@`，
+  子域只传前缀标签；`anynsRelativeName` 会拒绝越域名称。
+- **修改记录时覆盖 ttl / line**：`POST /records` 带 `id>0` 是修改，
+  官方「未传的字段保持原值」；只在新建时补 `ttl=300` / `line=default`。
+- **以为「检查委派」验证了 NS**：官方没有独立委派校验端点，这里只查 zone
+  存在与它记录的 NS。注册商 NS 是否生效必须用 `dig NS` 或面板确认，
+  接口返回里带 `warning`，不要删掉。
+- **以为接入 API 就自动开放第三方域名接入**：`EXTERNAL_DOMAINS_COMING_SOON`
+  仍为 `true`，所有接口返回 503 `comingSoon`。要开放需显式改回 `false`
+  并恢复前端表单，回归会拦住误改。
+- **限流**：管理接口每令牌 60 次/分、1000 次/时，导入导出另限 3 次/分、
+  30 次/时；429 时客户端给出明确提示，别用无限重试打满。
+
+### Z.11 SEUS DNS 接入的常见错误
+
+- **把 MCP 当裸 REST 猜路径**：官方只公开 `https://s.eus/api/mcp`，
+  工具名与 schema 由服务器 `tools/list` 暴露；擅自拼 `/v1/zones` 必然 404。
+- **只解析 JSON 不解析 SSE**：Streamable HTTP 可能回 `text/event-stream`，
+  要逐行取 `data:` 里最后一条带 `result` / `error` 的 JSON。
+- **会话没复用**：`initialize` 返回的 `Mcp-Session-Id` 必须带回后续请求。
+- **填了账户 Token 之外的字符串**：凭据是 `mbt_` 开头；DDNS / AnyNS 的
+  `nhtdns_` 令牌不能混用。
+- **误以为接入即开放**：闸门仍为 `EXTERNAL_DOMAINS_COMING_SOON = true`，
+  前端只显示状态卡片。

@@ -31,6 +31,15 @@ The "Add DNSHE" button in the DNS records card header writes the two preset NS r
 
 The delegation page writes only the two NS records. It does **not** transfer resolution authority and does not touch registrar settings. Cancelling removes the current preset records.
 
+For **anyns.io** (n.ht community), paste an `nhtdns_` **management token**
+created in its panel: Noxc looks up the zone first, creates it only when
+missing, and writes the returned `zone.ns` into the NS records. DDNS / ACME
+tokens cannot be used here (`token_scope_mismatch`). The token is used only
+for that request and never stored. After delegating, "Check delegation" uses
+the same token — AnyNS has no dedicated delegation-check endpoint, so this
+only reports zone state and its recorded NS; confirm the registrar NS with
+`dig NS` or the panel.
+
 ## Platform verification
 
 Root-domain verification uses a TXT record with one-click write and re-check. The Cloudflare proxy toggle only applies to supported record types.

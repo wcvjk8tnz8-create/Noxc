@@ -80,7 +80,14 @@ app.post('/:id/delegation', async (c) => {
     if (r.ok) {
       apiNs = r.ns || [];
       providerZone = r.zoneId || '';
-      apiNote = apiNs.length ? '已在服务商创建解析区域，使用其返回的官方 NS' : '已在服务商创建解析区域，但未返回 NS，改用默认 NS';
+      /* 供应商适配层（AnyNS 等）会给更准确的 note：是否复用已有 zone、
+         用的是专属 NS 还是平台默认、NS 未改之前记录不会生效 */
+      const nsWarning = provider.key === 'anyns'
+        ? ' 请到域名注册商把 NS 改成上方地址；NS 未生效前，服务商里的记录全球 DNS 不会查询。'
+        : '';
+      apiNote = r.note
+        ? String(r.note) + nsWarning
+        : (apiNs.length ? '已在服务商创建解析区域，使用其返回的官方 NS' : '已在服务商创建解析区域，但未返回 NS，改用默认 NS');
     } else if (!r.skipped) {
       // API 失败不阻断：降级为「只写 NS + 面板指引」
       apiNote = `服务商 API 未成功（${r.error}），已按默认 NS 写入，请到面板确认。`;
@@ -182,7 +189,7 @@ app.post('/:id/delegation/check', async (c) => {
     });
   }
   if (!token) return fail(c, '该服务商的委派检查需要 API Token');
-  const r = await checkDelegationAtProvider(provider, token, d.provider_zone);
+  const r = await checkDelegationAtProvider(provider, token, d.provider_zone, d.zone_name || sub.fqdn);
   return ok(c, { supported: true, ...r, ns: safeJson(d.ns_list, []) });
 });
 

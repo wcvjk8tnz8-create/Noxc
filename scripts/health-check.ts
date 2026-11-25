@@ -1965,3 +1965,29 @@ check(/nodeloc-skin-regression\.ts/.test(read('.github/workflows/deploy.yml')),
 check(/### 15\. 界面风格/.test(read('README.md'))
   && /### Z\.7 界面风格与形态层的常见错误/.test(read('README.md')),
   'README 正文描述能力、错误按约定收在文末 Z.7');
+
+/* ── AnyNS（n.ht 社区）管理 API 防回流 ── */
+const anynsClient = read('src/lib/anynsDns.ts');
+const anynsDeleg = read('src/lib/delegation.ts');
+const anynsProv = read('src/lib/providerDns.ts');
+const anynsExt = read('src/routes/externalDomains.ts');
+const anynsReg = read('scripts/anyns-api-regression.ts');
+check(/https:\/\/anyns\.io/.test(anynsClient) && /nhtdns_/.test(anynsClient)
+  && /\/api\/dns\/v1\/zones/.test(anynsClient)
+  && /\/api\/dns\/v1\/zones\/:id\/records|\/api\/dns\/v1\/zones\/\$\{encodeURIComponent/.test(anynsClient),
+  'AnyNS 客户端走官方文档端点与 nhtdns_ 管理令牌');
+check(/provider\.key === 'anyns'/.test(anynsDeleg)
+  && /anynsEnsureZone/.test(anynsDeleg)
+  && /management: true/.test(anynsDeleg),
+  'NS 委派预设 anyns 已挂官方管理 API，不再是 api:null');
+check(/providerKey === 'anyns'/.test(anynsProv)
+  && /anynsRelativeName/.test(anynsProv)
+  && /ANYNS_RECORD_TYPES/.test(anynsProv),
+  '第三方域名接入支持 anyns 供应商（相对名 / 记录类型守卫）');
+check(/PROVIDERS = \['cloudflare', 'dnshe', 'seus', 'anyns'\]/.test(anynsExt)
+  && /EXTERNAL_DOMAINS_COMING_SOON = true/.test(anynsExt),
+  '供应商清单扩为四家，但「即将上线」闸门未被擅自打开');
+check(/anyns-api-regression\.ts/.test(anynsReg) && /anyns-api-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  'AnyNS 专项回归挂进 CI');
+check(/### 19\. AnyNS/.test(read('README.md')) && /### Z\.10 AnyNS/.test(read('README.md')),
+  'README 正文写能力、错误按约定收在文末 Z.10');

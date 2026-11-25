@@ -9,7 +9,7 @@
  *
  * 注意：TXT 只证明所有权，**不会让本站写的记录生效**。
  * 记录要真正生效，域名 NS 必须指向提供 API key 的那家供应商
- * （Cloudflare / DNSHE），这一步在 UI 里明确提示，不能省。
+ * （Cloudflare / DNSHE / SEUS DNS / anyns.io），这一步在 UI 里明确提示，不能省。
  */
 export const VERIFY_PREFIX = '_noxc-verify';
 export const VERIFY_VALUE_PREFIX = 'noxc-verify=';
