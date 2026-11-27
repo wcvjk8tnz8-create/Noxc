@@ -1870,6 +1870,10 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
 - **没配签名 Secrets，只有 `app-debug.apk`**：不是失败。CI 会打 notice 并明确
   降级到 `assembleDebug`，debug 签名照样能装。要上架/长期分发才需要配
   `NOXC_KEYSTORE_*` 四个 Secret（见第 23 节）。
+- **`Setup Android SDK` 那一步直接挂**：第三方 `setup-android` action 会重新
+  下载 cmdline-tools，在这台 runner 上失败并把后面 8 步全 skipped。已改成探测
+  ubuntu-latest 镜像自带的 SDK（`/usr/local/lib/android/sdk`），把 `ANDROID_HOME`
+  写进 `GITHUB_ENV`、把 `sdkmanager` 路径写进 `GITHUB_PATH`，别把 action 加回来。
 - **`gradle: command not found`**：仓库不提交 `gradle-wrapper.jar`，CI 靠
   `gradle/actions/setup-gradle@v4` 装 8.9 并加入 PATH；第一步 `gradle --version`
   就是干这个自检的。本地跑请先自行安装 Gradle 8.9，或用 Android Studio。

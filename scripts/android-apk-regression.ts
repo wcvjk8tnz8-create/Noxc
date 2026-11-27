@@ -210,9 +210,10 @@ check(/paths:/.test(wf) && /'android\/\*\*'/.test(wf)
   && /workflow_dispatch:/.test(wf),
   '只在 android/ 变化时自动构建，也可手动触发（前端改版不必重打包）');
 check(/java-version: '17'/.test(wf) && /distribution: temurin/.test(wf), 'CI JDK 17');
-check(/actions\/setup-android@v3/.test(wf)
+check(/定位 Android SDK/.test(wf) && /ANDROID_HOME/.test(wf)
+  && !/setup-android@v3/.test(wf)
   && /platforms;android-34/.test(wf) && /build-tools;34\.0\.0/.test(wf),
-  'CI 安装 Android 34 platform + build-tools');
+  'CI 用 runner 自带 SDK（不重新下载 cmdline-tools）并安装 34 platform / build-tools');
 check(/gradle-version: '8\.9'/.test(wf) && /gradle --version/.test(wf),
   'setup-gradle 装 Gradle 8.9 并校验 PATH（仓库不提交 wrapper.jar）');
 check(/gradle "\$TASK" --no-daemon/.test(wf)
