@@ -1232,7 +1232,7 @@ const vpDnshe = read('docs-src/dnshe.md');
 const vpDnsheEn = read('docs-src/en/dnshe.md');
 const vpAllPages = [
   'index.md', 'quick-start.md', 'accounts.md', 'dns.md', 'dnshe.md',
-  'settings.md', 'showcase.md', 'faq.md',
+  'settings.md', 'external-domains.md', 'showcase.md', 'faq.md',
 ].flatMap((f) => ['docs-src/' + f, 'docs-src/en/' + f]);
 const docApp = read('src/app/App.tsx');
 check(
@@ -1246,7 +1246,7 @@ check(
 );
 check(
   vpAllPages.every((f) => fs.existsSync(path.join(root, f))),
-  '中英各 8 个文档页面齐全（共 16 页）'
+  '中英各 9 个文档页面齐全（共 18 页）'
 );
 check(
   Array.from({ length: 8 }, (_, i) => i + 1).every((n) =>
@@ -1803,6 +1803,7 @@ const d1Reg = read('src/app/legacy/register.ts');
 const d1Schema = read('schema.sql');
 const d1Route = read('src/routes/externalDomains.ts');
 const d1Dash = read('src/app/pages/Dashboard.tsx');
+const d1ExtPage = read('src/app/pages/ExternalDomains.tsx');
 const d1Whois = read('src/routes/whois.ts');
 const d1DocsZh = read('docs-src/settings.md');
 const d1DocsEn = read('docs-src/en/settings.md');
@@ -1824,7 +1825,7 @@ check(/CREATE TABLE IF NOT EXISTS external_domains/.test(d1Schema)
   '外部域名独立表 + 用户索引，不参与公开统计全表扫描');
 check(/EXTERNAL_LABEL = '（外部域名）'/.test(d1Route)
   && /externalLabel: EXTERNAL_LABEL/.test(d1Whois)
-  && /id="externalCard"/.test(d1Dash),
+  && /id="externalCard"/.test(d1ExtPage),
   '列表 / WHOIS / 控制台统一标（外部域名）');
 const extTable = d1Schema.slice(d1Schema.indexOf('CREATE TABLE IF NOT EXISTS external_domains'),
   d1Schema.indexOf('CREATE INDEX IF NOT EXISTS idx_external_user'));
@@ -1836,7 +1837,7 @@ check(/validateExternalDomain/.test(d1Route) && /seusConnect/.test(d1Route)
   '外部域名新流程：gTLD 校验 → SEUS API 连接 → 待站长批准');
 check(/nsWarning/.test(d1Route) && /NS 未生效前/.test(d1Route),
   '接口明确提示「NS 未改前记录不生效」，不假装连上 API 就能解析');
-check(/applyCard[\s\S]{0,400}<ExternalDomains \/>/.test(d1Dash),
+check(/applyCard[\s\S]{0,400}<ExternalDomainsCard \/>/.test(d1Dash),
   '第三方域名接入放在「注册域名」卡片下面');
 check(/seusRelativeName/.test(read('src/lib/seusBackend.ts'))
   && /nsDelegatedToSeus/.test(d1Route)
@@ -1883,12 +1884,33 @@ check(/d1-read-phase2-regression\.ts/.test(read('.github/workflows/deploy.yml'))
   && /静态资源零 D1/.test(phase2),
   '第二轮专项回归进 CI 且覆盖静态资源零 D1');
 check(!/comingSoon|EXTERNAL_DOMAINS_COMING_SOON/.test(d1Route)
-  && !/即将上线/.test(d1Dash) && !/即将上线/.test(read('src/app/pages/Register.tsx'))
+  && !/即将上线/.test(d1ExtPage) && !/即将上线/.test(d1Dash) && !/即将上线/.test(read('src/app/pages/Register.tsx'))
   && /### 22\. 第三方域名接入定版流程/.test(d1Readme),
   '第三方域名接入按站长定版流程开放：闸门已撤、README 第 22 节写清');
-check(/dashboard#externalCard/.test(read('src/app/pages/Register.tsx'))
-  && /api\.post\('\/api\/external-domains/.test(d1Dash.slice(d1Dash.indexOf('function ExternalDomains'), d1Dash.indexOf('/** Dashboard'))),
-  '注册页给跳转、控制台卡片含真实表单提交');
+check(/href="\/external-domains"/.test(read('src/app/pages/Register.tsx'))
+  && /api\.post\('\/api\/external-domains/.test(d1ExtPage),
+  '注册页跳独立页面、接入卡片含真实表单提交');
+/* 独立页面：与 /docs 一样可直接打开 / 刷新 / 外链跳入，文档站同步一页 */
+const edApp = read('src/app/App.tsx');
+const edSpa = read('src/lib/spaRoutes.ts');
+const edVpCfg = read('docs-src/.vitepress/config.mts');
+const edRuntime = read('src/app/lib/runtime.ts');
+check(fs.existsSync(path.join(root, 'docs-src/external-domains.md'))
+  && fs.existsSync(path.join(root, 'docs-src/en/external-domains.md'))
+  && /external-domains\.html/.test(edVpCfg) && /\/en\/external-domains\.html/.test(edVpCfg),
+  '中英服务文档各有一页「第三方域名接入」，侧栏可直达');
+check(/'\/external-domains': ExternalDomainsPage/.test(edApp)
+  && /'external-domains'/.test(edSpa)
+  && /key: 'external-domains'/.test(edRuntime),
+  '独立页注册进 SPA 路由 / 回落清单 / 侧栏导航，直达刷新不白屏');
+check(/export default function ExternalDomainsPage/.test(d1ExtPage)
+  && /ed-toc/.test(d1ExtPage) && /id="ed-steps"/.test(d1ExtPage)
+  && /mountShell\('external-domains'/.test(d1ExtPage)
+  && /id="externalCard"/.test(d1ExtPage)
+  && /href="\/external-domains"/.test(d1ExtPage),
+  '独立页是文档式结构（本页目录 / 章节 / 交互区），控制台卡片保留打开入口');
+check(/### 22\./.test(d1Readme) && /\/external-domains/.test(d1Readme),
+  'README 写明独立页面入口');
 
 
 

@@ -32,7 +32,7 @@ This is separate from per-suffix registration limits: one controls *whether* you
 
 ## Third-party domain access (external domain) · SEUS DNS only
 
-The entry sits directly under the console's **Register domain** card (the registration page also links to it). The list and WHOIS results are consistently marked **(External domain)**.
+Standalone page: <a href="/external-domains">`/external-domains`</a> (documentation-style guide + application form; direct open, refresh and external links all work). The entry also sits directly under the console's **Register domain** card, and the registration page links to it; see the full guide at [Third-party domain access](/en/external-domains.html). The list and WHOIS results are consistently marked **(External domain)**.
 
 **Flow**
 

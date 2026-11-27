@@ -53,6 +53,8 @@ check(!stubPaths.includes('/report') && stubPaths.includes('/abuse'),
 check(routes.filter((r) => !stubPaths.includes(r)).includes('/report'),
   '反向对照：此时前端 ROUTES 的 /report 会被判为未覆盖（检测确实有效）');
 check(fallbacks.includes('/report'), '现行清单含 /report（对照组：拿掉就会漏）');
+check(fallbacks.includes('/external-domains') && fallbacks.includes('/external-domains.html'),
+  '独立页 /external-domains 及其 .html 变体都在回落清单里');
 
 /* ───────────────── B/C. 真跑 Hono ───────────────── */
 function makeEnv() {
@@ -116,7 +118,7 @@ async function hit(p: string) {
   return { status: res.status, text: await res.text(), calls: env.assetsCalls as string[] };
 }
 
-for (const p of ['/report', '/report.html', '/abuse', '/abuse.html', '/report?domain=bad.meoy.top', '/abuse?domain=x']) {
+for (const p of ['/report', '/report.html', '/abuse', '/abuse.html', '/report?domain=bad.meoy.top', '/abuse?domain=x', '/external-domains', '/external-domains.html']) {
   const r = await hit(p);
   const fellBack = r.calls.length === 1 && r.calls[0] === '/';
   check(r.status === 200 && r.text.includes('INDEX_SHELL') && fellBack,

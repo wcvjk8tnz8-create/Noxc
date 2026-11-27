@@ -256,14 +256,15 @@ check(/Z\.1 D1 读取额度被打满/.test(readme) && /5M rows read/.test(readme
 
 /* ───────────── E. 前端标签与文档 ───────────── */
 const dash = read('src/app/pages/Dashboard.tsx');
+const edPage = read('src/app/pages/ExternalDomains.tsx');
 const whoisRoute = read('src/routes/whois.ts');
 const whoisUi = read('src/app/legacy/whois.ts');
 const docsZh = read('docs-src/settings.md');
 const docsEn = read('docs-src/en/settings.md');
-check(/第三方域名接入/.test(dash) && /externalLabel/.test(dash)
-  && /id="externalCard"/.test(dash), '控制台有第三方域名接入卡片并标（外部域名）');
-check(/固定 SEUS DNS/.test(dash) && /用 API 连接/.test(dash)
-  && /api\.post\('\/api\/external-domains/.test(dash),
+check(/第三方域名接入/.test(edPage) && /externalLabel/.test(edPage)
+  && /id="externalCard"/.test(edPage), '控制台有第三方域名接入卡片并标（外部域名）');
+check(/固定 SEUS DNS/.test(edPage) && /用 API 连接/.test(edPage)
+  && /api\.post\('\/api\/external-domains/.test(edPage),
   '控制台卡片是真表单：固定 SEUS DNS + 提交 + API 连接');
 check(/externalLabel: EXTERNAL_LABEL/.test(whoisRoute)
   && /r\.externalLabel \|\| '（外部域名）'/.test(whoisUi),
@@ -272,12 +273,12 @@ check(/外部域名/.test(docsZh) && /external domain/i.test(docsEn)
   && /第三方域名接入/.test(readme), '中英文档与 README 写明外部域名');
 check(/gTLD/.test(docsZh) && /SEUS/.test(docsZh) && /gTLD/.test(docsEn),
   '中英文设置文档写明 gTLD 准入与固定 SEUS DNS');
-check(/applyCard[\s\S]{0,400}<ExternalDomains \/>/.test(dash),
+check(/applyCard[\s\S]{0,400}<ExternalDomainsCard \/>/.test(dash),
   '第三方域名接入放在「注册域名」卡片下面');
-check(!/即将上线/.test(dash) && !/即将上线/.test(read('src/app/pages/Register.tsx')),
+check(!/即将上线/.test(edPage) && !/即将上线/.test(dash) && !/即将上线/.test(read('src/app/pages/Register.tsx')),
   '控制台与注册页不再标「即将上线」');
-check(/dashboard#externalCard/.test(read('src/app/pages/Register.tsx')),
-  '注册页提供去控制台提交接入申请的入口');
+check(/href="\/external-domains"/.test(read('src/app/pages/Register.tsx')),
+  '注册页提供去独立页面提交接入申请的入口');
 const extRoute = read('src/routes/externalDomains.ts');
 const extVerify = read('src/lib/externalVerify.ts');
 const extDns = read('src/lib/providerDns.ts');
@@ -298,8 +299,9 @@ check(!/api_?key/i.test(read('schema.sql').slice(
   'external_domains 表不存供应商 API key');
 check(!/comingSoon/.test(extRoute) && !/app\.use\('\*'/.test(extRoute),
   '后端不再有统一 503 闸门，接口按新流程可用');
-check(/api\.(post|del|get)\(/.test(dash.slice(dash.indexOf('function ExternalDomains'), dash.indexOf('/** Dashboard')))
-  && /<form/.test(dash.slice(dash.indexOf('function ExternalDomains'), dash.indexOf('/** Dashboard'))),
+check(/api\.(post|del|get)\(/.test(edPage)
+  && /<form/.test(edPage)
+  && /export default function ExternalDomainsPage/.test(edPage),
   '控制台卡片含表单与接口调用，不再是纯状态说明');
 check(!/即将上线|coming soon/i.test(docsZh) && !/coming soon/i.test(docsEn),
   '中英文档不再写「即将上线」');

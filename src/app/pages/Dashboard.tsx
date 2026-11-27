@@ -1,155 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef } from 'react';
 import { mountDashboard } from '../legacy/dashboard';
-import { api, refreshRuntime, cleanupPage, navigate } from '../lib/runtime';
-
-/**
- * 第三方域名接入 · 站长定版流程
- *
- *   ① 填自己的完整域名（仅 gTLD 二级域，不接受子域名）
- *   ② 注册商 NS 指向 SEUS DNS，并在 s.eus 完成托管
- *   ③ 用 SEUS API 连接（站点级 MCP Token，用户不需要填凭据）
- *   ④ 站长在「站点设置 → 第三方域名接入」批准后生效
- *
- * 后端固定 SEUS DNS，不提供供应商选择；令牌绝不落在前端。
- */
-type ExternalItem = {
-  id: number; fqdn: string; status: string; statusLabel: string;
-  ns: string[]; zoneId: string; connected: boolean; connectedAt: number | null;
-  nsDelegated: boolean; apiSource: string; reviewNote: string;
-  createdAt: number; note: string;
-};
-function ExternalDomains() {
-  const externalLabel = '（外部域名）';
-  const [items, setItems] = useState<ExternalItem[]>([]);
-  const [policy, setPolicy] = useState<any>({ ns: ['a.ns.fs5.net', 'b.ns.fs5.net'], flow: '', max: 5, siteTokenReady: false });
-  const [domain, setDomain] = useState('');
-  const [note, setNote] = useState('');
-  const [apiToken, setApiToken] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ text: string; err: boolean } | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
-  const load = async () => {
-    try {
-      const d = await api.get('/api/external-domains');
-      setItems(d.items || []);
-      setPolicy({
-        ns: d.ns || ['a.ns.fs5.net', 'b.ns.fs5.net'],
-        flow: d.flow || '', max: d.max || 5,
-        siteTokenReady: !!d.siteTokenReady,
-        providerLabel: d.providerLabel || 'SEUS DNS',
-      });
-    } catch (e: any) { setMsg({ text: e?.message || '载入失败', err: true }); }
-    finally { setLoaded(true); }
-  };
-  useEffect(() => { void load(); }, []);
-
-  const act = async (fn: () => Promise<any>, okText: string): Promise<boolean> => {
-    setBusy(true); setMsg(null);
-    try {
-      const d = await fn();
-      setMsg({ text: d?.next || d?.detail || okText, err: false });
-      await load();
-      return true;
-    } catch (e: any) {
-      setMsg({ text: e?.message || '操作失败', err: true });
-      return false;
-    } finally { setBusy(false); }
-  };
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!domain.trim()) { setMsg({ text: '请填写域名', err: true }); return; }
-    void act(() => api.post('/api/external-domains', { domain: domain.trim(), note: note.trim() }), '申请已提交')
-      .then((done) => { if (done) { setDomain(''); setNote(''); } });
-  };
-
-  return (
-    <div className="card" id="externalCard">
-      <div className="head-row">
-        <h3 data-en="Third-party domain access">第三方域名接入</h3>
-        <span className="badge inf" data-en="SEUS DNS only">固定 SEUS DNS</span>
-      </div>
-      <p className="hint" data-en="Bring your own full domain (gTLD only, e.g. xxx.com). Subdomains such as xxx.example.com are not accepted. Marked as (External domain).">
-        接入你自己拥有的完整域名（只允许 gTLD，如 <b>xxx.com</b>；<b>xxx.example.com</b> 这类子域名不受理），统一标注「{externalLabel}」。
-      </p>
-
-      <div className="alert a-info" style={{ marginTop: '10px', whiteSpace: 'pre-line', lineHeight: 1.8 }}
-        data-en="1) Enter your own full gTLD domain (e.g. xxx.com). Subdomains such as xxx.example.com are not accepted. 2) Point the registrar NS to the two SEUS DNS servers below and complete DNS hosting at s.eus. 3) Click Connect via API; the site uses its SEUS MCP token to find the hosted zone. 4) Wait for the site owner to approve in Site Settings.">
-        {policy.flow || '① 填写你自己的完整域名（只允许 gTLD 二级域）\n② 注册商 NS 改为下方两台，并在 s.eus 完成 DNS 托管\n③ 点「用 API 连接」\n④ 等待站长在站点设置里批准'}
-      </div>
-      <div className="hint" style={{ marginTop: 8 }}>
-        <b>SEUS DNS 权威服务器：</b><span className="mono">{policy.ns?.join(' / ')}</span>
-        <br /><span data-en="Records will not resolve globally until the registrar NS is pointed to SEUS DNS.">
-          NS 未生效前，即使批准，写入的记录也不会被全球 DNS 查询。</span>
-        {!policy.siteTokenReady && <><br /><b data-en="No site-wide SEUS MCP token configured yet. Leaving it blank is fine too: you may temporarily paste your own mbt_ token for this one connection.">站长还没在站点设置填 SEUS MCP Token（留空也能用）；连接时可临时填你自己的 mbt_ Token，仅本次使用、不会保存。</b></>}
-      </div>
-
-      <form onSubmit={submit} style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div className="field" style={{ flex: '1 1 220px', minWidth: 0 }}>
-          <label data-en="Your domain">你的域名</label>
-          <input className="input" value={domain} onChange={(e) => setDomain(e.target.value)}
-            placeholder="xxx.com" autoComplete="off" spellCheck={false}
-            aria-label="第三方域名" />
-        </div>
-        <div className="field" style={{ flex: '1 1 180px', minWidth: 0 }}>
-          <label data-en="Note (optional)">备注（选填）</label>
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)}
-            placeholder="用途说明" autoComplete="off" maxLength={160} />
-        </div>
-        <button className="btn primary" type="submit" disabled={busy} data-en="Submit for approval">提交申请</button>
-      </form>
-
-      {!policy.siteTokenReady && (
-        <div className="field" style={{ marginTop: 10 }}>
-          <label data-en="Your SEUS MCP token (optional, used once, never stored)">你的 SEUS MCP Token（选填，仅本次连接用、不保存）</label>
-          <input className="input" type="password" value={apiToken} onChange={(e) => setApiToken(e.target.value)}
-            placeholder="mbt_..." autoComplete="off" />
-        </div>
-      )}
-
-      {msg && <div className={msg.err ? 'alert a-warn' : 'alert a-info'} style={{ marginTop: 10 }}>{msg.text}</div>}
-
-      <div style={{ marginTop: 14 }}>
-        <b style={{ fontSize: 13 }} data-en="My applications">我的申请</b>
-        <span className="dim" style={{ fontSize: 12, marginLeft: 8 }}>{loaded ? `${items.length} / ${policy.max || 5}` : '载入中…'}</span>
-        {loaded && items.length === 0 && <div className="hint" style={{ marginTop: 6 }} data-en="No applications yet">还没有申请，填上方域名开始接入。</div>}
-        {items.map((it) => (
-          <div key={it.id} className="card" style={{ marginTop: 8, padding: 12 }}>
-            <div className="head-row" style={{ flexWrap: 'wrap', gap: 6 }}>
-              <b className="mono">{it.fqdn}</b>
-              <span className={it.status === 'approved' ? 'badge ok' : (it.status === 'rejected' ? 'badge warn' : 'badge')}>{it.statusLabel}</span>
-              {it.connected && <span className="badge inf">SEUS 已连接{it.zoneId ? ` · #${it.zoneId}` : ''}</span>}
-              {it.nsDelegated && <span className="badge ok">NS 已生效</span>}
-            </div>
-            <div className="hint" style={{ marginTop: 6 }}>
-              NS：<span className="mono">{it.ns?.join(' / ')}</span>
-              {it.apiSource === 'user' && <> · 本次连接用的是你临时填的 Token</>}
-              {it.reviewNote && <> · 站长备注：{it.reviewNote}</>}
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-              {it.status === 'pending' && (
-                <button className="btn sm" disabled={busy}
-                  onClick={() => void act(() => api.post(`/api/external-domains/${it.id}/connect`, apiToken ? { apiToken } : {}), '连接成功')}
-                  data-en="Connect via API">用 API 连接</button>
-              )}
-              {it.status === 'pending' && (
-                <button className="btn sm ghost" disabled={busy}
-                  onClick={() => void act(() => api.post(`/api/external-domains/${it.id}/check-ns`, {}), '已重新检查 NS')}
-                  data-en="Recheck NS">重新检查 NS</button>
-              )}
-              {it.status !== 'approved' && (
-                <button className="btn sm ghost" disabled={busy}
-                  onClick={() => void act(() => api.del(`/api/external-domains/${it.id}`), '已撤回申请')}
-                  data-en="Withdraw">撤回申请</button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+import { refreshRuntime, cleanupPage } from '../lib/runtime';
+import { ExternalDomainsCard } from './ExternalDomains';
 
 /** Dashboard —— 由 dashboard.html 迁移，页面结构与交互逻辑 100% 保留 */
 export default function DashboardPage() {
@@ -239,8 +91,8 @@ export default function DashboardPage() {
           <div className="hint" id="applyCardHint">注册入口已独立为单独页面：可先检查名称是否可用、查看积分消耗，再提交申请。</div>
         </div>
 
-        {/* 第三方域名接入按用户要求放在「注册域名」下面 */}
-        <ExternalDomains />
+        {/* 第三方域名接入按用户要求放在「注册域名」下面；完整交互见独立页 /external-domains */}
+        <ExternalDomainsCard />
       
         <div className="card td-table-card" id="listAnchor">
           <div className="td-cardhead"><h2>我的域名</h2><span className="td-cardhint">ZONE LIST · 可搜索 / 分页</span></div>

@@ -1118,6 +1118,7 @@ export const SHELL_NAV = [
   { key: 'domains', name: '域名管理', icon: 'globe', href: '/dashboard', group: '控制台' },
   { key: 'register', name: '注册域名', icon: 'plus', href: '/register', group: '控制台' },
   { key: 'whois', name: 'WHOIS 查询', icon: 'search', href: '/whois', group: '资源管理' },
+  { key: 'external-domains', name: '第三方域名接入', icon: 'globe', href: '/external-domains', group: '资源管理' },
   { key: 'transfer', name: '域名转移', icon: 'swap', href: '/transfer', group: '资源管理' },
   { key: 'checkin', name: '签到地', icon: 'calendar', href: '/checkin', group: '用户中心' },
   { key: 'rewards', name: '奖励中心', icon: 'gift', href: '/rewards', group: '用户中心' },
@@ -1544,7 +1545,7 @@ export async function mountShell(active, opt: {
   const catStyle = `--bg:${_av.bg};--fur:${_av.fur};--eye:${_av.eye};--accent:${_av.accent}`;
 
   // 面包屑当前页名
-  const EXTRA_NAME = { admin: '管理后台', terms: '服务条款', domain: '域名详情', register: '注册域名', report: '举报滥用' };
+  const EXTRA_NAME = { admin: '管理后台', terms: '服务条款', domain: '域名详情', register: '注册域名', report: '举报滥用', 'external-domains': '第三方域名接入' };
   const _all = [...SHELL_NAV, { key: 'admin', name: '管理后台' }];
   const _cur = _all.find((x) => x.key === active);
   const curName = (opt.title || (_cur && _cur.name) || EXTRA_NAME[active] || '控制台');

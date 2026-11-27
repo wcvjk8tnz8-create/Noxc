@@ -16,7 +16,7 @@
 export const SPA_PAGE_NAMES = [
   'home', 'login', 'dashboard', 'domain', 'register', 'whois', 'admin',
   'checkin', 'rewards', 'chat', 'tickets', 'transfer', 'profile', 'terms',
-  'report', 'abuse', 'showcase', 'docs',
+  'report', 'abuse', 'showcase', 'docs', 'external-domains',
 ] as const;
 
 /** 所有需要回落到 index.html 的直达路径（含 .html 变体，兼容旧书签）。 */

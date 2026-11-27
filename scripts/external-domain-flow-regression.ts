@@ -383,6 +383,7 @@ async function main() {
   const adm = read('src/routes/admin.ts');
   const admUi = read('src/app/legacy/admin.ts');
   const dash = read('src/app/pages/Dashboard.tsx');
+  const page = read('src/app/pages/ExternalDomains.tsx');
   const reg = read('src/app/pages/Register.tsx');
   const schema = read('schema.sql');
   const idx = read('src/index.ts');
@@ -432,10 +433,10 @@ async function main() {
     && !/SEUS_API_TOKEN/.test(docsEn)
     && /唯一输入框/.test(readme) && /single input/i.test(docsEn),
     'README 与中英文档都写明「后台唯一输入框」，不再提环境变量配置');
-  check(/id="externalCard"/.test(dash) && /api\.post\('\/api\/external-domains/.test(dash)
-    && /用 API 连接/.test(dash),
-    '控制台卡片是真表单：提交 + 连接按钮');
-  check(!/即将上线/.test(dash) && !/即将上线/.test(reg),
+  check(/id="externalCard"/.test(page) && /api\.post\('\/api\/external-domains/.test(page)
+    && /用 API 连接/.test(page) && /href="\/external-domains"/.test(page),
+    '接入卡片是真表单：提交 + 连接按钮 + 独立页入口');
+  check(!/即将上线/.test(page) && !/即将上线/.test(dash) && !/即将上线/.test(reg),
     '前端不再标「即将上线」');
   check(/externalReqBox/.test(admUi) && /data-exact="approve"/.test(admUi)
     && /lockedBackend === 'seus'/.test(admUi) && /disabled title="第三方接入域名固定使用 SEUS DNS/.test(admUi),
@@ -447,6 +448,31 @@ async function main() {
   check(/### 22\./.test(readme) && /### Z\.14/.test(readme),
     'README 第 22 节写流程、文末 Z.14 记错误');
   check(EXTERNAL_LABEL === '（外部域名）', '统一标签未变');
+  /* 独立页面与文档站：和 /docs 一样可直达 */
+  const app = read('src/app/App.tsx');
+  const spa = read('src/lib/spaRoutes.ts');
+  const shell = read('src/app/lib/runtime.ts');
+  const vp = read('docs-src/.vitepress/config.mts');
+  const guideZh = read('docs-src/external-domains.md');
+  const guideEn = read('docs-src/en/external-domains.md');
+  check(/'\/external-domains': ExternalDomainsPage/.test(app)
+    && /'\/external-domains\.html': ExternalDomainsPage/.test(app)
+    && /'external-domains'/.test(spa)
+    && /key: 'external-domains'/.test(shell),
+    '独立页 /external-domains 注册进前后端两份清单与侧栏，直达刷新不白屏');
+  check(/export default function ExternalDomainsPage/.test(page)
+    && /ed-toc/.test(page) && /id="ed-overview"/.test(page)
+    && /id="ed-rules"/.test(page) && /id="ed-steps"/.test(page)
+    && /id="ed-apply"/.test(page) && /id="ed-faq"/.test(page)
+    && /mountShell\('external-domains'/.test(page)
+    && /ExternalDomainsCard \/>/.test(dash),
+    '独立页是文档式五节结构，控制台仍在「注册域名」下保留同一卡片');
+  check(/external-domains\.html/.test(vp) && /\/en\/external-domains\.html/.test(vp)
+    && /gTLD/.test(guideZh) && /gTLD/.test(guideEn)
+    && /\/external-domains/.test(guideZh) && /\/external-domains/.test(guideEn),
+    'VitePress 中英各一页、侧栏可点，文档链回独立页');
+  check(/href="\/external-domains"/.test(reg) && !/dashboard#externalCard/.test(reg),
+    '注册页入口改指独立页面，不再只跳控制台锚点');
 
   globalThis.fetch = realFetch;
   console.log(`第三方域名接入流程回归：${ok.length} 通过，${bad.length} 失败`);

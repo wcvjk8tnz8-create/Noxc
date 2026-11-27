@@ -214,7 +214,7 @@ async function main() {
   const pd = read('src/lib/providerDns.ts');
   const sd = read('src/lib/seusDns.ts');
   const ed = read('src/routes/externalDomains.ts');
-  const dash = read('src/app/pages/Dashboard.tsx');
+  const dash = read('src/app/pages/Dashboard.tsx') + '\n' + read('src/app/pages/ExternalDomains.tsx');
   const reg = read('src/app/pages/Register.tsx');
   const deploy = read('.github/workflows/deploy.yml');
   const readme = read('README.md');

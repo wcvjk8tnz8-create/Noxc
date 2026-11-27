@@ -94,7 +94,8 @@ async function hit(p: string, mode: 'normal' | 'loop' = 'normal') {
 }
 
 /* ───────────────── A. 浏览器侧零重定向 ───────────────── */
-for (const p of ['/docs', '/docs/', '/docs/quick-start.html', '/docs/en/index.html', '/docs/dnshe.html']) {
+for (const p of ['/docs', '/docs/', '/docs/quick-start.html', '/docs/en/index.html', '/docs/dnshe.html',
+  '/docs/external-domains.html', '/docs/en/external-domains.html']) {
   const r = await hit(p);
   check(r.status === 200 && r.text.includes('VITEPRESS_DOCS') && !r.location,
     `${p} → 200 且无 Location 头（浏览器零重定向）`);

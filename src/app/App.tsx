@@ -18,6 +18,7 @@ import ProfilePage from './pages/Profile';
 import TermsPage from './pages/Terms';
 import ReportPage from './pages/Report';
 import ShowcasePage from './pages/Showcase';
+import ExternalDomainsPage from './pages/ExternalDomains';
 
 /* 保留旧 URL，书签 / 站内链接 / Worker 重定向全部继续可用 */
 const ROUTES: Record<string, () => JSX.Element> = {
@@ -59,6 +60,9 @@ const ROUTES: Record<string, () => JSX.Element> = {
   '/abuse.html': ReportPage,
   '/showcase': ShowcasePage,
   '/showcase.html': ShowcasePage,
+  /* 第三方域名接入：独立直达页（文档式结构），与 /docs 一样可直接打开 / 刷新 */
+  '/external-domains': ExternalDomainsPage,
+  '/external-domains.html': ExternalDomainsPage,
 };
 
 function keyOf(pathname: string): string {

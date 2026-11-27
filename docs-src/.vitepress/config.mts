@@ -11,6 +11,7 @@ const zh = [
   { text: 'DNS 记录', link: '/dns.html' },
   { text: 'DNSHE 托管', link: '/dnshe.html' },
   { text: '站点设置', link: '/settings.html' },
+  { text: '第三方域名接入', link: '/external-domains.html' },
   { text: '用户案例', link: '/showcase.html' },
   { text: '限制 / FAQ', link: '/faq.html' },
 ];
@@ -21,6 +22,7 @@ const en = [
   { text: 'DNS records', link: '/en/dns.html' },
   { text: 'DNSHE hosting', link: '/en/dnshe.html' },
   { text: 'Site settings', link: '/en/settings.html' },
+  { text: 'Third-party domains', link: '/en/external-domains.html' },
   { text: 'Showcase', link: '/en/showcase.html' },
   { text: 'Limits / FAQ', link: '/en/faq.html' },
 ];
