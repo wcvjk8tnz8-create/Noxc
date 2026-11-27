@@ -123,6 +123,20 @@ jobs:
           fi
           "$BT/aapt" dump badging "$APK" > /tmp/badging.txt 2>&1
           head -6 /tmp/badging.txt
+          # aapt 只验清单，再验一次 ZIP 内容：必须有编译后的 dex / 资源表 / 图标，
+          # 防止「格式合法但是个空壳」的 APK 被当成成功交付。
+          python3 -c "
+          import sys, zipfile
+          z = zipfile.ZipFile(sys.argv[1]); names = z.namelist()
+          need = ['AndroidManifest.xml', 'classes.dex', 'resources.arsc']
+          missing = [n for n in need if n not in names]
+          png = sum(1 for n in names if n.endswith('.png'))
+          print('APK entries:', len(names), '| PNG:', png,
+                '| dex bytes:', z.getinfo('classes.dex').file_size if 'classes.dex' in names else 0)
+          if missing or png < 6:
+              print('::error::APK 内容不完整，缺', ','.join(missing), '图标', png); sys.exit(1)
+          " "$APK"
+          sha256sum "$APK"
           if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then
             "$BT/apksigner" verify --print-certs "$APK" > /tmp/certs.txt 2>&1
             head -8 /tmp/certs.txt

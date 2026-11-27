@@ -223,8 +223,9 @@ check(/gradle "\$TASK" --no-daemon/.test(wf)
 check(/secrets\.NOXC_KEYSTORE_BASE64/.test(wf)
   && /base64 -d/.test(wf) && /signed=false/.test(wf) && /::notice::/.test(wf),
   '没配 Secrets 就明确降级到 debug APK，不静默失败');
-check(/aapt" dump badging/.test(wf) && /apksigner" verify --print-certs/.test(wf),
-  'CI 真校验 APK 包名/签名，不是只 copy 一个文件');
+check(/aapt" dump badging/.test(wf) && /apksigner" verify --print-certs/.test(wf)
+  && /classes\.dex/.test(wf) && /resources\.arsc/.test(wf) && /sha256sum/.test(wf),
+  'CI 真校验 APK 包名/签名 + ZIP 内含 dex/资源表/图标，不是只 copy 一个文件');
 check(/actions\/upload-artifact@v4/.test(wf) && /if-no-files-found: error/.test(wf)
   && /retention-days: 90/.test(wf), 'APK 上传 Artifacts，缺产物直接失败');
 check(/inputs\.create_release/.test(wf) && /softprops\/action-gh-release@v2/.test(wf)
