@@ -16,6 +16,9 @@ import {
   anynsServerConfigFull, anynsRootEnabled, anynsBackendCreate, anynsBackendUpdate,
   anynsBackendDelete, anynsBackendList,
 } from './anynsBackend.js';
+import {
+  seusBackendCreate, seusBackendUpdate, seusBackendDelete, seusBackendList,
+} from './seusBackend.js';
 
 const BASE = 'https://api.cloudflare.com/client/v4';
 
@@ -27,7 +30,7 @@ function parseBackendMap(raw) {
     if (i <= 0) continue;
     const d = normalizeDomain(seg.slice(0, i));
     const v = String(seg.slice(i + 1)).trim().toLowerCase();
-    if (d && (v === 'spaceship' || v === 'cloudflare' || v === 'anyns')) map[d] = v;
+    if (d && (v === 'spaceship' || v === 'cloudflare' || v === 'anyns' || v === 'seus')) map[d] = v;
   }
   return map;
 }
@@ -121,6 +124,8 @@ export function backendFor(env, p, domain) {
      切回 Cloudflare / Spaceship 时仍被强制走 AnyNS —— 「选项」形同虚设。
      现在显式 spaceship/cloudflare 先返回，剩下的再看 anyns。 */
   const explicit = p.backends?.[d];
+  /* 第三方接入域名：站长批准后写死 seus，优先级最高，不能被自动推断覆盖 */
+  if (explicit === 'seus') return 'seus';
   if (explicit === 'spaceship' || explicit === 'cloudflare') return explicit;
   /* 站点级 AnyNS：后台显式写 anyns，或根域名在 ANYNS_ROOTS / ANYNS_ROOTS
      默认范围里且配了管理令牌 → 走官方管理 API。 */
@@ -151,7 +156,7 @@ export async function dnsProviderFor(env, domain) {
 }
 
 function noBackendError(domain) {
-  const msg = `根域名 ${domain || '（未指定）'} 未配置可用的 DNS 后端：请在后台「根域名管理」把它设为 Spaceship，填写对应的 Cloudflare Zone ID，或在 Worker Secret 配置 ANYNS_API_TOKEN / ANYNS_ZONE_ID`;
+  const msg = `根域名 ${domain || '（未指定）'} 未配置可用的 DNS 后端：请在后台「根域名管理」把它设为 Spaceship，填写对应的 Cloudflare Zone ID，配置 ANYNS_API_TOKEN，或为第三方接入域名配置 SEUS MCP Token`;
   return { ok: false, errors: [{ message: msg }], message: msg };
 }
 
@@ -208,6 +213,7 @@ export async function cfCreate(env, payload, domain) {
   const d = resolveDomain(env, domain, payload?.name);
   const p = await dnsProviderFor(env, d);
   if (p.backend === 'anyns') return anynsBackendCreate(env, payload, d);
+  if (p.backend === 'seus') return seusBackendCreate(env, payload, d);
   if (p.backend === 'spaceship') {
     const conv = toSpaceshipRecord(payload, d);
     if (!conv.ok) return { ok: false, errors: [{ message: conv.error }], message: conv.error };
@@ -244,6 +250,7 @@ export async function cfUpdate(env, id, payload, domain) {
   const d = resolveDomain(env, spOld?.domain || domain, payload?.name);
   const p = await dnsProviderFor(env, d);
   if (p.backend === 'anyns') return anynsBackendUpdate(env, id, payload, d);
+  if (p.backend === 'seus') return seusBackendUpdate(env, id, payload, d);
   if (p.backend === 'spaceship') {
     const conv = toSpaceshipRecord(payload, d);
     if (!conv.ok) return { ok: false, errors: [{ message: conv.error }], message: conv.error };
@@ -275,6 +282,7 @@ export async function cfDelete(env, id, domain) {
   const d = resolveDomain(env, domain, '');
   const p = await dnsProviderFor(env, d);
   if (p.backend === 'anyns') return anynsBackendDelete(env, id, d);
+  if (p.backend === 'seus') return seusBackendDelete(env, id, d);
   if (p.backend === 'spaceship') {
     // 历史数据：域名后来切到了 Spaceship，但旧记录 id 是 Cloudflare 的。
     // 无法凭 id 构造删除对象，不阻断本地删除，只提示远端可能残留。
@@ -295,6 +303,7 @@ export async function cfList(env, params = {}, domain) {
   const d = resolveDomain(env, domain, params?.name);
   const p = await dnsProviderFor(env, d);
   if (p.backend === 'anyns') return anynsBackendList(env, params, d);
+  if (p.backend === 'seus') return seusBackendList(env, params, d);
   if (p.backend === 'spaceship') {
     const r = await spDnsList(env, d);
     if (!r.ok) return r;
@@ -334,7 +343,7 @@ export async function cfSoa(env) {
   const d = normalizeDomain(env.ROOT_DOMAIN);
   const p = await dnsProviderFor(env, d);
   // Spaceship / AnyNS 不暴露 SOA 记录接口，返回空结果即可（前端只做展示）
-  if (p.backend === 'spaceship' || p.backend === 'anyns') return { ok: true, result: [] };
+  if (p.backend === 'spaceship' || p.backend === 'anyns' || p.backend === 'seus') return { ok: true, result: [] };
   if (!p.zone) return noBackendError(d);
   const r = await fetch(`${recordsPath(p)}?type=SOA${p.custom ? '&zone=' + encodeURIComponent(p.zone) : ''}`, {
     headers: authHeaders(env, p),

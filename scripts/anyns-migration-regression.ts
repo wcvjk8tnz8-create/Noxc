@@ -811,7 +811,7 @@ async function main() {
     '公开 config 只给布尔，密钥不进 CONFIG_KEYS');
   const rootStore = read('src/lib/rootStore.ts');
   const cfSrc = read('src/lib/cf.ts');
-  check(/const BACKENDS = \['spaceship', 'cloudflare', 'anyns'\]/.test(rootStore)
+  check(/const BACKENDS = \['spaceship', 'cloudflare', 'anyns', 'seus'\]/.test(rootStore)
     && /anyns_zone_ids/.test(rootStore),
     '根域名后端白名单含 anyns，AnyNS zone 映射与 CF Zone 分开存');
   check(/value="anyns"/.test(admUi) && /ANYNS DNS/.test(admUi)

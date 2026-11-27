@@ -300,6 +300,11 @@ async function buildConfigData(c: any) {
     // 但令牌本体绝不进公开配置（后台 GET 也只回掩码）。
     anynsBackendEnabled: !!String(c.env.ANYNS_API_TOKEN || '').trim()
       || !!String((await allSettings(c.env)).get('anyns_api_token') || '').trim(),
+    // 第三方域名接入：固定 SEUS DNS，公开只给常量与「站点令牌是否已配置」布尔值。
+    // 令牌只来自后台「站点设置」那一个框，不读环境变量；本体绝不进公开配置。
+    externalDomainProvider: 'seus',
+    externalDomainNs: ['a.ns.fs5.net', 'b.ns.fs5.net'],
+    seusBackendEnabled: !!String((await allSettings(c.env)).get('seus_api_token') || '').trim(),
     fontBody: s.font_body || 'system',
     fontDisplay: s.font_display || 'system',
     // 首页展示的额度跟着后台「站点设置」走，与注册同一逐级回落口径

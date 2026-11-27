@@ -11,7 +11,8 @@ import { COMBO_REWARD_CAP } from '../lib/pointDefaults.js';
 import { expiryRules, computeExpiry, expiryState, renewExpiry, ensureExpiryColumns, migrateLegacyPerpetual } from '../lib/expiry.js';
 import { clearDnsProviderCache, dnsProvider } from '../lib/cf.js';
 import { spaceshipConfig, spaceshipEnabled, listSpaceshipDomains, testSpaceship } from '../lib/spaceship.js';
-import { addExtraRoots, removeRoot, restoreRoot, rootSources, effectiveRootList, setDnsBackend } from '../lib/rootStore.js';
+import { addExtraRoots, removeRoot, restoreRoot, rootSources, effectiveRootList, setDnsBackend,
+         lockExternalRoot, externalLockedRoots } from '../lib/rootStore.js';
 import { aiTest, probeAiModels, chooseModel, loadAiConfig, AGNES_CHAT_MODELS, rootInAiList, endpointCandidates,
   normalizeProvider, WORKERS_AI_MODELS, DEFAULT_WORKERS_AI_MODEL } from '../lib/aiReview.js';
 import { runAiReviewBatch, aiBatchStatus, queueAiBatch, startAiBatch } from '../lib/aiBatch.js';
@@ -27,6 +28,8 @@ import { parsePausedRoots, serializePausedRoots } from '../lib/applyGate.js';
 import { invalidateSettings } from '../lib/settingsCache.js';
 import { clearAnynsConfigCache, anynsTokenSource,
          anynsAdminFetchDomains, anynsAdminAddRoots } from '../lib/anynsBackend.js';
+import { clearSeusBackendCache } from '../lib/seusBackend.js';
+import { EXTERNAL_DNS_PROVIDER, EXTERNAL_NS } from '../lib/externalDomainPolicy.js';
 
 const app = new Hono();
 
@@ -432,7 +435,7 @@ app.get('/settings', async (c) => {
   const raw = Object.fromEntries(results.map((r) => [r.key, r.value]));
 
   // 敏感项：不回传明文，只回传「是否已配置 + 尾号」，前端显示为占位符
-  const SENSITIVE = ['dnshe_api_key', 'dnshe_api_secret', 'dns_api_key', 'dns_api_secret', 'mail_api_key', 'spaceship_api_key', 'spaceship_api_secret', 'ai_api_key', 'nodeloc_client_secret', 'github_client_secret', 'anyns_api_token'];
+  const SENSITIVE = ['dnshe_api_key', 'dnshe_api_secret', 'dns_api_key', 'dns_api_secret', 'mail_api_key', 'spaceship_api_key', 'spaceship_api_secret', 'ai_api_key', 'nodeloc_client_secret', 'github_client_secret', 'anyns_api_token', 'seus_api_token'];
   const items = { ...raw };
   for (const k of SENSITIVE) delete items[k];
   // 未配置过时把默认备案号回填到输入框，避免「页脚明明有、后台却是空的」
@@ -613,6 +616,18 @@ app.get('/settings', async (c) => {
       // 迁移已完成，默认留空即解析正常；这里仍是通用维护开关，随时可临时冻结后缀
       dnsPausedRoots: raw.dns_paused_roots === undefined ? '' : String(raw.dns_paused_roots || ''),
       migrationNotice: String(raw.dns_migration_notice || '').trim(),
+    },
+
+    /* 第三方域名接入：站点级 SEUS MCP Token（只回掩码 / 布尔，不下发明文）。
+       只有后台这一个输入框，没有环境变量优先级；留空也能用（用户自带兜底）。
+       用户提交域名 → 用这个 Token 连 SEUS API → 站长在下方审批列表批准。 */
+    seus: {
+      tokenSet: !!String(raw.seus_api_token || '').trim(),
+      tokenMasked: mask(raw.seus_api_token),
+      ready: !!String(raw.seus_api_token || '').trim(),
+      ns: [...EXTERNAL_NS],
+      provider: EXTERNAL_DNS_PROVIDER,
+      lockedRoots: await externalLockedRoots(c.env),
     },
   });
 });
@@ -1010,6 +1025,22 @@ app.post('/settings', async (c) => {
       .slice(0, 30).join(',');
     await set('anyns_zone_ids', pairs);
   }
+  /* ── 第三方域名接入：站点级 SEUS MCP Token（后台唯一配置入口） ──
+     令牌是敏感项：只在显式提交新值时写入，留空不覆盖；也可勾选清空。
+     不读环境变量 / Secret，保存即生效，不需要重新部署。 */
+  if (String(body.seusApiToken || '').trim()) {
+    await set('seus_api_token', String(body.seusApiToken).trim().slice(0, 300));
+  } else if (body.seusClearToken === true) {
+    await set('seus_api_token', '');
+  }
+  if (body.seusZoneIds !== undefined) {
+    const pairs = String(body.seusZoneIds || '')
+      .split(/[,\s]+/).map((x) => x.trim())
+      .filter((x) => /^[a-z0-9][a-z0-9.-]{0,251}[:=][A-Za-z0-9_-]{1,64}$/i.test(x))
+      .slice(0, 30).join(',');
+    await set('seus_zone_ids', pairs);
+  }
+
   /* 迁移期「暂停解析」：同一张卡片管理，清空名单即全部恢复 */
   if (body.dnsPausedRoots !== undefined) await set('dns_paused_roots', cleanDomains(body.dnsPausedRoots));
   if (body.dnsMigrationNotice !== undefined) {
@@ -1241,6 +1272,7 @@ app.post('/settings', async (c) => {
   invalidateSettings();
   clearDnsProviderCache();
   clearAnynsConfigCache();
+  clearSeusBackendCache();   // 改了 SEUS Token / zone 映射后，15 秒 zone 缓存也要立刻作废
 
   await audit(c, u.id, 'admin.settings', 'site', `name=${name} logo=${logo || '(默认)'}`);
   return ok(c, {});
@@ -1421,6 +1453,93 @@ app.get('/roots', async (c) => {
     disabled: s.disabled,
     rootDomains: s.items.map((r) => r.domain),
   });
+});
+
+/* ---------------- 第三方域名接入 · 站长审批 ---------------- */
+
+/** 申请列表（待审核优先），站长在「站点设置」里一次看全 */
+app.get('/external-domains', async (c) => {
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT e.*, u.email AS user_email
+         FROM external_domains e LEFT JOIN users u ON u.id = e.user_id
+        ORDER BY CASE e.status WHEN 'pending' THEN 0 ELSE 1 END, e.id DESC LIMIT 200`
+    ).all();
+    return ok(c, {
+      items: (results || []).map((r: any) => ({
+        id: r.id, fqdn: r.fqdn, note: r.note || '', userEmail: r.user_email || '',
+        userId: r.user_id, provider: EXTERNAL_DNS_PROVIDER,
+        ns: [r.ns1 || EXTERNAL_NS[0], r.ns2 || EXTERNAL_NS[1]],
+        zoneId: r.zone_id || '', status: String(r.status || 'pending'),
+        reviewNote: r.review_note || '', reviewedAt: r.reviewed_at || null,
+        reviewedBy: r.reviewed_by || '', connected: !!r.zone_id,
+        connectedAt: r.connected_at || null, apiSource: String(r.api_source || ''),
+        nsDelegated: Number(r.ns_delegated || 0) === 1,
+        createdAt: r.created_at,
+      })),
+      provider: EXTERNAL_DNS_PROVIDER,
+      ns: [...EXTERNAL_NS],
+      lockedRoots: await externalLockedRoots(c.env),
+    });
+  } catch {
+    return ok(c, { items: [], unavailable: true, lockedRoots: [] });
+  }
+});
+
+/** 批准：必须已经用 SEUS API 连上 zone；批准后域名成为根域名且锁死 SEUS 后端 */
+app.post('/external-domains/:id/approve', async (c) => {
+  const u = c.get('user');
+  const id = Number(c.req.param('id'));
+  if (!Number.isFinite(id) || id <= 0) return fail(c, '申请编号不合法');
+  const row: any = await c.env.DB.prepare('SELECT * FROM external_domains WHERE id = ?').bind(id).first();
+  if (!row) return fail(c, '申请不存在', 404);
+  if (String(row.status || 'pending') === 'approved') return ok(c, { fqdn: row.fqdn, already: true });
+  if (String(row.status || 'pending') !== 'pending') return fail(c, '该申请已处理，不能重复批准');
+  if (!String(row.zone_id || '').trim()) {
+    return fail(c, '该申请还没用 SEUS API 连接成功（缺少托管区域），请让用户先完成连接');
+  }
+  const body = await c.req.json().catch(() => ({}));
+  const note = String((body as any)?.note || '').trim().slice(0, 200);
+  const domain = String(row.fqdn || '').toLowerCase();
+
+  /* ① 加为根域名并显式写 seus 后端；② 锁死下拉；③ 标记申请通过。
+     三步都完成才算批准，任何一步失败都会把明确错误返回给站长。 */
+  try {
+    await addExtraRoots(c.env, [{ domain, backend: 'seus' }]);
+    invalidateSettings();   // 让下一步读到的 map 含刚写入的 seus 映射
+    const lock = await lockExternalRoot(c.env, domain);
+    if (!lock.ok) return fail(c, lock.reason || '锁定 SEUS 后端失败');
+    invalidateSettings();   // 锁定名单写完再失效，setDnsBackend 才能看到锁
+    await setDnsBackend(c.env, domain, 'seus');
+    await c.env.DB.prepare(
+      `UPDATE external_domains
+          SET status = 'approved', reviewed_at = ?, reviewed_by = ?, review_note = ?
+        WHERE id = ?`
+    ).bind(now(), String(u?.email || ''), note, id).run();
+  } catch (e) {
+    return fail(c, `批准失败：${String((e as any)?.message || e).slice(0, 180)}`, 500);
+  }
+  clearDnsProviderCache();
+  clearSeusBackendCache();
+  await audit(c, u?.id, 'admin.external.approve', domain, note || '批准第三方域名接入（SEUS DNS）');
+  return ok(c, { fqdn: domain, provider: EXTERNAL_DNS_PROVIDER, ns: [...EXTERNAL_NS] });
+});
+
+/** 驳回：只有 pending 能驳，已批准的由站长在根域名管理里移除 */
+app.post('/external-domains/:id/reject', async (c) => {
+  const u = c.get('user');
+  const id = Number(c.req.param('id'));
+  if (!Number.isFinite(id) || id <= 0) return fail(c, '申请编号不合法');
+  const body = await c.req.json().catch(() => ({}));
+  const note = String((body as any)?.note || '').trim().slice(0, 200);
+  const r: any = await c.env.DB.prepare(
+    `UPDATE external_domains
+        SET status = 'rejected', reviewed_at = ?, reviewed_by = ?, review_note = ?
+      WHERE id = ? AND status = 'pending'`
+  ).bind(now(), String(u?.email || ''), note, id).run();
+  if (!r?.meta?.changes) return fail(c, '申请不存在或已处理', 404);
+  await audit(c, u?.id, 'admin.external.reject', String(id), note || '驳回第三方域名接入申请');
+  return ok(c, {});
 });
 
 /* ---------------- 第三方邮箱注册申请 / 精确白名单 ---------------- */

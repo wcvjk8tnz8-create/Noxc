@@ -507,6 +507,14 @@ UPDATE settings SET value = ''
 UPDATE settings SET value = '1'
   WHERE key = 'runtime_migrations_dns_pause_anyns_done' AND value = '0';
 
+-- 第三方域名接入：固定 SEUS DNS（s.eus），站点级 MCP Token 只存服务端。
+-- seus_api_token  后台「站点设置 → 第三方域名接入」唯一输入框；留空则用户自带 Token 兜底
+-- seus_zone_ids   "xxx.com:1234" 多根 SEUS zone 映射（可选，留空按域名查 dns_zones）
+-- external_root_lock  站长批准后的第三方域名，DNS 后端锁死 seus，下拉不可切换
+INSERT OR IGNORE INTO settings(key, value) VALUES ('seus_api_token', '');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('seus_zone_ids', '');
+INSERT OR IGNORE INTO settings(key, value) VALUES ('external_root_lock', '');
+
 -- AnyNS（n.ht 社区）站点级管理令牌：后台「站点设置 → AnyNS」可填，
 -- 不填则回落 Worker Secret ANYNS_API_TOKEN，都没有就走原 DNS 后端。
 -- 令牌是敏感项：后台只回掩码，公开 /api/config 不下发，脱敏备份会置空。
@@ -710,8 +718,16 @@ CREATE TABLE IF NOT EXISTS external_domains (
   verify_token  TEXT  NOT NULL DEFAULT '',
   verify_status TEXT  NOT NULL DEFAULT 'pending',   -- pending | verified
   verified_at   INTEGER,
-  -- 已连接的供应商（cloudflare / dnshe）；API key 绝不落库
+  -- 已连接的供应商（历史列，新流程固定 seus）；API key 绝不落库
   provider_key  TEXT  NOT NULL DEFAULT '',
+  -- 第三方域名接入审批（站长在「站点设置 → 第三方域名接入」批准 / 驳回）
+  status        TEXT  NOT NULL DEFAULT 'pending',   -- pending | approved | rejected
+  reviewed_at   INTEGER,
+  reviewed_by   TEXT  NOT NULL DEFAULT '',
+  review_note   TEXT  NOT NULL DEFAULT '',
+  connected_at  INTEGER,
+  ns_delegated  INTEGER NOT NULL DEFAULT 0,        -- 注册商 NS 是否已指向 SEUS
+  api_source    TEXT  NOT NULL DEFAULT '',         -- site（站点级令牌）| user（用户临时填）
   created_at  INTEGER NOT NULL
 );
 -- 按用户查列表走索引，一次只扫描本人几行，不增加公开读取压力

@@ -148,6 +148,10 @@ jobs:
       - name: 暂停后缀可见性回归
         run: npx tsx scripts/paused-root-visibility-regression.ts
 
+      # 第三方域名接入定版流程：gTLD 校验 / SEUS API 连接 / 站长审批 / 后端锁定
+      - name: 第三方域名接入流程回归（gTLD → SEUS DNS → 站长批准）
+        run: npx tsx scripts/external-domain-flow-regression.ts
+
       # D1 读取额度优化 + 第三方域名接入（快照 1 行 / Token 不落库 / 反向对照）
       - name: D1 读取与第三方域名回归
         run: npx tsx scripts/d1-read-external-domain-regression.ts

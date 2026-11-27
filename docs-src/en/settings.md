@@ -30,32 +30,28 @@ Under "Site settings → Pause applications per suffix", tick a root domain to *
 
 This is separate from per-suffix registration limits: one controls *whether* you can apply, the other *how many times*.
 
-## Third-party domain access (external domain) · Coming soon
-
-> **Current status: coming soon, not open yet.** The UI shows only the status and
-> the planned flow; `/api/external-domains` returns a uniform "coming soon" (503)
-> response and writes nothing. The full implementation is kept behind the
-> `EXTERNAL_DOMAINS_COMING_SOON` flag in `src/routes/externalDomains.ts`.
-> Everything below describes the flow **after** it is enabled.
-
+## Third-party domain access (external domain) · SEUS DNS only
 
 The entry sits directly under the console's **Register domain** card (the registration page also links to it). The list and WHOIS results are consistently marked **(External domain)**.
 
-**Three steps**
+**Flow**
 
-1. Submit a full domain (e.g. `example.com`) — the system generates a verification TXT
-2. At your **current DNS provider**, add `_noxc-verify.example.com` → TXT → `noxc-verify=<random>`, then click *Verify ownership* (the backend queries public DoH resolvers; propagation can take minutes to hours)
-3. Pick a provider (Cloudflare / DNSHE), paste **your own API key** → *Connect provider* returns the official nameservers, then fill in type / name / value and write the DNS record with the same key
+1. Enter your own full domain: **gTLD registrable domains only** (e.g. `xxx.com`, `xxx.xyz`, `xxx.top`). **Subdomains such as `xxx.example.com` are not accepted**, nor are ccTLDs (`.cn`, `.uk`, `.cc`, `.io`, `.ai`, ...), documentation examples (`example.com`) or this site's own active suffixes.
+2. At your registrar, point the **NS to `a.ns.fs5.net` / `b.ns.fs5.net`** and complete DNS hosting for the domain at s.eus first (BYOS requires KYC L2 and manual review; this site does not do it for you).
+3. Click **Connect via API**: the site owner pastes an `mbt_` MCP token into the **single input** under **Site Settings → Third-party domain access** — it takes effect on save, with **no environment variable, Worker Secret or redeploy**; zones are looked up automatically. The site then calls the official `dns_zones` tool to find the hosted zone / zone id. **Leaving it blank also works**: you may temporarily paste your own token when connecting — **used once, never stored**.
+4. **Wait for the site owner's approval**: the request appears under **Site Settings → Third-party domain access**. Once approved the domain becomes a root domain and users can apply for subdomains under it.
 
-> **The common trap**: the TXT record only proves ownership — it does **not** make resolution work. After a record is written to the provider's zone you must still change the **nameservers at your registrar** to the two assigned by that provider (Cloudflare shows Active / DNSHE delegation passes). Until that delegation is live, global DNS never queries that provider, so the record has no effect. See README appendix Z.5.
+**SEUS DNS only**: there is no provider picker. After approval the DNS-backend dropdown for that root is disabled and reads "SEUS DNS · third-party (locked)"; even an administrator cannot switch it. All DNS records are written by the site backend through the SEUS API.
+
+> **The common trap**: connecting the API and writing records only affect the hosted zone at SEUS. **Until the registrar NS points at SEUS, global DNS never queries that provider**, so the record has no effect. Responses include `nsWarning` and the approval list marks "NS pending". See README appendices Z.5 / Z.14.
 
 **Boundaries and security**
 
 - Separate `external_domains` table with a per-user index; **no quota usage, not counted in site statistics, no writes to this site's DNS zone**
 - Names under this site's active suffixes (including the roots) cannot be registered here
-- Up to 5 per account; record names are restricted to the domain itself or its subdomains
-- **The API key is used for that single request only — never stored, logged or returned.** Re-enter it for each operation
-- A Cloudflare token needs `Zone Read + DNS Write`; if the DNSHE records endpoint errors, the UI tells you to add the record manually in the panel
+- Up to 5 per account; pending requests can be withdrawn, approved domains are managed by the site owner in Root Domain Management
+- **The site-wide SEUS token has a single source** (the `settings.seus_api_token` field) and stays server-side: the admin page only returns a mask, `/api/config` exposes a boolean, and redacted backups blank it out. A user-supplied token is used only for that single request
+- No TXT ownership check: ownership is established by "a real hosted zone exists in the SEUS account + registrar NS points at SEUS + manual approval by the site owner"
 
 ## D1 read optimisation
 

@@ -1828,18 +1828,20 @@ check(/EXTERNAL_LABEL = '（外部域名）'/.test(d1Route)
   '列表 / WHOIS / 控制台统一标（外部域名）');
 const extTable = d1Schema.slice(d1Schema.indexOf('CREATE TABLE IF NOT EXISTS external_domains'),
   d1Schema.indexOf('CREATE INDEX IF NOT EXISTS idx_external_user'));
-check(/apiKey/.test(d1Route) && !/api_?key|token/i.test(extTable.replace(/verify_token/g, '')),
-  '供应商 API key 只在请求中使用，不落库');
-check(/checkOwnership/.test(d1Route) && /verify_status/.test(d1Route)
-  && /connectProvider/.test(d1Route) && /addRecord/.test(d1Route),
-  '外部域名三步流程：TXT 验证 → 连接供应商 → 写 DNS 记录');
-check(/nsWarning/.test(d1Route) && /NS 尚未指向该供应商/.test(d1Route),
-  '接口明确提示「NS 未改前记录不生效」，不假装加了 TXT 就能解析');
+check(/seusServerToken/.test(d1Route)
+  && !/api_?key|token/i.test(extTable.replace(/verify_token|api_source/g, '')),
+  '站点级 SEUS 令牌只存服务端，外部域名表不存任何凭据');
+check(/validateExternalDomain/.test(d1Route) && /seusConnect/.test(d1Route)
+  && /statusLabel/.test(d1Route),
+  '外部域名新流程：gTLD 校验 → SEUS API 连接 → 待站长批准');
+check(/nsWarning/.test(d1Route) && /NS 未生效前/.test(d1Route),
+  '接口明确提示「NS 未改前记录不生效」，不假装连上 API 就能解析');
 check(/applyCard[\s\S]{0,400}<ExternalDomains \/>/.test(d1Dash),
   '第三方域名接入放在「注册域名」卡片下面');
-check(/isNameInDomain/.test(read('src/lib/providerDns.ts'))
-  && /cloudflare-dns\.com\/dns-query/.test(read('src/lib/externalVerify.ts')),
-  '写入名称限定在本域名内，TXT 验证走 DoH');
+check(/seusRelativeName/.test(read('src/lib/seusBackend.ts'))
+  && /nsDelegatedToSeus/.test(d1Route)
+  && /cloudflare-dns\.com\/dns-query/.test(d1Route),
+  'SEUS 相对名写入 + 公共 DoH 查注册商 NS 委派');
 check(/外部域名|D1 读取优化/.test(d1DocsZh) && /external domain|D1 read/i.test(d1DocsEn)
   && /附录 Z · 故障排查与已知错误（固定放在文末）/.test(d1Readme)
   && d1Readme.lastIndexOf('## 附录 Z') > d1Readme.lastIndexOf('## 附录 ·'),
@@ -1880,14 +1882,13 @@ for (const m of unified) {
 check(/d1-read-phase2-regression\.ts/.test(read('.github/workflows/deploy.yml'))
   && /静态资源零 D1/.test(phase2),
   '第二轮专项回归进 CI 且覆盖静态资源零 D1');
-check(/EXTERNAL_DOMAINS_COMING_SOON = true/.test(d1Route)
-  && /app\.use\('\*'/.test(d1Route) && /503/.test(d1Route)
-  && /即将上线/.test(d1Dash) && /即将上线/.test(read('src/app/pages/Register.tsx'))
-  && /即将上线/.test(d1Readme),
-  '第三方域名接入标「即将上线」：前后端统一闸门，接口不可用');
-check(!/dashboard#externalCard/.test(read('src/app/pages/Register.tsx'))
-  && !/api\.(post|del)\(/.test(d1Dash.slice(d1Dash.indexOf('function ExternalDomains'), d1Dash.indexOf('/** Dashboard'))),
-  '注册页不给跳转、控制台卡片不含表单提交');
+check(!/comingSoon|EXTERNAL_DOMAINS_COMING_SOON/.test(d1Route)
+  && !/即将上线/.test(d1Dash) && !/即将上线/.test(read('src/app/pages/Register.tsx'))
+  && /### 22\. 第三方域名接入定版流程/.test(d1Readme),
+  '第三方域名接入按站长定版流程开放：闸门已撤、README 第 22 节写清');
+check(/dashboard#externalCard/.test(read('src/app/pages/Register.tsx'))
+  && /api\.post\('\/api\/external-domains/.test(d1Dash.slice(d1Dash.indexOf('function ExternalDomains'), d1Dash.indexOf('/** Dashboard'))),
+  '注册页给跳转、控制台卡片含真实表单提交');
 
 
 
@@ -1991,9 +1992,9 @@ check(/providerKey === 'anyns'/.test(anynsProv)
   && /anynsRelativeName/.test(anynsProv)
   && /ANYNS_RECORD_TYPES/.test(anynsProv),
   '第三方域名接入支持 anyns 供应商（相对名 / 记录类型守卫）');
-check(/PROVIDERS = \['cloudflare', 'dnshe', 'seus', 'anyns'\]/.test(anynsExt)
-  && /EXTERNAL_DOMAINS_COMING_SOON = true/.test(anynsExt),
-  '供应商清单扩为四家，但「即将上线」闸门未被擅自打开');
+check(/EXTERNAL_DNS_PROVIDER/.test(anynsExt) && /seusConnect/.test(anynsExt)
+  && !/comingSoon/.test(anynsExt),
+  '第三方接入主流程固定 SEUS DNS；四家供应商只留在适配层 / NS 委派');
 check(/anyns-api-regression\.ts/.test(anynsReg) && /anyns-api-regression\.ts/.test(read('.github/workflows/deploy.yml')),
   'AnyNS 专项回归挂进 CI');
 check(/### 19\. AnyNS/.test(read('README.md')) && /### Z\.10 AnyNS/.test(read('README.md')),
@@ -2070,9 +2071,38 @@ check(/anyns_api_token/.test(read('schema.sql')),
 const rootStoreSrc = read('src/lib/rootStore.ts');
 const anynsBackendSrc = read('src/lib/anynsBackend.ts');
 const cfBackendSrc = read('src/lib/cf.ts');
-check(/const BACKENDS = \['spaceship', 'cloudflare', 'anyns'\]/.test(rootStoreSrc)
+check(/const BACKENDS = \['spaceship', 'cloudflare', 'anyns', 'seus'\]/.test(rootStoreSrc)
   && /anyns_zone_ids/.test(rootStoreSrc) && /anynsZoneId/.test(rootStoreSrc),
   '根域名后端白名单含 anyns，AnyNS zone 映射与 CF Zone 分开存');
+/* 第三方域名定版流程：gTLD / SEUS 站点级后端 / 站长审批 / 后端锁定 */
+const extPolicySrc = read('src/lib/externalDomainPolicy.ts');
+const seusBackendSrc = read('src/lib/seusBackend.ts');
+const adminRouteSrc = read('src/routes/admin.ts');
+const flowRegSrc = read('scripts/external-domain-flow-regression.ts');
+check(/labels\.length !== 2/.test(extPolicySrc) && /GTLD_SET/.test(extPolicySrc)
+  && /RESERVED_REGISTRABLE/.test(extPolicySrc),
+  '准入策略：两段标签 + gTLD 白名单 + 保留域，子域名与 ccTLD 都拒');
+check(/seusBackendCreate/.test(cfBackendSrc) && /seusBackendUpdate/.test(cfBackendSrc)
+  && /seusBackendDelete/.test(cfBackendSrc) && /seusBackendList/.test(cfBackendSrc)
+  && /explicit === 'seus'/.test(cfBackendSrc),
+  'cf.ts 四个写入口都分发到站点级 SEUS 后端');
+check(/seusServerToken/.test(seusBackendSrc) && /'seus_api_token'/.test(adminRouteSrc)
+  && /app\.post\('\/external-domains\/:id\/approve'/.test(adminRouteSrc),
+  '站点级令牌 + 站长审批接口齐备');
+check(/external_root_lock/.test(rootStoreSrc) && /lockedBackend/.test(rootStoreSrc)
+  && /SEUS DNS · 第三方接入（固定）/.test(read('src/app/legacy/admin.ts')),
+  '批准后根域名锁死 SEUS：下拉禁用、切换接口拒绝');
+check(/external-domain-flow-regression\.ts/.test(read('.github/workflows/deploy.yml'))
+  && /validateExternalDomain/.test(flowRegSrc) && /dns_record_create/.test(flowRegSrc),
+  '新流程专项回归进 CI 且真跑 SEUS 写入');
+const admUiNew = read('src/app/legacy/admin.ts');
+check(!/SEUS_API_TOKEN|seusTokenSource/.test(seusBackendSrc)
+  && !/SEUS_API_TOKEN/.test(adminRouteSrc) && !/SEUS_API_TOKEN/.test(d1Idx)
+  && !/SEUS_API_TOKEN/.test(admUiNew)
+  && /id="sSeusToken"/.test(admUiNew) && !/sSeusZoneIds/.test(admUiNew)
+  && /唯一输入框/.test(d1Readme),
+  'SEUS 令牌只有后台一个输入框：不读环境变量 / Worker Secret，不用重新部署');
+
 check(/anynsAdminFetchDomains/.test(anynsBackendSrc)
   && /anynsAdminAddRoots/.test(anynsBackendSrc)
   && /anynsListZones/.test(anynsBackendSrc)

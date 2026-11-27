@@ -30,7 +30,7 @@ import {
   DELEGATION_PROVIDERS, findProvider, createZoneAtProvider, checkDelegationAtProvider,
 } from '../src/lib/delegation.js';
 import { connectProvider, addRecord, recordTypesFor, isNameInDomain } from '../src/lib/providerDns.js';
-import { PROVIDERS, EXTERNAL_DOMAINS_COMING_SOON } from '../src/routes/externalDomains.js';
+
 
 const ok: string[] = [];
 const bad: string[] = [];
@@ -297,11 +297,14 @@ async function main() {
     'API key 不落库：每次写记录都要求本次提供');
 
   /* ═════════ B. 静态断言 ═════════ */
-  check(PROVIDERS.includes('anyns') && PROVIDERS.includes('cloudflare')
-    && PROVIDERS.includes('dnshe') && PROVIDERS.includes('seus'),
-    '外部域名供应商清单扩为四家，旧三家未删');
-  check(EXTERNAL_DOMAINS_COMING_SOON === true,
-    '第三方域名接入仍保持「即将上线」闸门（接入 API ≠ 擅自开放功能）');
+  const extRouteNew = read('src/routes/externalDomains.ts');
+  const providerDnsNew = read('src/lib/providerDns.ts');
+  check(/'anyns'/.test(providerDnsNew) && /'seus'/.test(providerDnsNew)
+    && /'cloudflare'/.test(providerDnsNew) && /'dnshe'/.test(providerDnsNew),
+    '供应商适配层四家并存（NS 委派 / 旧 BYOS 链路保留）');
+  check(/EXTERNAL_DNS_PROVIDER/.test(extRouteNew) && /seusConnect/.test(extRouteNew)
+    && !/comingSoon/.test(extRouteNew),
+    '第三方接入主流程固定 SEUS DNS、走 SEUS API 连接，闸门已撤');
   const domainLegacy = read('src/app/legacy/domain.ts');
   check(/\['dnshe', 'anyns'\]\.includes\(deleg\.provider\)/.test(domainLegacy)
     && /API Token（用于检查委派状态）/.test(domainLegacy)

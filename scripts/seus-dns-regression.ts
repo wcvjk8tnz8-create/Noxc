@@ -21,9 +21,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { connectProvider, addRecord, recordTypesFor } from '../src/lib/providerDns.js';
 import { SEUS_MCP_URL, SEUS_NS, SEUS_RECORD_TYPES } from '../src/lib/seusDns.js';
-import externalRoutes, {
-  PROVIDERS, EXTERNAL_DOMAINS_COMING_SOON,
-} from '../src/routes/externalDomains.js';
 
 const ok: string[] = [];
 const bad: string[] = [];
@@ -223,30 +220,27 @@ async function main() {
   const readme = read('README.md');
   const hc = read('scripts/health-check.ts');
 
-  check(PROVIDERS.includes('seus') && PROVIDERS.includes('anyns')
-    && PROVIDERS.includes('cloudflare') && PROVIDERS.includes('dnshe')
-    && PROVIDERS.length === 4,
-    '外部域名供应商列表：Cloudflare / DNSHE / SEUS DNS / AnyNS（四家并存）');
-  check(/recordTypesByProvider/.test(ed) && /recordTypesFor\(p\)/.test(ed),
-    '列表接口按供应商下发可写记录类型');
+  check(/'seus'/.test(pd) && /'anyns'/.test(pd) && /cloudflare/.test(pd)
+    && /recordTypesFor/.test(pd),
+    '供应商适配层仍保留四家（NS 委派用）；第三方接入主流程已固定 SEUS');
+  check(/seusConnect/.test(ed) && /validateExternalDomain/.test(ed)
+    && /'seus'/.test(ed),
+    '接入主流程：gTLD 校验 + SEUS API 连接，固定 SEUS DNS');
   check(/s\.eus\/api\/mcp/.test(sd) && /dns_record_create/.test(sd) && /dns_zones/.test(sd),
     '适配器只调官方 MCP 工具，不猜裸 REST 路径');
   check(/Mcp-Session-Id/.test(sd) && /notifications\/initialized/.test(sd),
     '完整 Streamable HTTP 握手（initialize → session → initialized）');
   check(/mbt_/.test(sd) && /不落库|只在本次调用/.test(sd), 'Token 只在内存里用');
   check(/SEUS DNS/.test(dash) && /SEUS DNS/.test(reg) && /mbt_/.test(dash),
-    '控制台 / 注册页的「即将上线」卡片说明已接入 SEUS DNS');
+    '控制台 / 注册页都写明固定 SEUS DNS 与 mbt_ Token 口径');
   check(/seus-dns-regression\.ts/.test(deploy), 'SEUS DNS 回归挂进 CI');
   check(/SEUS DNS/.test(readme) && /s\.eus\/api\/mcp/.test(readme), 'README 记录 SEUS 接入');
   check(/SEUS|seus/.test(hc), '健康巡检含 SEUS 防回流断言');
-  check(/EXTERNAL_DOMAINS_COMING_SOON = true/.test(ed) && EXTERNAL_DOMAINS_COMING_SOON === true,
-    '整条第三方域名接入仍是「即将上线」，本次不擅自开放');
-
-  /* 闸门真跑：前后端状态一致，不留可写库的裸接口 */
-  const gate = await externalRoutes.request('http://localhost/api/external-domains/');
-  const gj: any = await gate.json().catch(() => ({}));
-  check(gate.status === 503 && gj?.comingSoon === true,
-    '真跑闸门：/api/external-domains 仍返回 503 comingSoon');
+  check(!/comingSoon|EXTERNAL_DOMAINS_COMING_SOON/.test(ed)
+    && !/即将上线/.test(ed),
+    '「即将上线」闸门已撤：第三方域名接入按站长定版流程开放');
+  check(/站长/.test(ed) && /approve|批准/.test(read('src/routes/admin.ts')),
+    '接入申请由站长在站点设置里批准');
 
   for (const m of ok) console.log('  ✓ ' + m);
   for (const m of bad) console.error('  ✗ ' + m);

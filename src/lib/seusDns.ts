@@ -121,7 +121,12 @@ async function rpc(
   return { result: msg.result ?? msg, sessionId: sid };
 }
 
-/** 一次调用开一条会话：initialize → initialized → tools/call */
+/** 一次调用开一条会话：initialize → initialized → tools/call。
+    导出给站点级 SEUS 后端（seusBackend.ts）复用，避免复制一套会话握手。 */
+export async function seusCallTool(token: string, name: string, args: any): Promise<any> {
+  return toolCall(token, name, args);
+}
+
 async function toolCall(token: string, name: string, args: any): Promise<any> {
   if (!token) throw new SeusDnsError('请填写 SEUS MCP Token（账户设置里生成的 mbt_ 开头）');
   const init = await rpc(token, 'initialize', {

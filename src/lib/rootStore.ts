@@ -27,9 +27,13 @@ const DISABLED_KEY = 'root_domains_disabled';
 const BACKEND_KEY = 'root_dns_backends';
 /** AnyNS（n.ht 社区）解析区域映射："example.com:4821"，由「拉取域名」自动写入 */
 const ANYNS_ZONE_KEY = 'anyns_zone_ids';
+/** 第三方接入域名（站长批准后写入）：这些根域名固定走 SEUS DNS，锁定不可切换 */
+const EXTERNAL_LOCK_KEY = 'external_root_lock';
 const DOMAIN_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 const ZONE_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const BACKENDS = ['spaceship', 'cloudflare', 'anyns'];
+/* 'seus' 只用于「第三方域名接入」批准后的根域名，且由 EXTERNAL_LOCK_KEY 锁定。
+   普通根域名不允许手动选成 seus —— 它没有站点级 zone 映射时会写入失败。 */
+const BACKENDS = ['spaceship', 'cloudflare', 'anyns', 'seus'];
 
 /** 解析后端映射，只接受合法域名 + 合法后端值 */
 export function parseBackendMap(raw) {
@@ -66,18 +70,20 @@ async function writeSetting(env, key, value) {
 
 /** 读取后台配置（动态域名 / zone / 屏蔽名单） */
 export async function loadExtra(env) {
-  const [rawRoots, rawZones, rawDisabled, rawBackends, rawAnynsZones] = await Promise.all([
+  const [rawRoots, rawZones, rawDisabled, rawBackends, rawAnynsZones, rawExternalLock] = await Promise.all([
     readSetting(env, ROOT_KEY),
     readSetting(env, ZONE_KEY),
     readSetting(env, DISABLED_KEY),
     readSetting(env, BACKEND_KEY),
     readSetting(env, ANYNS_ZONE_KEY),
+    readSetting(env, EXTERNAL_LOCK_KEY),
   ]);
   return {
     domains: parseRootList(rawRoots),
     zones: parseZoneMap(rawZones),
     disabled: parseRootList(rawDisabled),
     backends: parseBackendMap(rawBackends),
+    lockedRoots: parseRootList(rawExternalLock),
     /* AnyNS 的 zone id 是数字，与 Cloudflare Zone ID 分开存，绝不混进
        cf_zone_ids_extra —— 否则 backendFor 会误以为「已配 CF Zone」。 */
     anynsZones: parseZoneMap(rawAnynsZones),
@@ -150,6 +156,7 @@ export async function rootSources(env) {
   const extra = await loadExtra(env);
   const active = await effectiveRootList(env);
   const dyn = new Set(extra.domains);
+  const locked = new Set(extra.lockedRoots || []);
   return {
     items: active.map((r) => {
       const explicit = extra.backends[r.domain];
@@ -157,17 +164,20 @@ export async function rootSources(env) {
       const auto = dyn.has(r.domain) && !r.zoneId ? 'spaceship' : 'cloudflare';
       return {
         ...r,
-        source: dyn.has(r.domain) ? 'dynamic' : 'env',
+        source: locked.has(r.domain) ? 'external' : (dyn.has(r.domain) ? 'dynamic' : 'env'),
         hasZone: !!r.zoneId,
         anynsZoneId: extra.anynsZones[r.domain] || '',
-        backend: explicit || auto,
-        backendAuto: !explicit,
+        backend: locked.has(r.domain) ? 'seus' : (explicit || auto),
+        backendAuto: !explicit && !locked.has(r.domain),
+        /* 第三方接入域名固定 SEUS：后台下拉 disabled，切换接口也会拒绝 */
+        lockedBackend: locked.has(r.domain) ? 'seus' : '',
       };
     }),
     // 被移除但可恢复（环境变量域名 + 已不在生效列表里的屏蔽项）
     disabled: extra.disabled.filter((d) => !active.some((r) => r.domain === d)),
     backends: extra.backends,
     anynsZones: extra.anynsZones,
+    lockedRoots: extra.lockedRoots || [],
   };
 }
 
@@ -176,11 +186,16 @@ export async function setDnsBackend(env, domain, kind) {
   const d = normalizeDomain(domain);
   const k = String(kind || '').trim().toLowerCase();
   if (!d || !DOMAIN_RE.test(d)) return { ok: false, reason: '域名格式不正确' };
-  if (k && !BACKENDS.includes(k)) return { ok: false, reason: '后端只支持 spaceship / cloudflare / anyns' };
+  if (k && !BACKENDS.includes(k)) return { ok: false, reason: '后端只支持 spaceship / cloudflare / anyns / seus' };
   const active = (await effectiveRootList(env)).map((r) => r.domain);
   if (!active.includes(d)) return { ok: false, reason: '该根域名不存在或已被移除' };
 
   const extra = await loadExtra(env);
+  /* 第三方接入域名：站长批准时就锁死为 SEUS DNS，管理员也不能从下拉切走。
+     传 seus 本身是幂等操作（下拉 disabled 时不会真的发生），放行不报错。 */
+  if ((extra.lockedRoots || []).includes(d) && k !== 'seus') {
+    return { ok: false, reason: '第三方接入域名固定使用 SEUS DNS，不能切换后端' };
+  }
   const map = { ...extra.backends };
   if (k) map[d] = k;
   else delete map[d];
@@ -284,4 +299,24 @@ export async function restoreRoot(env, domain) {
 /** 兼容旧调用：移除动态导入的根域名 */
 export async function removeExtraRoot(env, domain) {
   return removeRoot(env, domain);
+}
+
+
+/**
+ * 把「第三方域名接入」批准后的根域名锁为 SEUS DNS（幂等）。
+ * 由 admin 审批通过时调用；写入后该行在「根域名管理」里下拉 disabled。
+ */
+export async function lockExternalRoot(env: any, domain: string): Promise<{ ok: boolean; reason?: string }> {
+  const d = normalizeDomain(domain);
+  if (!d || !DOMAIN_RE.test(d)) return { ok: false, reason: '域名格式不正确' };
+  const extra = await loadExtra(env);
+  const list = [...new Set([...(extra.lockedRoots || []), d])];
+  await writeSetting(env, EXTERNAL_LOCK_KEY, list.join(','));
+  return { ok: true };
+}
+
+/** 供后台与回归读取当前被锁定的第三方接入域名 */
+export async function externalLockedRoots(env: any): Promise<string[]> {
+  const extra = await loadExtra(env);
+  return extra.lockedRoots || [];
 }

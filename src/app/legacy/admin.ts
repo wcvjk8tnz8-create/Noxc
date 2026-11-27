@@ -705,6 +705,37 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <div class="hint" id="dnsPauseStateHint"></div>
               <div class="hint" id="anynsHint"></div>
             </div>
+
+            <div class="field" id="externalSettingsCard">
+              <label>第三方域名接入 · 固定 SEUS DNS</label>
+              <div class="hint" style="margin-bottom:10px">
+                <b>就这一个框，保存即生效</b>：填 s.eus 账户设置里生成的
+                <span class="mono">mbt_</span> MCP Token（需 dns:read / dns:write），
+                不用配环境变量、不用改 Worker Secret、不用重新部署。
+                <b>留空也能用</b>：用户点「用 API 连接」时可临时填自己的 Token，
+                仅本次请求使用、不保存。Zone 会按域名自动查，无需手动映射。
+              </div>
+              <div style="margin-bottom:8px">
+                <span class="dim">SEUS MCP Token（唯一配置项）</span>
+                <input id="sSeusToken" type="password" autocomplete="new-password" placeholder="mbt_...（留空则不修改）">
+              </div>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px">
+                <input id="sSeusClearToken" type="checkbox"> 清除已保存的令牌
+              </label>
+              <div class="hint" style="margin:8px 0 10px">
+                接入流程：用户填自己的完整域名（<b>只允许 gTLD 二级域，如 xxx.com</b>；不接受
+                <span class="mono">xxx.example.com</span> 这类子域名）→ 把注册商 NS 指向
+                <span class="mono">a.ns.fs5.net / b.ns.fs5.net</span> 并在 s.eus 完成托管 →
+                用 SEUS API 连接 → <b>你在下方审批列表里批准</b>。
+                批准后该域名成为根域名，DNS 后端<b>锁死 SEUS</b>，下方「根域名管理」里不能切换。
+              </div>
+              <div class="hint" id="seusHint"></div>
+              <div class="hint" style="margin:10px 0 8px;border-top:1px solid var(--zx-hair);padding-top:10px">
+                <b>接入申请</b>：待审核排在最前；只有「SEUS 已连接」的申请可以批准。
+              </div>
+              <div class="tablewrap" id="externalReqBox"><div class="hint">载入中…</div></div>
+            </div>
+
             <div class="field">
               <label>保留域名</label>
               <div><span class="dim">额外保留名称</span><input id="sReservedLabels" type="text" autocomplete="off" placeholder="例如：pay,live,lab" value="${esc(s.reserved_labels || '')}"></div>
@@ -1070,6 +1101,8 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             anynsRoots: document.getElementById('sAnynsRoots').value,
             anynsZoneId: document.getElementById('sAnynsZoneId').value,
             anynsZoneIds: document.getElementById('sAnynsZoneIds').value,
+            seusApiToken: document.getElementById('sSeusToken').value,
+            seusClearToken: document.getElementById('sSeusClearToken').checked,
             dnsPausedRoots: document.getElementById('sDnsPausedRoots').value,
             dnsMigrationNotice: document.getElementById('sMigrationNotice').value,
             fontBody: document.getElementById('sFontBody').value,
@@ -1343,6 +1376,21 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
         }
       }
 
+      // 第三方域名接入：站点级 SEUS MCP Token 只回掩码，令牌本体绝不下发。
+      // 只有后台这一个输入框，没有环境变量 / Worker Secret 优先级分支。
+      {
+        const a = d.seus || {};
+        const tokEl = document.getElementById('sSeusToken') as HTMLInputElement | null;
+        const hint = document.getElementById('seusHint');
+        if (a.tokenSet) {
+          if (tokEl) tokEl.placeholder = (a.tokenMasked || '已配置') + '（留空不修改）';
+          if (hint) hint.innerHTML = '<span class="badge ok">已配置</span> 用户提交申请后，站点会用这个 mbt_ Token 调 SEUS API 查找托管区域；改动保存即生效。';
+        } else if (tokEl) {
+          tokEl.placeholder = '留空也能用（用户连接时临时填自己的 Token）';
+          if (hint) hint.innerHTML = '<span class="badge warn">留空</span> 未配置站点级令牌时，用户可在「用 API 连接」时临时填自己的 mbt_ Token（仅本次使用、不保存）。';
+        }
+      }
+
       // 自定义 DNS 提供商：URL 可回显，Key/Secret 只显示掩码；留空表示不修改
       {
         const p = d.dnsProvider || {};
@@ -1420,14 +1468,19 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
               <span class="mono" style="min-width:150px">${esc(gone ? x : x.domain)}</span>
               ${gone
                 ? '<span class="badge warn">已移除</span>'
-                : `<span class="badge ${x.source === 'dynamic' ? 'ok' : ''}">${x.source === 'dynamic' ? '后台导入' : '环境变量'}</span><span class="dim" style="font-size:12px">${x.hasZone ? '已配 Zone' : '未配 Zone'}</span>
-                   <span class="badge ${x.backend === 'anyns' || x.backend === 'spaceship' ? 'ok' : ''}" style="font-size:11px">${x.backend === 'anyns' ? 'ANYNS DNS' + (x.anynsZoneId ? ' · #' + esc(x.anynsZoneId) : '') : x.backend === 'spaceship' ? 'Spaceship DNS' : 'Cloudflare DNS'}${x.backendAuto ? ' · 自动' : ''}</span>
+                : `<span class="badge ${x.source === 'dynamic' || x.source === 'external' ? 'ok' : ''}">${x.source === 'dynamic' ? '后台导入' : x.source === 'external' ? '第三方接入' : '环境变量'}</span><span class="dim" style="font-size:12px">${x.hasZone ? '已配 Zone' : '未配 Zone'}</span>
+                   ${x.lockedBackend === 'seus'
+                     ? `<span class="badge ok" style="font-size:11px">SEUS DNS · 第三方接入（固定）</span>
+                        <select class="input" disabled title="第三方接入域名固定使用 SEUS DNS，不能切换" style="width:auto;padding:5px 8px;font-size:12px;opacity:.6">
+                          <option selected>SEUS DNS（固定）</option>
+                        </select>`
+                     : `<span class="badge ${x.backend === 'anyns' || x.backend === 'spaceship' ? 'ok' : ''}" style="font-size:11px">${x.backend === 'anyns' ? 'ANYNS DNS' + (x.anynsZoneId ? ' · #' + esc(x.anynsZoneId) : '') : x.backend === 'spaceship' ? 'Spaceship DNS' : 'Cloudflare DNS'}${x.backendAuto ? ' · 自动' : ''}</span>
                    <select class="input" data-backend="${esc(x.domain)}" title="DNS 记录写入后端" style="width:auto;padding:5px 8px;font-size:12px">
                      <option value="auto"${x.backendAuto ? ' selected' : ''}>自动</option>
                      <option value="spaceship"${!x.backendAuto && x.backend === 'spaceship' ? ' selected' : ''}>Spaceship</option>
                      <option value="cloudflare"${!x.backendAuto && x.backend === 'cloudflare' ? ' selected' : ''}>Cloudflare</option>
                      <option value="anyns"${!x.backendAuto && x.backend === 'anyns' ? ' selected' : ''}>AnyNS</option>
-                   </select>`}
+                   </select>`}`}
               <span style="flex:1"></span>
               ${gone
                 ? `<button class="btn sm" data-restore="${esc(x)}">恢复</button>`
@@ -1474,6 +1527,53 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
           }
         };
         renderRoots();
+
+        /* 第三方域名接入审批：只有「SEUS 已连接」的申请能批准 */
+        const renderExternalReqs = async () => {
+          const box = document.getElementById('externalReqBox');
+          if (!box) return;
+          try {
+            const r = await api.get('/api/admin/external-domains');
+            const list: any[] = r.items || [];
+            const stateText: Record<string, string> = { pending: '待站长批准', approved: '已通过', rejected: '已驳回' };
+            box.innerHTML = '<table><thead><tr><th>域名</th><th>申请人</th><th>连接状态</th><th>状态</th><th class="right">操作</th></tr></thead><tbody>'
+              + (list.length ? list.map((x) => `<tr>
+                  <td class="mono">${esc(x.fqdn)}<div class="hint">${esc(x.ns ? x.ns.join(' / ') : '')}</div></td>
+                  <td>${esc(x.userEmail || ('#' + x.userId))}<div class="hint">${esc(x.note || '')}</div></td>
+                  <td>${x.connected
+                    ? `<span class="badge ok">SEUS 已连接${x.zoneId ? ' · #' + esc(x.zoneId) : ''}</span>${x.nsDelegated ? ' <span class="badge ok">NS 已生效</span>' : '<div class="hint">NS 待确认</div>'}`
+                    : '<span class="badge warn">未连接</span>'}
+                    <div class="hint">${x.apiSource === 'user' ? '用户临时 Token' : x.apiSource === 'site' ? '站点级 Token' : ''}</div></td>
+                  <td><span class="badge ${x.status === 'approved' ? 'ok' : (x.status === 'rejected' ? 'warn' : '')}">${esc(stateText[x.status] || x.status)}</span>
+                    ${x.reviewNote ? `<div class="hint">${esc(x.reviewNote)}</div>` : ''}</td>
+                  <td class="right nowrap">${x.status === 'pending' ? `
+                    <button class="btn sm ok" type="button" data-exact="approve" data-id="${x.id}"${x.connected ? '' : ' disabled title="需先用 SEUS API 连接"'}>批准</button>
+                    <button class="btn sm" type="button" data-exact="reject" data-id="${x.id}">驳回</button>` : '<span class="hint">已处理</span>'}</td>
+                </tr>`).join('') : '<tr><td colspan="5" class="empty">暂无接入申请</td></tr>')
+              + '</tbody></table>';
+            box.querySelectorAll('[data-exact]').forEach((b: any) => {
+              b.onclick = async () => {
+                const act = b.dataset.exact, id = b.dataset.id;
+                let note = '';
+                if (act === 'reject') {
+                  const v = prompt('驳回原因（选填）：');
+                  if (v === null) return;
+                  note = v;
+                }
+                b.disabled = true;
+                try {
+                  await api.post(`/api/admin/external-domains/${id}/${act}`, { note });
+                  settingsFeedback(act === 'approve' ? '已批准，DNS 后端锁定 SEUS' : '已驳回申请');
+                  await renderExternalReqs();
+                  renderRoots();
+                } catch (e: any) { b.disabled = false; settingsFeedback(e.message, 'err'); }
+              };
+            });
+          } catch (e: any) {
+            box.innerHTML = '<span style="color:var(--danger)">读取失败：' + esc(e.message) + '</span>';
+          }
+        };
+        renderExternalReqs();
   
         const testBtn = document.getElementById('spTest');
         if (testBtn) testBtn.onclick = async () => {

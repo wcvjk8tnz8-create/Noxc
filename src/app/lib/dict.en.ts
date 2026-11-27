@@ -1152,4 +1152,27 @@ export const EXTRA_DICT: Record<string, string> = {
   '账号已被封禁，无法修改密码': 'This account is banned and cannot change its password',
   '密码已修改': 'Password changed',
   '你的账号密码已通过邮箱验证码修改。': 'Your password was changed using an email verification code.',
+
+  /* 第三方域名接入（gTLD / SEUS DNS / 站长审批） */
+  '第三方域名接入 · 固定 SEUS DNS': 'Third-party domain access · SEUS DNS only',
+  '固定 SEUS DNS': 'SEUS DNS only',
+  'SEUS DNS · 第三方接入（固定）': 'SEUS DNS · third-party (locked)',
+  '接入申请': 'Access requests',
+  '待站长批准': 'Awaiting owner approval',
+  'SEUS 已连接': 'SEUS connected',
+  'NS 已生效': 'NS live',
+  'NS 待确认': 'NS pending',
+  '用 API 连接': 'Connect via API',
+  '重新检查 NS': 'Recheck NS',
+  '撤回申请': 'Withdraw',
+  '已批准，DNS 后端锁定 SEUS': 'Approved; DNS backend locked to SEUS',
+  '申请人': 'Applicant',
+  '连接状态': 'Connection',
+  '站点设置 → 第三方域名接入': 'Site Settings → Third-party domain access',
+
+  /* 第三方域名接入 · 后台唯一输入框 */
+  'SEUS MCP Token（唯一配置项）': 'SEUS MCP Token (only setting)',
+  '清除已保存的令牌': 'Clear the saved token',
+  '留空也能用': 'Leaving it blank works too',
+  '就这一个框，保存即生效': 'One field, effective on save',
 };

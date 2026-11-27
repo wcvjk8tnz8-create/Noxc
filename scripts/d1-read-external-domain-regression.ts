@@ -10,16 +10,15 @@
  * 全局写后失效、前端 SWR 60s 节流、注册页 600ms + 15s 结果缓存 + 序号丢弃。
  *
  * 另含「第三方域名接入」：独立表、标「（外部域名）」、不占配额、
- * 不参与公开统计、不写本站 DNS。用户后续决定先不开放，改标「即将上线」：
- * 实现代码（TXT 验证 / 供应商 API key 写记录）完整保留，但后端统一闸门
- * 让所有接口返回 503 comingSoon，前端只显示状态卡片、不渲染表单。
- * 本回归真跑这个闸门，确认接口确实不可用、数据库零写入。
+ * 不参与公开统计、不写本站 DNS。该模块的完整流程（gTLD 校验 / SEUS API
+ * 连接 / 站长审批 / 后端锁定）由 scripts/external-domain-flow-regression.ts
+ * 真跑；本回归只锁住「独立表 + 统一标签 + 不占统计」这些 D1 侧口径。
  *
  * 运行：npx tsx scripts/d1-read-external-domain-regression.ts
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { Hono } from 'hono';
+
 import {
   publicStats, invalidatePublicStats, resetPublicStatsCache,
 } from '../src/lib/publicStats.js';
@@ -27,9 +26,7 @@ import {
   getConfigCache, setConfigCache, invalidatePublicConfig,
   CONFIG_CACHE_CONTROL, CONFIG_TTL,
 } from '../src/lib/configCache.js';
-import externalRoutes, {
-  EXTERNAL_LABEL, EXTERNAL_DOMAINS_COMING_SOON, COMING_SOON_MESSAGE,
-} from '../src/routes/externalDomains.js';
+import { EXTERNAL_LABEL } from '../src/routes/externalDomains.js';
 
 const ok: string[] = [];
 const bad: string[] = [];
@@ -239,53 +236,22 @@ check(/附录 Z · 故障排查与已知错误（固定放在文末）/.test(rea
 check(/Z\.1 D1 读取额度被打满/.test(readme) && /5M rows read/.test(readme),
   'README 文末记录本次 D1 事故与排查');
 
-/* ───────────── D. 「即将上线」闸门：真跑 Hono ───────────── */
-S = fresh();
-const app = new Hono();
-app.use('*', async (c, next) => { c.set('user', { id: 7, email: 'u@example.com', role: 'user' }); await next(); });
-app.route('/api/external-domains', externalRoutes);
-const CTX: any = { waitUntil() {}, passThroughOnException() {} };
-const call = (method: string, body?: any, suffix = '') =>
-  app.fetch(new Request('https://nic.test/api/external-domains' + suffix, {
-    method, headers: { 'content-type': 'application/json', 'X-Lang': 'zh' },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  }), env(), CTX);
-
+/* ───────────── D. 第三方域名接入：D1 侧口径（流程真跑见新专项回归） ───────────── */
 {
+  const flowReg = read('scripts/external-domain-flow-regression.ts');
+  const extRouteNew = read('src/routes/externalDomains.ts');
   check(EXTERNAL_LABEL === '（外部域名）', '统一标签仍是（外部域名）');
-  check(EXTERNAL_DOMAINS_COMING_SOON === true
-    && /即将上线/.test(COMING_SOON_MESSAGE),
-    '功能开关为「即将上线」，提示文案明确');
-
-  /* 所有方法、所有子路径都必须被闸门拦下 */
-  const cases: Array<[string, any, string]> = [
-    ['GET', undefined, ''],
-    ['POST', { domain: 'example.com' }, ''],
-    ['POST', { provider: 'cloudflare', apiKey: 'SECRET' }, '/1/verify'],
-    ['POST', { provider: 'cloudflare', apiKey: 'SECRET' }, '/1/connect'],
-    ['POST', { apiKey: 'SECRET', type: 'A', name: '@', content: '1.2.3.4' }, '/1/records'],
-    ['DELETE', undefined, '/1'],
-  ];
-  for (const [method, body, suffix] of cases) {
-    const res = await call(method, body, suffix);
-    const j: any = await res.json();
-    check(res.status === 503 && j.success === false && j.comingSoon === true
-      && /即将上线/.test(j.message || ''),
-      `${method} ${suffix || '/'} 返回 503 + comingSoon（接口确实不可用）`);
-    check(!/SECRET/.test(JSON.stringify(j)), `${method} ${suffix || '/'} 不回显任何 API key`);
-  }
-
-  /* 关键：闸门在写库之前就拦下，D1 一行都没写 */
-  check(S.ext.length === 0
-    && !S.calls.some((q) => /INSERT INTO external_domains|UPDATE external_domains|DELETE FROM external_domains/.test(q)),
-    '即将上线期间数据库零写入（前端收起表单后接口也不会裸奔）');
-
-  /* 实现代码完整保留，以后把开关改回 false 就能开放，不用重写 */
-  check(/checkOwnership/.test(read('src/routes/externalDomains.ts'))
-    && /connectProvider/.test(read('src/routes/externalDomains.ts'))
-    && /addRecord/.test(read('src/routes/externalDomains.ts'))
-    && /CREATE TABLE IF NOT EXISTS external_domains/.test(schema),
-    '三步流程实现与独立表完整保留，随时可开放');
+  check(/external-domain-flow-regression\.ts/.test(read('.github/workflows/deploy.yml'))
+    && /validateExternalDomain/.test(flowReg) && /seusConnect/.test(flowReg),
+    '新流程专项回归进 CI：真跑 gTLD 校验 / SEUS 连接 / 站长审批');
+  check(!/comingSoon|EXTERNAL_DOMAINS_COMING_SOON/.test(extRouteNew),
+    '「即将上线」闸门已撤，接口按站长定版流程开放');
+  check(/CREATE TABLE IF NOT EXISTS external_domains/.test(schema)
+    && /idx_external_user/.test(schema),
+    '外部域名仍用独立表 + 用户索引，不并入 subdomains 全表扫描');
+  check(/SELECT \* FROM external_domains WHERE user_id = \?/.test(extRouteNew)
+    && !/COUNT\(\*\).*subdomains/.test(extRouteNew),
+    '列表按 user_id 索引读本人几行，不碰公开统计');
 }
 
 /* ───────────── E. 前端标签与文档 ───────────── */
@@ -296,43 +262,47 @@ const docsZh = read('docs-src/settings.md');
 const docsEn = read('docs-src/en/settings.md');
 check(/第三方域名接入/.test(dash) && /externalLabel/.test(dash)
   && /id="externalCard"/.test(dash), '控制台有第三方域名接入卡片并标（外部域名）');
+check(/固定 SEUS DNS/.test(dash) && /用 API 连接/.test(dash)
+  && /api\.post\('\/api\/external-domains/.test(dash),
+  '控制台卡片是真表单：固定 SEUS DNS + 提交 + API 连接');
 check(/externalLabel: EXTERNAL_LABEL/.test(whoisRoute)
   && /r\.externalLabel \|\| '（外部域名）'/.test(whoisUi),
   'WHOIS 外部域名结果也用同一份（外部域名）标签');
 check(/外部域名/.test(docsZh) && /external domain/i.test(docsEn)
   && /第三方域名接入/.test(readme), '中英文档与 README 写明外部域名');
+check(/gTLD/.test(docsZh) && /SEUS/.test(docsZh) && /gTLD/.test(docsEn),
+  '中英文设置文档写明 gTLD 准入与固定 SEUS DNS');
 check(/applyCard[\s\S]{0,400}<ExternalDomains \/>/.test(dash),
   '第三方域名接入放在「注册域名」卡片下面');
-check(/即将上线/.test(dash) && /即将上线/.test(read('src/app/pages/Register.tsx')),
-  '控制台与注册页都标「即将上线」');
-check(!/dashboard#externalCard/.test(read('src/app/pages/Register.tsx')),
-  '注册页不再提供可跳转的接入入口');
+check(!/即将上线/.test(dash) && !/即将上线/.test(read('src/app/pages/Register.tsx')),
+  '控制台与注册页不再标「即将上线」');
+check(/dashboard#externalCard/.test(read('src/app/pages/Register.tsx')),
+  '注册页提供去控制台提交接入申请的入口');
 const extRoute = read('src/routes/externalDomains.ts');
 const extVerify = read('src/lib/externalVerify.ts');
 const extDns = read('src/lib/providerDns.ts');
-check(/checkOwnership/.test(extRoute) && /verify_status/.test(extRoute)
-  && /connectProvider/.test(extRoute) && /addRecord/.test(extRoute),
-  '后端三步流程：TXT 验证 → 连接供应商 → 写 DNS 记录');
+check(/validateExternalDomain/.test(extRoute) && /seusConnect/.test(extRoute)
+  && /statusLabel/.test(extRoute) && /siteTokenReady/.test(extRoute),
+  '后端新流程：gTLD 校验 → SEUS API 连接 → 待站长批准');
 check(/cloudflare-dns\.com\/dns-query/.test(extVerify)
   && /dns\.google\/resolve/.test(extVerify) && /type\) === 16/.test(extVerify),
   '所有权验证走公共 DoH JSON，TXT(type=16) 双兜底');
 check(/api\.cloudflare\.com\/client\/v4/.test(extDns)
   && /isNameInDomain/.test(extDns) && /proxied: false/.test(extDns),
   'Cloudflare 官方 v4 写入，名称限定本域名，不默认开代理');
-check(/nsWarning/.test(extRoute) && /NS 生效前/.test(extRoute),
-  '接口明确提示 NS 前提，不假装加 TXT 就能解析');
+check(/nsWarning/.test(extRoute) && /NS 未生效前/.test(extRoute),
+  '接口明确提示 NS 前提，不假装连上 API 就能全球解析');
 check(!/api_?key/i.test(read('schema.sql').slice(
   read('schema.sql').indexOf('CREATE TABLE IF NOT EXISTS external_domains'),
   read('schema.sql').indexOf('CREATE INDEX IF NOT EXISTS idx_external_user')).replace(/verify_token/g,'')),
   'external_domains 表不存供应商 API key');
-check(/EXTERNAL_DOMAINS_COMING_SOON = true/.test(extRoute)
-  && /app\.use\('\*'/.test(extRoute) && /503/.test(extRoute),
-  '后端统一闸门：即将上线时接口全部 503，不放行任何写入');
-check(!/api\.(post|del|get)\(/.test(dash.slice(dash.indexOf('function ExternalDomains'), dash.indexOf('/** Dashboard')))
-  && !/<input|<select|<form/.test(dash.slice(dash.indexOf('function ExternalDomains'), dash.indexOf('/** Dashboard'))),
-  '控制台卡片没有任何表单 / 接口调用，只是状态说明');
-check(/即将上线|coming soon/i.test(docsZh) && /coming soon/i.test(docsEn)
-  && /即将上线/.test(readme), '中英文档与 README 写明「即将上线」');
+check(!/comingSoon/.test(extRoute) && !/app\.use\('\*'/.test(extRoute),
+  '后端不再有统一 503 闸门，接口按新流程可用');
+check(/api\.(post|del|get)\(/.test(dash.slice(dash.indexOf('function ExternalDomains'), dash.indexOf('/** Dashboard')))
+  && /<form/.test(dash.slice(dash.indexOf('function ExternalDomains'), dash.indexOf('/** Dashboard'))),
+  '控制台卡片含表单与接口调用，不再是纯状态说明');
+check(!/即将上线|coming soon/i.test(docsZh) && !/coming soon/i.test(docsEn),
+  '中英文档不再写「即将上线」');
 check(/D1 读取与第三方域名回归/.test(ci)
   && /d1-read-external-domain-regression\.ts/.test(ci), '专项回归进 CI');
 check(/public_stats_snapshot/.test(health), '健康巡检有防回流断言');
