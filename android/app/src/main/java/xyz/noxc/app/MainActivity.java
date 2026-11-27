@@ -95,20 +95,23 @@ public class MainActivity extends AppCompatActivity {
         barSubtitle = findViewById(R.id.bar_subtitle);
         barSubtitle.setText(api.host());
 
+        /* AGP 8 起 app module 的 R.id 字段也非 final，不能用在 switch case
+           （需要编译期常量），否则 javac 报 constant expression required。
+           这里用 if/else 按 id 比较。 */
         toolbar.setOnMenuItemClickListener(item -> {
-            switch (item.getItemId()) {
-                case R.id.action_refresh: boot(true); return true;
-                case R.id.action_full_web: openWeb(""); return true;
-                case R.id.action_change_site: showSiteDialog(); return true;
-                case R.id.action_about:
-                    new MaterialAlertDialogBuilder(this)
-                            .setTitle(R.string.about_app)
-                            .setMessage(R.string.about_body)
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show();
-                    return true;
-                default: return false;
+            int id = item.getItemId();
+            if (id == R.id.action_refresh) { boot(true); return true; }
+            if (id == R.id.action_full_web) { openWeb(""); return true; }
+            if (id == R.id.action_change_site) { showSiteDialog(); return true; }
+            if (id == R.id.action_about) {
+                new MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.about_app)
+                        .setMessage(R.string.about_body)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show();
+                return true;
             }
+            return false;
         });
 
         bottomNav.setOnItemSelectedListener(item -> {

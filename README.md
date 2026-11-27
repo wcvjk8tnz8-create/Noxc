@@ -1990,6 +1990,11 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
   AndroidX 依赖全打进 dex，CI 的「校验 APK 产物」断言 **≥ 1.5 MB** 并打印
   `unzip -l` 组成清单。若哪天体积掉回几十 KB，说明 `app/build.gradle` 的
   `dependencies {}` 被删了，CI 会直接失败。体积对照见第 23 节。
+- **`compileDebugJavaWithJavac` 报 `constant expression required`**：AGP 8 起
+  app module 的 `R.id` 字段也**非 final**，`switch (item.getItemId())` 里写
+  `case R.id.action_xxx:` 编译不过。已在 `MainActivity` 的 Toolbar 菜单分发改成
+  `if (id == R.id.action_xxx)`；回归会扫描全部 Java，任何 `case R.id.` 都会挂。
+  别为了「看着整洁」改回 switch。
 - **Gradle 拉不到 AndroidX / Material 依赖**：`settings.gradle` 已配
   `google()` + `mavenCentral()`，`gradle.properties` 开了 `android.useAndroidX=true`。
   CI 首次构建会多花一两分钟下载依赖，属正常；若报 `Could not resolve`，先确认

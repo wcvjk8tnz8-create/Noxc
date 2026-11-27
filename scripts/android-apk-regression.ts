@@ -171,6 +171,12 @@ for (const [label, src] of Object.entries(java)) {
 check(/extends AppCompatActivity/.test(mainJava)
   && /extends FormActivity/.test(loginJava + registerJava + forgotJava + detailJava),
   'AppCompat / FormActivity 基类正确（M3 主题必需）');
+/* 真实踩坑：AGP 8 起 app module 的 R.id 字段也非 final，switch case R.id.*
+   会报 constant expression required（CI 第 8 步 javac 失败）。菜单分发必须
+   用 if/else 按 id 比较。 */
+check(!/case R\.id\./.test(allJava)
+  && /if \(id == R\.id\.action_refresh\)/.test(mainJava),
+  '菜单分发用 if/else，不用 switch case R.id（AGP8 非 final R.id 会编译失败）');
 
 /* ───────── D. 零 WebView（硬约束） ───────── */
 const allJavaCode = Object.values(java)
