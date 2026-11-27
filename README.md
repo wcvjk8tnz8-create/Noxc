@@ -1881,8 +1881,9 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
   `sdkmanager --list_installed | head` / `gradle --version | head` 这类管道会因
   `head` 提前关闭管道而 SIGPIPE 非零。现在所有信息性输出都先重定向到临时文件
   再 `head`，别把 `| head` 加回来。
-- **「构建 APK」偶发标红、后面几步全 skipped**：曾出现过一次 runner 上 Gradle
-  拉依赖超时，同一份配置重跑即过。现在该步骤把 Gradle 输出落到
+- **「构建 APK」偶发标红、后面几步全 skipped**：曾出现过一次该步骤单独失败、
+  当时日志下载被网络策略挡住没读到细节，同一份配置重跑即过，判断是 runner
+  侧临时性失败（依赖下载 / 网络抖动），**未确认根因**。现在该步骤把 Gradle 输出落到
   `/tmp/gradle-build.log`，失败时把 `FAILURE:` / `What went wrong` / `Caused by:`
   等关键行**发成 check annotation** —— 日志下载在部分网络环境被 403 挡住时，
   直接在 Checks 页就能看到根因。别把 `set +e` + annotation 这段删掉。
