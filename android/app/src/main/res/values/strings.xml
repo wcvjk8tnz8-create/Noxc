@@ -11,4 +11,17 @@
     <string name="site_body">Use this when the site moves to a new domain. https is recommended.</string>
     <string name="site_save">Save &amp; reload</string>
     <string name="cancel">Cancel</string>
+
+    <!-- Native shell chrome -->
+    <string name="bar_more">More</string>
+    <string name="bar_refresh">Refresh</string>
+    <string name="bar_back">Back</string>
+    <string name="bar_forward">Forward</string>
+    <string name="bar_home">Home</string>
+    <string name="open_in_browser">Open in browser</string>
+    <string name="about_app">About</string>
+    <string name="about_body">Noxc for Android — a native shell around the live site. Pages always come from the server, so updates need no reinstall.</string>
+    <string name="pull_hint">Pull to refresh</string>
+    <string name="pull_release">Release to refresh</string>
+    <string name="press_back_again">Press back again to exit</string>
 </resources>

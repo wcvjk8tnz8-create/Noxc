@@ -1,24 +1,246 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/splash_bg">
 
-    <WebView
-        android:id="@+id/webview"
+    <!-- ══════════ 原生外壳：顶栏 / 进度 / 内容 / 底栏 ══════════ -->
+    <LinearLayout
+        android:id="@+id/chrome"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-    <ProgressBar
-        android:id="@+id/progress"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="3dp"
-        android:layout_gravity="top"
-        android:indeterminate="false"
-        android:max="100"
-        android:visibility="visible" />
+        <!-- 原生顶栏：品牌 + 当前页标题/站点 + 原生操作 -->
+        <LinearLayout
+            android:id="@+id/topbar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@color/bar_bg"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
 
-    <!-- 启动 / 加载遮罩：长按 Logo 可修改站点地址 -->
+            <ImageView
+                android:id="@+id/bar_logo"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:contentDescription="@string/app_name"
+                android:src="@mipmap/ic_launcher" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/bar_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="@string/app_name"
+                    android:textColor="@color/bar_text"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/bar_subtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/bar_dim"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/btn_refresh"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_pill"
+                android:clickable="true"
+                android:contentDescription="@string/bar_refresh"
+                android:focusable="true"
+                android:gravity="center"
+                android:minWidth="56dp"
+                android:text="@string/bar_refresh"
+                android:textColor="@color/bar_text"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/btn_more"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_pill"
+                android:clickable="true"
+                android:contentDescription="@string/bar_more"
+                android:focusable="true"
+                android:gravity="center"
+                android:minWidth="56dp"
+                android:text="@string/bar_more"
+                android:textColor="@color/bar_text"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- 加载进度：贴在顶栏下沿，不盖网页 -->
+        <ProgressBar
+            android:id="@+id/progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:indeterminate="false"
+            android:max="100"
+            android:visibility="visible" />
+
+        <!-- 内容区：下拉刷新容器 + 断网覆盖 -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <xyz.noxc.app.PullRefreshFrame
+                android:id="@+id/pull"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <WebView
+                    android:id="@+id/webview"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <!-- 下拉时从顶部滑出的原生提示胶囊 -->
+                <TextView
+                    android:id="@+id/pull_hint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top|center_horizontal"
+                    android:layout_marginTop="10dp"
+                    android:alpha="0"
+                    android:background="@drawable/bg_refresh_hint"
+                    android:paddingStart="16dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="8dp"
+                    android:text="@string/pull_hint"
+                    android:textColor="@color/bar_text"
+                    android:textSize="12sp" />
+            </xyz.noxc.app.PullRefreshFrame>
+
+            <!-- 断网：只盖内容区，原生上下栏保留，仍是 App 而不是错误页 -->
+            <LinearLayout
+                android:id="@+id/error"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/splash_bg"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="32dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/error_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/offline_title"
+                    android:textColor="@color/splash_text"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:text="@string/offline_body"
+                    android:textColor="@color/splash_dim"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/retry"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:minHeight="44dp"
+                    android:text="@string/retry" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- 原生底栏：后退 / 前进 / 首页 / 刷新 -->
+        <LinearLayout
+            android:id="@+id/bottombar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@color/bar_bg"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:id="@+id/nav_back"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="@string/bar_back"
+                android:textColor="@color/bar_text"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/nav_forward"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="@string/bar_forward"
+                android:textColor="@color/bar_text"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/nav_home"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="@string/bar_home"
+                android:textColor="@color/bar_text"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/nav_refresh"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="@string/bar_refresh"
+                android:textColor="@color/bar_text"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 启动遮罩盖住整屏（含原生栏）：长按 Logo 可改站点地址 -->
     <LinearLayout
         android:id="@+id/splash"
         android:layout_width="match_parent"
@@ -56,44 +278,6 @@
             android:layout_height="32dp"
             android:layout_marginTop="22dp"
             android:indeterminate="true" />
-    </LinearLayout>
-
-    <!-- 断网 / 主帧失败：长按标题同样可改站点地址 -->
-    <LinearLayout
-        android:id="@+id/error"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/splash_bg"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:padding="32dp"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/error_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/offline_title"
-            android:textColor="@color/splash_text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:gravity="center"
-            android:text="@string/offline_body"
-            android:textColor="@color/splash_dim"
-            android:textSize="13sp" />
-
-        <Button
-            android:id="@+id/retry"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:minHeight="44dp"
-            android:text="@string/retry" />
     </LinearLayout>
 
 </FrameLayout>

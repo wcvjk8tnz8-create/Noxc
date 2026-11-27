@@ -26,7 +26,10 @@ const rootGradle = read(A + 'build.gradle');
 const settings = read(A + 'settings.gradle');
 const manifest = read(MAIN + 'AndroidManifest.xml');
 const java = read(MAIN + 'java/xyz/noxc/app/MainActivity.java');
+const pullJava = read(MAIN + 'java/xyz/noxc/app/PullRefreshFrame.java');
 const layout = read(MAIN + 'res/layout/activity_main.xml');
+const pill = read(MAIN + 'res/drawable/bg_pill.xml');
+const hintBg = read(MAIN + 'res/drawable/bg_refresh_hint.xml');
 const strings = read(MAIN + 'res/values/strings.xml');
 const stringsZh = read(MAIN + 'res/values-zh-rCN/strings.xml');
 const styles = read(MAIN + 'res/values/styles.xml');
@@ -44,7 +47,10 @@ for (const f of [
   'build.gradle', 'settings.gradle', 'gradle.properties',
   'app/build.gradle', 'app/src/main/AndroidManifest.xml',
   'app/src/main/java/xyz/noxc/app/MainActivity.java',
+  'app/src/main/java/xyz/noxc/app/PullRefreshFrame.java',
   'app/src/main/res/layout/activity_main.xml',
+  'app/src/main/res/drawable/bg_pill.xml',
+  'app/src/main/res/drawable/bg_refresh_hint.xml',
   'app/src/main/res/values/strings.xml',
   'app/src/main/res/values-zh-rCN/strings.xml',
   'app/src/main/res/values/styles.xml',
@@ -108,22 +114,26 @@ check(/ic_launcher\.png 192 192/.test(pngs.join('\n')), 'xxxhdpi 传统图标为
 
 /* Java 源码结构：本地没有 android.jar 不能真编译，先做括号 / 语句配对检查，
    真编译交给 CI 的 assembleDebug。 */
-{
-  const stripped = java.replace(/"(?:\\.|[^"\\])*"/g, '""')
+for (const [label, src] of [['MainActivity.java', java], ['PullRefreshFrame.java', pullJava]] as const) {
+  const stripped = src.replace(/"(?:\\.|[^"\\])*"/g, '""')
     .replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const pairs: Array<[string, string]> = [['{', '}'], ['(', ')'], ['[', ']']];
   for (const [a, b] of pairs) {
     const na = (stripped.match(new RegExp('\\' + a, 'g')) || []).length;
     const nb = (stripped.match(new RegExp('\\' + b, 'g')) || []).length;
-    check(na === nb, `MainActivity.java ${a}${b} 配对（${na}/${nb}）`);
+    check(na === nb, `${label} ${a}${b} 配对（${na}/${nb}）`);
   }
-  check(/^package xyz\.noxc\.app;/m.test(java)
-    && /public class MainActivity extends Activity/.test(java)
-    && /@Override\s+protected void onCreate/.test(java),
-    'Java 包名 / 类名 / onCreate 入口正确');
-  const imports = (java.match(/^import .*;/gm) || []).length;
-  check(imports >= 15 && !/import androidx\./.test(java), `${imports} 个平台 import，零 AndroidX`);
+  check(/^package xyz\.noxc\.app;/m.test(src)
+    && !/import androidx\./.test(src), `${label} 包名正确且零 AndroidX`);
 }
+check(/public class MainActivity extends Activity/.test(java)
+  && /@Override\s+protected void onCreate/.test(java),
+  'MainActivity 类名 / onCreate 入口正确');
+check(/public class PullRefreshFrame extends FrameLayout/.test(pullJava)
+  && /onInterceptTouchEvent/.test(pullJava) && /onTouchEvent/.test(pullJava),
+  '下拉刷新容器是纯平台 FrameLayout，自带手势拦截');
+const imports = (java.match(/^import .*;/gm) || []).length;
+check(imports >= 15, `${imports} 个平台 import`);
 
 /* ───────── C. Manifest 安全边界 ───────── */
 check(/android:usesCleartextTraffic="false"/.test(manifest), '禁止明文 HTTP（只走 https）');
@@ -181,6 +191,71 @@ check(/Theme\.Material\.Light\.NoActionBar/.test(styles)
   '亮/暗双主题，夜间启动屏不翻白');
 check(/<adaptive-icon/.test(adaptive) && /ic_launcher_foreground/.test(adaptive),
   'Android 8+ 自适应图标');
+
+/* ───────── D2. 原生外壳（不是把网页全屏一塞了事） ───────── */
+check(/android:id="@\+id\/topbar"/.test(layout)
+  && /android:id="@\+id\/bottombar"/.test(layout)
+  && /xyz\.noxc\.app\.PullRefreshFrame/.test(layout)
+  && /android:id="@\+id\/pull_hint"/.test(layout)
+  && /android:layout_weight="1"/.test(layout),
+  '布局是「原生顶栏 + 内容区(WebView) + 原生底栏」三段，不是全屏 WebView');
+for (const id of ['bar_title', 'bar_subtitle', 'btn_refresh', 'btn_more',
+  'nav_back', 'nav_forward', 'nav_home', 'nav_refresh']) {
+  check(layout.includes(`@+id/${id}`), `原生控件存在：${id}`);
+}
+check(/android:id="@\+id\/error"/.test(layout)
+  && layout.indexOf('android:id="@+id/error"') > layout.indexOf('android:layout_weight="1"')
+  && layout.indexOf('android:id="@+id/error"') < layout.indexOf('android:id="@+id/bottombar"'),
+  '断网页只盖内容区，原生上下栏保留（仍是 App 不是浏览器错误页）');
+check(/android:layout_height="56dp"/.test(layout)
+  && /android:layout_height="40dp"/.test(layout),
+  '原生栏 56dp、底栏按钮 40dp，触控目标够大');
+check(/bar_bg|bar_text|bar_dim|brand_dot/.test(colors)
+  && /bar_bg|bar_text|bar_dim|brand_dot/.test(colorsNight),
+  '黑白灰外壳色板 + 一点品牌粉，明暗两套都齐');
+check(/statusBarColor">@color\/bar_bg/.test(styles)
+  && /navigationBarColor">@color\/bar_bg/.test(styles)
+  && /statusBarColor">@color\/bar_bg/.test(stylesNight),
+  '状态栏 / 导航栏与原生上下栏同色，沉浸式一致');
+check(/corners android:radius="999dp"/.test(pill)
+  && /<selector/.test(pill) && /state_pressed="true"/.test(pill)
+  && /corners android:radius="999dp"/.test(hintBg)
+  && /brand_dot/.test(hintBg),
+  '全圆角胶囊按钮 + 按压态 + 下拉提示胶囊（NodeLoc 3.0 形态）');
+for (const k of ['bar_more', 'bar_refresh', 'bar_back', 'bar_forward', 'bar_home',
+  'pull_hint', 'pull_release', 'press_back_again', 'about_body', 'open_in_browser']) {
+  check(strings.includes(`name="${k}"`) && stringsZh.includes(`name="${k}"`),
+    `原生外壳文案中英齐全：${k}`);
+}
+/* 关键修复：锁死 WebView 字号，否则系统「显示大小」会把响应式撑成
+   公告压 Logo / 导航竖排单字（社区实拍反馈）。 */
+check(/s\.setTextZoom\(100\)/.test(java)
+  && /s\.setDefaultFontSize\(16\)/.test(java)
+  && /s\.setMinimumFontSize\(12\)/.test(java),
+  '锁死网页 textZoom=100% / 基准 16sp / 最小 12sp，系统显示大小不撑爆响应式');
+check(/setOnRefreshListener\(this::reload\)/.test(java)
+  && /void reload\(\)/.test(java)
+  && /pull\.setOnRefreshListener/.test(java),
+  '原生下拉刷新接到 reload，不弹启动屏只走进度条');
+check(/setNavEnabled/.test(java) && /updateNav\(\)/.test(java)
+  && /web\.canGoForward\(\)/.test(java),
+  '底栏后退/前进随历史栈变灰，像 App 而不是浏览器');
+check(/PopupMenu/.test(java) && /open_in_browser/.test(java)
+  && /R\.string\.about_app/.test(java),
+  '顶栏「更多」是原生菜单：浏览器打开 / 改站点 / 关于');
+check(/now - lastBackAt < 2000/.test(java) && /press_back_again/.test(java),
+  '无网页历史时双按返回退出（原生 App 习惯）');
+check(/barSubtitle\.setText\(hostOf\(siteUrl\(\)\)\)/.test(java)
+  && /onReceivedTitle/.test(java) && /updateTitle\(/.test(java),
+  '顶栏副标题显示站点域名，标题随网页 title 更新');
+check(/requestDisallowInterceptTouchEvent\(false\)/.test(pullJava)
+  && /childAtTop\(\)/.test(pullJava) && /releaseSlop/.test(pullJava)
+  && /Math\.abs\(dx\) \* 1\.3f/.test(pullJava),
+  '下拉只在「已到顶 + 近乎垂直」时拦截，横滑/长按不受影响');
+check(!/import androidx\./.test(pullJava)
+  && !/extends\s+SwipeRefreshLayout/.test(pullJava)
+  && /extends FrameLayout/.test(pullJava),
+  '下拉刷新零 AndroidX 依赖（注释里提到它不算引用）');
 
 /* ───────── E. Gradle 构建配置 ───────── */
 check(/com\.android\.application' version '8\.5\.2'/.test(rootGradle)
@@ -260,6 +335,12 @@ check(!/gradle-version: '8\.9'/.test(brokenWf),
 const brokenJava = java.replace('setJavaScriptEnabled(true)', 'setJavaScriptEnabled(false)');
 check(!/setJavaScriptEnabled\(true\)/.test(brokenJava),
   '反向对照：关掉 JS 后行为断言必须失败（SPA 会白屏）');
+const brokenZoom = java.replace('s.setTextZoom(100)', 's.setTextZoom(130)');
+check(!/s\.setTextZoom\(100\)/.test(brokenZoom),
+  '反向对照：放开 textZoom 后「锁死字号」断言必须失败');
+const brokenChrome = layout.replace('android:id="@+id/bottombar"', 'android:id="@+id/gone_bar"');
+check(!/android:id="@\+id\/bottombar"/.test(brokenChrome),
+  '反向对照：拿掉原生底栏后「原生外壳」断言必须失败');
 
 console.log(`安卓 APK 配置回归：${ok.length} 通过，${bad.length} 失败`);
 for (const m of ok) console.log('  ✓ ' + m);

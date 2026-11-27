@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 启动屏 / 断网页 -->
     <color name="splash_bg">#121317</color>
     <color name="splash_text">#F5F5F5</color>
     <color name="splash_dim">#9A9AA2</color>
+
+    <!-- 原生外壳（黑白灰，沿用站点现行的 Zerexa 色板，不引入新品牌色） -->
+    <color name="bar_bg">#1B1C21</color>
+    <color name="bar_bg_pressed">#2A2B32</color>
+    <color name="bar_text">#F5F5F5</color>
+    <color name="bar_dim">#92939B</color>
+    <color name="bar_hair">#2E2F36</color>
+
+    <!-- 唯一一点品牌粉：加载进度条 / 下拉刷新提示，与启动图标那颗点一致 -->
+    <color name="brand_dot">#E58AB0</color>
+
     <color name="ic_launcher_background">#151519</color>
 </resources>

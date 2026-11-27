@@ -1390,10 +1390,21 @@ token 但已连上 SEUS zone 的存量申请，由一次性幂等迁移放行，
 
 ### 23. Noxc 手机版（Android APK · GitHub Actions 自动构建）
 
-**它是什么**：一个原生 Android **WebView 壳**，不是把站点用 Kotlin 重写一遍。
-站点本身就是响应式 SPA（见文末 Z.13 的移动端适配），所有业务逻辑都在 Worker 上，
-App 只负责「像 App 一样装下这个网页」：启动图标、启动屏、进度条、返回键、
-断网重试、文件上传桥接、OAuth 登录所需的 cookie 持久化。
+**它是什么**：一个原生 Android **外壳 + WebView**，不是把站点用 Kotlin 重写一遍，
+也不是「全屏塞一个网页」。站点本身就是响应式 SPA（见文末 Z.13 的移动端适配），
+所有业务逻辑都在 Worker 上；App 用 Android 平台控件画出**原生顶栏 / 底栏 / 下拉刷新
+/ 启动屏 / 断网覆盖层**，网页只占中间内容区。
+
+| 原生部分 | 表现 |
+|---|---|
+| 顶栏 | 品牌图标 + 网页标题 + 站点域名，右侧「刷新 / 更多（浏览器打开 · 改站点 · 关于）」 |
+| 底栏 | 后退 / 前进 / 首页 / 刷新，随历史栈变灰 |
+| 手势 | 顶部垂直下拉刷新（纯平台实现，不引入 AndroidX）、双按返回退出 |
+| 状态 | 贴顶栏的加载进度条、只盖内容区的断网页、状态栏与导航栏同色 |
+| 锁字号 | `textZoom=100%` + 基准 16sp，系统「显示大小」不再把响应式撑成竖排单字 |
+
+启动图标 / 启动屏、返回键、断网重试、文件上传桥接、OAuth 登录所需的 cookie
+持久化也都在。整个外壳保持黑白灰 + 全圆角，颜色沿用站点现行色板。
 
 > **网页更新即时生效，APK 不用跟着重打包。** 所以 CI 只在 `android/` 目录变化时
 > 自动构建，改前端 / 文档不会触发一次多余的 Gradle 编译。
@@ -1402,9 +1413,10 @@ App 只负责「像 App 一样装下这个网页」：启动图标、启动屏�
 
 | 文件 | 作用 |
 |---|---|
-| `android/app/src/main/java/.../MainActivity.java` | WebView 全部行为，只用 Android 平台 API |
+| `android/app/src/main/java/.../MainActivity.java` | 原生外壳接线 + WebView 全部行为，只用 Android 平台 API |
+| `android/app/src/main/java/.../PullRefreshFrame.java` | 纯平台下拉刷新容器（零 AndroidX，不干扰横滑） |
 | `android/app/build.gradle` | AGP 8.5.2 / minSdk 24 / targetSdk 34，`SITE_URL` 构建时注入 |
-| `android/app/src/main/res/` | 中英文案、明暗主题、启动/断网布局、5 档密度图标 |
+| `android/app/src/main/res/` | 中英文案、明暗主题、原生上下栏布局、圆角 drawable、5 档密度图标 |
 | `.github/workflows/android-apk.yml` | JDK 17 + Android 34 + Gradle 8.9 → 编译 / 校验 / 上传 APK |
 | `scripts/gen-android-icons.py` | 图标生成脚本（Pillow），产物已入库可复现 |
 
@@ -1436,7 +1448,7 @@ Gradle 用环境变量读取，**仓库里没有任何密钥**。
 
 1. 改 `android/app/build.gradle` 里的默认值（`https://nic.299282.xyz/`）
 2. CI 手动触发填 `site_url`，或本地 `gradle assembleDebug -PsiteUrl=https://noxc.uk/`
-3. App 内**长按启动 Logo**（或断网提示标题）直接改，存 `SharedPreferences`
+3. App 内**长按启动 Logo / 顶栏 Logo / 断网提示标题**直接改，存 `SharedPreferences`
 
 **本地构建**：Android Studio 打开 `android/` 目录即可；命令行需 JDK 17 +
 Android SDK 34 + Gradle 8.9，跑 `cd android && gradle assembleDebug`。
@@ -1446,7 +1458,9 @@ Android SDK 34 + Gradle 8.9，跑 `cd android && gradle assembleDebug`。
 只申请 `INTERNET` / `ACCESS_NETWORK_STATE` 两个权限；`allowBackup=false` 防会话
 cookie 被备份带走。http/https（含 OAuth 跳转链）留在 App 内，`mailto:` / `tel:` /
 `intent:` 交系统应用；**长按链接**可用系统浏览器打开。UA 追加 ` NoxcApp/1.0`，
-以后网页端要识别 App 内不用改客户端。
+以后网页端要识别 App 内不用改客户端。网页字号锁死 100%，原生栏文字固定单行
+`ellipsize`，两者互不干扰；下拉刷新只在「网页已到顶 + 手势近乎垂直」时接管，
+表格横滚与长按不受影响。
 
 配置回归 `scripts/android-apk-regression.ts` 会真解析全部 XML / PyYAML /
 PNG 头并锁住签名边界，挂在主 `deploy.yml` 里；**真编译**在 `android-apk.yml`
@@ -1863,6 +1877,16 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
 
 ### Z.15 安卓 APK 构建 / 安装的常见错误
 
+- **网页里公告压住 Logo、导航竖排成单字**：Android WebView 默认让 `textZoom`
+  跟随系统「字体大小 / 显示大小」，调大后会把站点响应式撑爆（社区实拍反馈）。
+  已在 `MainActivity.setupWebView()` 锁死 `setTextZoom(100)` +
+  `setDefaultFontSize(16)` + `setMinimumFontSize(12)`，**别为了「跟随系统字体」
+  把这三行删掉**；原生栏文字用 sp 且单行 `ellipsize`，本身不会挤坏布局。
+  排查时先在系统设置里把显示大小调回默认对比一次，能复现就是这一层。
+- **看起来还是「内嵌网页」而不是 App**：上一版只做了全屏 WebView + 启动屏，
+  确实太薄。现在顶栏 / 底栏 / 下拉刷新 / 双击退出 / 状态栏配色都是原生控件，
+  网页只占中间内容区；若哪天又变回全屏，检查 `activity_main.xml` 的
+  `topbar / bottombar / PullRefreshFrame / layout_weight` 四件套是否被删。
 - **push 了前端代码却没生成 APK**：这是**刻意设计**。WebView 壳加载线上网页，
   前端改版不需要重装；`android-apk.yml` 只在 `android/**`、该 workflow 自身、
   图标脚本或配置回归变化时触发。想立刻要一个包，用 Actions 里的

@@ -1962,6 +1962,20 @@ check(/setJavaScriptEnabled\(true\)/.test(apJava)
   && /shouldOverrideUrlLoading/.test(apJava)
   && /KEYCODE_BACK/.test(apJava) && /onShowFileChooser/.test(apJava),
   'WebView 壳：JS / 第三方 cookie / 外链分流 / 返回键 / 文件上传桥接');
+const apLayout = read('android/app/src/main/res/layout/activity_main.xml');
+const apPull = read('android/app/src/main/java/xyz/noxc/app/PullRefreshFrame.java');
+check(/android:id="@\+id\/topbar"/.test(apLayout)
+  && /android:id="@\+id\/bottombar"/.test(apLayout)
+  && /xyz\.noxc\.app\.PullRefreshFrame/.test(apLayout)
+  && /android:layout_weight="1"/.test(apLayout),
+  '安卓不是全屏塞网页：原生顶栏 + 内容区 + 原生底栏三段式外壳');
+check(/s\.setTextZoom\(100\)/.test(apJava)
+  && /s\.setDefaultFontSize\(16\)/.test(apJava)
+  && /s\.setMinimumFontSize\(12\)/.test(apJava),
+  '锁死 WebView textZoom=100%，系统「显示大小」不会把响应式撑成竖排单字');
+check(/setOnRefreshListener/.test(apJava) && /onInterceptTouchEvent/.test(apPull)
+  && !/import androidx\./.test(apPull),
+  '原生下拉刷新（纯平台 FrameLayout）/ 双击退出 / 底栏随历史栈变灰');
 check(/gradle-8\.9-bin\.zip/.test(apWf)
   && /assembleDebug/.test(apWf) && /assembleRelease/.test(apWf)
   && /aapt" dump badging/.test(apWf)

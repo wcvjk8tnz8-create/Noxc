@@ -3,10 +3,11 @@
     <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
+        <!-- 冷启动背景仍是深色，避免闪一帧白；状态栏/导航栏与原生上下栏同色 -->
         <item name="android:windowBackground">@color/splash_bg</item>
-        <item name="android:statusBarColor">@color/splash_bg</item>
-        <item name="android:navigationBarColor">@color/splash_bg</item>
+        <item name="android:statusBarColor">@color/bar_bg</item>
+        <item name="android:navigationBarColor">@color/bar_bg</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:colorAccent">#E58AB0</item>
+        <item name="android:colorAccent">@color/brand_dot</item>
     </style>
 </resources>
