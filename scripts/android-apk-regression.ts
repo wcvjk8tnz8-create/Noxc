@@ -220,6 +220,9 @@ check(/gradle-8\.9-bin\.zip/.test(wf) && /gradle --version/.test(wf)
 check(/gradle "\$TASK" --no-daemon/.test(wf)
   && /TASK=assembleDebug/.test(wf) && /TASK=assembleRelease/.test(wf),
   '按签名状态自适应 assembleDebug / assembleRelease');
+check(/gradle-build\.log/.test(wf) && /::error::\$line/.test(wf)
+  && /exit "\$RC"/.test(wf) && /set \+e/.test(wf),
+  '构建失败时把 Gradle 关键错误发成 check annotation，日志下载受限也能查根因');
 check(/secrets\.NOXC_KEYSTORE_BASE64/.test(wf)
   && /base64 -d/.test(wf) && /signed=false/.test(wf) && /::notice::/.test(wf),
   '没配 Secrets 就明确降级到 debug APK，不静默失败');
