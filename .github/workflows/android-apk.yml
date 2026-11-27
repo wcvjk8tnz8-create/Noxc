@@ -1,0 +1,124 @@
+name: Build Noxc Android APK
+
+# WebView 壳加载的是线上网页，前端改版不需要重新打包 APK。
+# 所以只有 android/ 或本 workflow 变化时才触发；也可随时手动跑一次。
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-apk.yml'
+      - 'scripts/android-apk-regression.ts'
+      - 'scripts/gen-android-icons.py'
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: '站点地址（留空用默认 https://nic.299282.xyz/）'
+        required: false
+        default: 'https://nic.299282.xyz/'
+      create_release:
+        description: '同时发布到 GitHub Releases（需已配置签名 Secrets）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 34 platform / build-tools
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" > /dev/null
+          sdkmanager --list_installed | grep -E 'android-34|34\.0\.0' || true
+
+      # 仓库不提交 gradle-wrapper.jar（二进制），由 action 装 Gradle 8.9 并加入 PATH
+      - name: Setup Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: 校验 Gradle / Java
+        run: |
+          gradle --version | head -12
+          java -version 2>&1 | head -3
+
+      - name: 准备 release 签名（没配 Secrets 就走 debug）
+        id: sign
+        env:
+          KS_B64: ${{ secrets.NOXC_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.NOXC_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.NOXC_KEY_ALIAS }}
+          KS_KEY_PASS: ${{ secrets.NOXC_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ] && [ -n "$KS_ALIAS" ] && [ -n "$KS_KEY_PASS" ]; then
+            printf '%s' "$KS_B64" | base64 -d > "$GITHUB_WORKSPACE/android/app/release.keystore"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "✓ 已配置 release 签名"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::未配置签名 Secrets → 构建 debug APK（可直接安装）"
+          fi
+
+      - name: 构建 APK
+        env:
+          SITE_URL: ${{ inputs.site_url || 'https://nic.299282.xyz/' }}
+          NOXC_KEYSTORE: ${{ github.workspace }}/android/app/release.keystore
+          NOXC_KEYSTORE_PASSWORD: ${{ secrets.NOXC_KEYSTORE_PASSWORD }}
+          NOXC_KEY_ALIAS: ${{ secrets.NOXC_KEY_ALIAS }}
+          NOXC_KEY_PASSWORD: ${{ secrets.NOXC_KEY_PASSWORD }}
+        run: |
+          cd android
+          TASK=assembleDebug
+          if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then TASK=assembleRelease; fi
+          echo "▶ gradle $TASK  site=$SITE_URL  signed=${{ steps.sign.outputs.signed }}"
+          gradle "$TASK" --no-daemon --stacktrace -PsiteUrl="$SITE_URL"
+
+      - name: 校验 APK 产物
+        run: |
+          APK=$(find android/app/build/outputs/apk -name '*.apk' -type f | head -1)
+          if [ -z "$APK" ]; then echo "✗ 没找到 APK"; exit 1; fi
+          echo "APK=$APK"
+          ls -lh "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -6
+          if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then
+            "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$APK" | head -8
+          fi
+
+      - name: 上传 APK 到 Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxc-apk-${{ github.run_number }}
+          path: android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: 发布到 GitHub Releases
+        if: ${{ inputs.create_release }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v${{ github.run_number }}
+          name: Noxc Android · build ${{ github.run_number }}
+          body: |
+            由 GitHub Actions 从 `${{ github.sha }}` 自动构建。
+
+            - 站点地址：`${{ inputs.site_url || 'https://nic.299282.xyz/' }}`
+            - 形态：Android WebView 壳，页面实时取自线上，前端更新无需重装
+            - 安装前请在系统设置里允许「安装未知来源应用」
+          files: android/app/build/outputs/apk/**/*.apk
+          draft: false
+          prerelease: false

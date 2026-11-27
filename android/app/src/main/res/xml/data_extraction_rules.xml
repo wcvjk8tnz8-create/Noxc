@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ (targetSdk 31+) 备份 / 换机迁移排除规则。
+     与 Manifest 的 allowBackup="false" 双保险：会话 cookie、WebView 缓存、
+     SharedPreferences 里的站点地址都不参与云备份与设备迁移。 -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+    </device-transfer>
+</data-extraction-rules>

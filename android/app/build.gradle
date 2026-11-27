@@ -1,0 +1,74 @@
+plugins {
+    id 'com.android.application'
+}
+
+/*
+ * 站点地址：构建时注入，不需要改 Java 代码。
+ *   CI:  gradle assembleDebug -PsiteUrl=https://noxc.uk/
+ *   本地: 改下面默认值，或 Android Studio 里加 -PsiteUrl=...
+ * App 内长按启动 Logo / 断网提示标题也能临时改（存 SharedPreferences）。
+ */
+def siteRaw = (project.findProperty('siteUrl') ?: System.getenv('SITE_URL')
+        ?: 'https://nic.299282.xyz/').toString()
+def siteUrl = siteRaw.replace('\\', '').replace('"', '').trim()
+if (!siteUrl.endsWith('/')) siteUrl = siteUrl + '/'
+
+/*
+ * release 签名：四个环境变量齐全才启用，密钥绝不入库。
+ * CI 从 Secrets 解码 keystore 到 app/release.keystore（已 gitignore）后传入；
+ * 没配时 buildTypes.release 不引用 signingConfig，CI 改跑 assembleDebug，
+ * 产出 debug 签名的 APK，同样可以直接安装。
+ */
+def ksPath = System.getenv('NOXC_KEYSTORE')
+def ksPass = System.getenv('NOXC_KEYSTORE_PASSWORD')
+def ksAlias = System.getenv('NOXC_KEY_ALIAS')
+def ksKeyPass = System.getenv('NOXC_KEY_PASSWORD')
+def canSign = ksPath && ksPass && ksAlias && ksKeyPass && file(ksPath).exists()
+
+android {
+    namespace 'xyz.noxc.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'xyz.noxc.app'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+        // AGP 8+ 默认不生成 BuildConfig，这里显式打开（SITE_URL / UA_SUFFIX / DEBUG 要用）
+        buildConfigField 'String', 'SITE_URL', "\"${siteUrl}\""
+        buildConfigField 'String', 'UA_SUFFIX', '" NoxcApp/1.0"'
+    }
+
+    // 零第三方依赖：只用 Android 平台 API，CI 不需要拉 AndroidX，构建最快最稳。
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        if (canSign) {
+            release {
+                storeFile file(ksPath)
+                storePassword ksPass
+                keyAlias ksAlias
+                keyPassword ksKeyPass
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (canSign) signingConfig signingConfigs.getByName('release')
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+    }
+}

@@ -190,6 +190,10 @@ jobs:
       - name: 移动端适配回归（顶栏 / 触控 / 断点 / 表格横滚）
         run: npx tsx scripts/mobile-regression.ts
 
+      # 安卓 App 配置（真编译在 android-apk.yml 里跑 assembleDebug/Release）
+      - name: 安卓 APK 配置回归（XML / YAML / 图标 / 签名边界）
+        run: npx tsx scripts/android-apk-regression.ts
+
       # 首页「已开通域名」可展开 + 最热后缀 HOT：真跑 SQLite 分组与 /api/config
       - name: 统计展开回归
         run: npx tsx scripts/stats-breakdown-regression.ts

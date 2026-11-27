@@ -1943,6 +1943,37 @@ check(/TXT 验证 → 改 NS/.test(txReadme)
 
 
 
+/* ── 安卓 App（WebView 壳）· APK 由 GitHub Actions 编译 ── */
+const apGradle = read('android/app/build.gradle');
+const apManifest = read('android/app/src/main/AndroidManifest.xml');
+const apJava = read('android/app/src/main/java/xyz/noxc/app/MainActivity.java');
+const apWf = read('.github/workflows/android-apk.yml');
+const apIgnore = read('.gitignore');
+check(/namespace 'xyz\.noxc\.app'/.test(apGradle) && /minSdk 24/.test(apGradle)
+  && /buildConfig true/.test(apGradle) && /project\.findProperty\('siteUrl'\)/.test(apGradle),
+  '安卓工程：AGP 8 / BuildConfig 显式开启 / 站点地址构建时注入');
+check(/usesCleartextTraffic="false"/.test(apManifest)
+  && /allowBackup="false"/.test(apManifest)
+  && /dataExtractionRules="@xml\/data_extraction_rules"/.test(apManifest)
+  && (apManifest.match(/uses-permission/g) || []).length === 2,
+  '安卓 Manifest：禁明文 / 禁备份 / 只两个网络权限');
+check(/setJavaScriptEnabled\(true\)/.test(apJava)
+  && /setAcceptThirdPartyCookies/.test(apJava)
+  && /shouldOverrideUrlLoading/.test(apJava)
+  && /KEYCODE_BACK/.test(apJava) && /onShowFileChooser/.test(apJava),
+  'WebView 壳：JS / 第三方 cookie / 外链分流 / 返回键 / 文件上传桥接');
+check(/gradle-version: '8\.9'/.test(apWf)
+  && /assembleDebug/.test(apWf) && /assembleRelease/.test(apWf)
+  && /aapt" dump badging/.test(apWf)
+  && /actions\/upload-artifact@v4/.test(apWf),
+  'GitHub Actions 真编译并校验 / 上传 APK，签名缺失时明确降级 debug');
+check(/android\/app\/\*\.keystore/.test(apIgnore)
+  && !fs.existsSync(path.join(root, 'android/app/release.keystore')),
+  'keystore 被 gitignore 且工作区没有明文密钥');
+check(/### 23\./.test(d1Readme) && /### Z\.15/.test(d1Readme)
+  && /android-apk-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  'README 第 23 节 / Z.15 与配置回归都挂进主流程');
+
 /* ── 数据备份导出 / 重新汇入防回流 ── */
 const bkFmt = read('src/lib/backupFormat.ts');
 const bkRoute = read('src/routes/backup.ts');

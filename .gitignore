@@ -12,3 +12,12 @@ node_modules/
 # Python 字节码缓存（schema-persistence.py 等运维脚本）
 __pycache__/
 *.pyc
+
+# Android（Gradle 产物 / 本地密钥绝不入库）
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/*.keystore
+android/app/signing.gradle
+*.apk

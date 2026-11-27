@@ -1,0 +1,5 @@
+// Noxc Android · 顶层构建脚本
+// AGP 8.5.2 需要 Gradle 8.7+ / JDK 17；CI 固定 Gradle 8.9 + Temurin 17。
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

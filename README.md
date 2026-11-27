@@ -24,6 +24,7 @@
 | AnyNS / n.ht 管理 API 接入 | 第 19 节 / 附录 Z.10 |
 | meoy.top 迁移至 AnyNS · 解析已恢复 | 第 21 节 / 附录 Z.12 |
 | 第三方域名接入（独立页 / 文档） | 第 22 节 / `/external-domains` · `/docs/external-domains.html` |
+| Noxc 手机版 APK / 签名 / 换站点 | 第 23 节 / `.github/workflows/android-apk.yml` · 附录 Z.15 |
 
 ---
 
@@ -1387,6 +1388,70 @@ token 但已连上 SEUS zone 的存量申请，由一次性幂等迁移放行，
 内存 D1 + Hono 真跑准入校验、提交、连接、站长审批、后端锁定与记录写入。
 **常见错误**见文末「Z.14」。
 
+### 23. Noxc 手机版（Android APK · GitHub Actions 自动构建）
+
+**它是什么**：一个原生 Android **WebView 壳**，不是把站点用 Kotlin 重写一遍。
+站点本身就是响应式 SPA（见文末 Z.13 的移动端适配），所有业务逻辑都在 Worker 上，
+App 只负责「像 App 一样装下这个网页」：启动图标、启动屏、进度条、返回键、
+断网重试、文件上传桥接、OAuth 登录所需的 cookie 持久化。
+
+> **网页更新即时生效，APK 不用跟着重打包。** 所以 CI 只在 `android/` 目录变化时
+> 自动构建，改前端 / 文档不会触发一次多余的 Gradle 编译。
+
+**目录**（独立子工程，不碰 Vite / Wrangler 主构建链，零第三方依赖）
+
+| 文件 | 作用 |
+|---|---|
+| `android/app/src/main/java/.../MainActivity.java` | WebView 全部行为，只用 Android 平台 API |
+| `android/app/build.gradle` | AGP 8.5.2 / minSdk 24 / targetSdk 34，`SITE_URL` 构建时注入 |
+| `android/app/src/main/res/` | 中英文案、明暗主题、启动/断网布局、5 档密度图标 |
+| `.github/workflows/android-apk.yml` | JDK 17 + Android 34 + Gradle 8.9 → 编译 / 校验 / 上传 APK |
+| `scripts/gen-android-icons.py` | 图标生成脚本（Pillow），产物已入库可复现 |
+
+**拿 APK**：push 到 `main` 且改动涉及 `android/**` 后，去 Actions →
+**Build Noxc Android APK** → 该次 run 底部的 **Artifacts** 下载
+`noxc-apk-<run号>`。也可以随时 `workflow_dispatch` 手动跑一次，可填
+`site_url`，勾选 `create_release` 会同时发到 GitHub Releases。
+
+**签名（可选，不配也能装）**：CI 会检查四个 Secrets，齐全就构建 `release` 签名版，
+否则明确降级为 `assembleDebug`（debug 签名，同样可直接安装），不会静默失败。
+
+```bash
+keytool -genkeypair -v -keystore noxc.jks -alias noxc \
+  -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 noxc.jks            # macOS: base64 -i noxc.jks
+```
+
+| Secret | 值 |
+|---|---|
+| `NOXC_KEYSTORE_BASE64` | 上面 base64 输出（单行） |
+| `NOXC_KEYSTORE_PASSWORD` | keystore 口令 |
+| `NOXC_KEY_ALIAS` | `noxc` |
+| `NOXC_KEY_PASSWORD` | key 口令 |
+
+keystore 只在 runner 上解码到 `android/app/release.keystore`（已 gitignore），
+Gradle 用环境变量读取，**仓库里没有任何密钥**。
+
+**换站点地址**（三种，优先级从低到高）
+
+1. 改 `android/app/build.gradle` 里的默认值（`https://nic.299282.xyz/`）
+2. CI 手动触发填 `site_url`，或本地 `gradle assembleDebug -PsiteUrl=https://noxc.uk/`
+3. App 内**长按启动 Logo**（或断网提示标题）直接改，存 `SharedPreferences`
+
+**本地构建**：Android Studio 打开 `android/` 目录即可；命令行需 JDK 17 +
+Android SDK 34 + Gradle 8.9，跑 `cd android && gradle assembleDebug`。
+仓库刻意不提交 `gradle-wrapper.jar`（二进制），CI 由 `setup-gradle` 安装 Gradle。
+
+**行为边界**：只放行 https，`usesCleartextTraffic=false`、禁混合内容与 `file://`；
+只申请 `INTERNET` / `ACCESS_NETWORK_STATE` 两个权限；`allowBackup=false` 防会话
+cookie 被备份带走。http/https（含 OAuth 跳转链）留在 App 内，`mailto:` / `tel:` /
+`intent:` 交系统应用；**长按链接**可用系统浏览器打开。UA 追加 ` NoxcApp/1.0`，
+以后网页端要识别 App 内不用改客户端。
+
+配置回归 `scripts/android-apk-regression.ts` 会真解析全部 XML / PyYAML /
+PNG 头并锁住签名边界，挂在主 `deploy.yml` 里；**真编译**在 `android-apk.yml`
+（`aapt dump badging` + 有签名时 `apksigner verify`）。**常见错误**见文末「Z.15」。
+
 ---
 
 ## 附录 Z · 故障排查与已知错误（固定放在文末）
@@ -1795,3 +1860,31 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
   保存时统一失效缓存立即生效。留空也不影响用户提交申请（自带 Token 兜底）。
 - **改完前端看不到新表单**：`Dashboard.tsx` / `Register.tsx` / 后台 JS 都改了，
   强清一次浏览器缓存；Worker isolate 的 30 秒配置缓存最多再等半分钟。
+
+### Z.15 安卓 APK 构建 / 安装的常见错误
+
+- **push 了前端代码却没生成 APK**：这是**刻意设计**。WebView 壳加载线上网页，
+  前端改版不需要重装；`android-apk.yml` 只在 `android/**`、该 workflow 自身、
+  图标脚本或配置回归变化时触发。想立刻要一个包，用 Actions 里的
+  **Run workflow** 手动触发即可。
+- **没配签名 Secrets，只有 `app-debug.apk`**：不是失败。CI 会打 notice 并明确
+  降级到 `assembleDebug`，debug 签名照样能装。要上架/长期分发才需要配
+  `NOXC_KEYSTORE_*` 四个 Secret（见第 23 节）。
+- **`gradle: command not found`**：仓库不提交 `gradle-wrapper.jar`，CI 靠
+  `gradle/actions/setup-gradle@v4` 装 8.9 并加入 PATH；第一步 `gradle --version`
+  就是干这个自检的。本地跑请先自行安装 Gradle 8.9，或用 Android Studio。
+- **Gradle 报 `BuildConfig` 找不到**：AGP 8+ 默认关闭 BuildConfig 生成，
+  `app/build.gradle` 里已显式 `buildFeatures { buildConfig true }`，别删。
+- **装了打不开 / 一直白屏**：先看 `aapt dump badging` 确认包内 `SITE_URL` 指向的
+  域名是否还在线；站点迁移到新域名时**不用重装** —— 长按启动 Logo（或断网提示
+  标题）改地址即可。WebView 需要网络，断网会显示带「重试」的整页提示而不是白屏。
+- **OAuth 登录跳出去就掉登录态**：`CookieManager` 已放行第三方 cookie 并在
+  `onPause()` 里 `flush()`。别用「长按链接 → 系统浏览器」去走登录流程，
+  浏览器和 WebView 的 cookie 不共享；登录请留在 App 内完成。
+- **`net::ERR_CLEARTEXT_NOT_PERMITTED`**：Manifest 写死 `usesCleartextTraffic=false`
+  且 `MIXED_CONTENT_NEVER_ALLOW`。站点必须全 https，别为了图省事改回 http。
+- **图标在 Android 8+ 显示怪异**：`mipmap-anydpi-v26/ic_launcher.xml` 用自适应图标，
+  前景是 432×432、内容缩在中间 66% 安全区；改图后重跑
+  `python3 scripts/gen-android-icons.py`，别只替换某一档密度。
+- **以为 APK 里打包了网页**：没有。APK 只有一个壳，页面、静态资源、接口全部实时
+  取自 Worker；离线时显示断网页，不会假装能用。

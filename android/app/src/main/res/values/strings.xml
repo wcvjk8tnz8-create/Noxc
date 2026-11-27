@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Noxc</string>
+    <string name="loading">Connecting…</string>
+    <string name="offline_title">Can\'t reach Noxc</string>
+    <string name="offline_body">Check your connection and try again. Long-press this title to change the site address.</string>
+    <string name="retry">Retry</string>
+    <string name="no_file_picker">No file picker available</string>
+    <string name="no_browser">No browser available</string>
+    <string name="site_title">Site address</string>
+    <string name="site_body">Use this when the site moves to a new domain. https is recommended.</string>
+    <string name="site_save">Save &amp; reload</string>
+    <string name="cancel">Cancel</string>
+</resources>
