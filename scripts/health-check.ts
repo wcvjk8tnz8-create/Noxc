@@ -1979,9 +1979,11 @@ check(/sh_session/.test(apApi) && /Set-Cookie/.test(apApi)
   && /setRequestProperty\("Cookie", "sh_session="/.test(apApi)
   && /HttpURLConnection/.test(apApi) && !/import androidx\./.test(apAllJava),
   '纯平台网络层：HttpURLConnection + sh_session cookie + 零 AndroidX');
-check(/\/api\/config/.test(apMain) && /\/api\/subdomains\/mine/.test(apMain)
-  && /\/api\/points\/me/.test(apMain) && /\/api\/whois/.test(apMain),
-  '原生页面直连 config / domains / points / whois 接口');
+check(/api\.bootstrap\(fresh/.test(apMain) && /ep\("check"/.test(apMain)
+  && /\/api\/app\/v1\/bootstrap/.test(apApi)
+  && /createAppRoutes/.test(read('src/routes/app.ts'))
+  && /app-api-regression\.ts/.test(read('.github/workflows/deploy.yml')),
+  'App 专用 bootstrap 接口 + 契约 + 真跑回归都挂进主流程');
 check(/Intent\.ACTION_VIEW/.test(apMain) && /openWeb\("docs"\)/.test(apMain),
   '复杂流程交系统浏览器，不在 App 内嵌网页');
 check(/gradle-8\.9-bin\.zip/.test(apWf)

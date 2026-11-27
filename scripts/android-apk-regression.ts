@@ -217,13 +217,12 @@ check(/Accept-Language/.test(apiJava) && /zh-CN/.test(apiJava),
   '按系统语言请求中文/英文文案');
 check(/BuildConfig\.SITE_URL/.test(apiJava) && /setSite\(/.test(apiJava),
   '站点地址可构建时注入，App 内可改（迁移域名不重装）');
-check(/\/api\/config/.test(mainJava) && /\/api\/auth\/me/.test(mainJava)
-  && /\/api\/subdomains\/mine/.test(mainJava)
-  && /\/api\/points\/me/.test(mainJava)
-  && /\/api\/subdomains\/check/.test(mainJava)
-  && /\/api\/whois/.test(mainJava)
-  && /\/api\/records\/subdomains\//.test(detailJava),
-  '四个页面直接调 config / me / domains / points / check / whois / records 七个接口');
+check(/api\.bootstrap\(fresh/.test(mainJava)
+  && /\/api\/app\/v1\/bootstrap/.test(apiJava)
+  && /ep\("check"/.test(mainJava) && /ep\("whois"/.test(mainJava)
+  && /api\.endpoint\("records"/.test(detailJava)
+  && /Api\.setEndpoints\(endpoints\)/.test(mainJava),
+  '冷启动只打 bootstrap 一个接口，三个 Activity 的路径都来自 endpoints 契约');
 check(/\/api\/auth\/login/.test(loginJava) && /\/api\/auth\/logout/.test(apiJava)
   && /api\.logout\(/.test(mainJava) && /\/api\/points\/checkin/.test(mainJava),
   '登录、登出、签到都是原生按钮直连接口');
@@ -312,6 +311,8 @@ check(/TASK=assembleDebug/.test(wf) && /TASK=assembleRelease/.test(wf)
 check(/aapt" dump badging/.test(wf) && /classes\.dex/.test(wf)
   && /resources\.arsc/.test(wf) && /sha256sum/.test(wf),
   'CI 真校验 APK 内容（dex / 资源表 / 图标）');
+check(/APK 组成（按压缩后大小）/.test(wf) && /assets\/ 条目/.test(wf),
+  'CI 打印 APK 组成清单，几十 KB 的体积可复核（零依赖 / 不打包网页）');
 check(/actions\/upload-artifact@v4/.test(wf) && /if-no-files-found: error/.test(wf),
   'APK 上传 Artifacts，缺产物直接失败');
 check(/inputs\.create_release/.test(wf) && /contents: write/.test(wf),

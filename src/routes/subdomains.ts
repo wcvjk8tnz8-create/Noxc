@@ -146,7 +146,7 @@ app.get('/check', async (c) => {
 export const QUOTA_STATUSES = "('pending','approved','suspended')";
 
 // 我的子域名列表（同时兼容 /api/subdomains 与 /api/subdomains/）
-const listMine = async (c) => {
+export async function listMineData(c) {
   const u = c.get('user');
   const { results } = await c.env.DB.prepare(
     `SELECT s.*, (SELECT COUNT(*) FROM dns_records r WHERE r.subdomain_id = s.id) AS record_count
@@ -169,7 +169,7 @@ const listMine = async (c) => {
     .bind(u.id)
     .first();
 
-  return ok(c, {
+  return {
     items: results.map((s) => ({
       ...s,
       /* 暂停解析只是展示状态，status 仍是 approved：统计/续期/配额不受影响 */
@@ -187,8 +187,10 @@ const listMine = async (c) => {
     pendingApplication: pending ? { id: pending.id, fqdn: pending.fqdn } : null,
     validDays: rules.validDays,
     renewWindowDays: rules.renewWindowDays,
-  });
-};
+  };
+}
+
+const listMine = async (c) => ok(c, await listMineData(c));
 
 app.get('/', listMine);
 /* 旧前端缓存会请求 /api/subdomains/mine?limit=200；这条必须在 /:id 之前注册，

@@ -39,8 +39,9 @@ export async function pointRules(env) {
   };
 }
 
-/** 我的积分概览（登录即可访问） */
-app.get('/me', async (c) => {
+/** 我的积分概览（登录即可访问）。纯数据版供 /api/app/v1/bootstrap 复用，
+    避免 App 专用接口另写一套补发奖励 / 余额 / 流水规则而跑偏。 */
+export async function pointsSnapshot(c) {
   const u = c.get('user');
   const rules = await pointRules(c.env);
   const isAdmin = u.role === 'admin';
@@ -70,7 +71,7 @@ app.get('/me', async (c) => {
     .bind(u.id)
     .all();
 
-  return ok(c, {
+  return {
     points,
     unlimited: isAdmin,
     rules,
@@ -78,8 +79,10 @@ app.get('/me', async (c) => {
     checkedIn: checked,
     canCheckIn: !checked,
     logs: logs || [],
-  });
-});
+  };
+}
+
+app.get('/me', async (c) => ok(c, await pointsSnapshot(c)));
 
 /**
  * 组合任务奖励状态（奖励中心用）。

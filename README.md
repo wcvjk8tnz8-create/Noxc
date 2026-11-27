@@ -24,7 +24,7 @@
 | AnyNS / n.ht 管理 API 接入 | 第 19 节 / 附录 Z.10 |
 | meoy.top 迁移至 AnyNS · 解析已恢复 | 第 21 节 / 附录 Z.12 |
 | 第三方域名接入（独立页 / 文档） | 第 22 节 / `/external-domains` · `/docs/external-domains.html` |
-| Noxc 手机版（完全原生 APK）/ 签名 / 换站点 | 第 23 节 / `.github/workflows/android-apk.yml` · 附录 Z.15 |
+| Noxc 手机版（完全原生 APK）/ App 专用接口 / 签名 / 换站点 | 第 23 节 · 第 24 节 / `.github/workflows/android-apk.yml` · 附录 Z.15 |
 
 ---
 
@@ -1400,10 +1400,23 @@ token 但已连上 SEUS zone 的存量申请，由一次性幂等迁移放行，
 
 | 页面 | 内容 | 数据来源 |
 |---|---|---|
-| 首页 | 站点公告、实时统计、最热后缀 HOT、积分规则、名称查询（可用性 / 价格 / WHOIS） | `/api/config` · `/api/subdomains/check` · `/api/whois` |
-| 域名 | 我的域名列表、状态、记录数、暂停解析标记，点卡片进原生记录页 | `/api/subdomains/mine` · `/api/records/subdomains/:id/records` |
-| 积分 | 余额、每日签到、规则、最近流水 | `/api/points/me` · `/api/points/checkin` |
-| 我的 | 账号信息、登录 / 登出、浏览器兜底入口 | `/api/auth/me` · `/api/auth/logout` |
+| 首页 | 站点公告、实时统计、最热后缀 HOT、积分规则、名称查询（可用性 / 价格 / WHOIS） | **`/api/app/v1/bootstrap`** · `check` · `whois` |
+| 域名 | 我的域名列表、状态、记录数、暂停解析标记，点卡片进原生记录页 | **bootstrap** · `records`（点进去才请求） |
+| 积分 | 余额、每日签到、规则、最近流水 | **bootstrap** · `checkin` |
+| 我的 | 账号信息、登录 / 登出、浏览器兜底入口 | **bootstrap** · `logout` |
+
+**App 专用接口 `GET /api/app/v1/bootstrap`**（第 24 节有完整契约）
+
+冷启动**只打这一个请求**，一次拿到 `site`（公告 / 统计 / HOT / 积分规则 / 后缀名单）
++ `user` + `domains` + `points`。未登录也能调，登录态三段返回 `null`。
+登录态数据全部复用站点原有函数（`listMineData` / `pointsSnapshot` / `publicUser`），
+**不另写一套**补发奖励、暂停解析、额度、有效期规则；公开配置复用 `/api/config`
+的 30 秒缓存，不多打 D1。响应 `Cache-Control: private, max-age=10`，签到 / 登录 /
+登出后 App 带 `?_=` 强制 fresh。
+
+返回的 `endpoints` 是接口契约（`check` / `whois` / `records` / `checkin` /
+`logout` / 各网页入口），App 从这里读路径，不在客户端硬编码一整套 API；
+`capabilities` 明示哪些流程原生可做、哪些必须跳浏览器。
 
 **登录**：原生邮箱 + 密码表单 → `POST /api/auth/login` → 从 `Set-Cookie` 提取
 `sh_session` 存 `SharedPreferences`，之后每个请求手动带 Cookie 头，杀进程重开不掉登录。
@@ -1412,6 +1425,20 @@ NodeLoc / GitHub OAuth、注册、忘记密码跳浏览器登录页。
 **网络层**：平台 `HttpURLConnection` + `org.json` + 线程池，回调回主线程；统一解析
 `{ success, message }` 信封，按系统语言请求中英文案。**零第三方依赖 / 零 AndroidX**。
 原生栏、卡片、胶囊按钮、明暗双主题沿用站点现行的黑白灰 + 一点品牌粉、全圆角。
+
+**为什么 APK 只有几十 KB**：这是**正常且刻意**的，不是打包漏了东西。
+
+| 原因 | 说明 |
+|---|---|
+| 不打包网页 | 没有 WebView，也没有把 HTML / CSS / JS / 字体 / 站点图片塞进 assets |
+| 零依赖 | 没有 AndroidX、Kotlin 标准库、图片加载库、React Native —— 这些随便一个就是几 MB |
+| 只有 5 个类 | `classes.dex` 里是纯平台 Java，没有生成的 ViewBinding / Dagger / Room 代码 |
+| 图标很少 | 6 张小 PNG（最大 192×192）+ 1 张 432×432 自适应前景 |
+| debug 签名 | 没配 Secrets 时签名块很小；release 签名也只多几 KB |
+
+CI 的「校验 APK 产物」会打印 `unzip -l` 组成清单，并断言必须含
+`classes.dex` / `resources.arsc` / ≥6 张 PNG —— **格式合法但是空壳会被直接判失败**。
+对照：一个带 AndroidX 的普通壳通常 2–5 MB，一个 WebView 壳也会因为打包网页资源到几百 KB 以上。
 
 **目录**（独立子工程，不碰 Vite / Wrangler 主构建链）
 
@@ -1472,6 +1499,63 @@ App 内不做滑块验证、不写 DNS 记录、不跑后台管理 —— 这些
 锁住「零 WebView / 零 AndroidX / 七个接口 / 浏览器兜底」，挂在主 `deploy.yml`；
 **真编译**在 `android-apk.yml`（`aapt dump badging` + ZIP 内含 dex/资源表/图标 +
 有签名时 `apksigner verify`）。**常见错误**见文末「Z.15」。
+
+---
+
+### 24. App 专用接口 `/api/app/v1/bootstrap`
+
+**定位**：完全原生 Android App 的**唯一首屏入口**。App 不再拼
+`/api/config` + `/api/auth/me` + `/api/subdomains/mine` + `/api/points/me` 四个请求
+（4 次往返、4 次登录态校验），一次拿全四个 tab 的数据。
+
+```
+GET /api/app/v1/bootstrap
+Cookie: sh_session=…        # 可选，不带即游客态
+```
+
+**响应**
+
+| 字段 | 游客 | 登录 | 说明 |
+|---|---|---|---|
+| `api` | `noxc-app/v1` | 同 | 版本号，App 可据此做兼容判断 |
+| `site` | 对象 | 对象 | 公开配置白名单：站点名 / 公告 / 迁移提示 / 公开统计 / 积分规则 / 有效期 / 额度 / 后缀名单 / 暂停名单 / 注册开关 |
+| `user` | `null` | 对象 | `publicUser` 公开字段，无密码哈希 |
+| `used` | `0` | 数字 | 已用域名额度 |
+| `domains` | `null` | 对象 | 与 `/api/subdomains/mine` **完全同源**（`listMineData`） |
+| `points` | `null` | 对象 | 与 `/api/points/me` **完全同源**（`pointsSnapshot`，含存量奖励补发） |
+| `endpoints` | 对象 | 对象 | 交互路径契约，见下 |
+| `capabilities` | 对象 | 对象 | `native` / `browserOnly` 流程清单 |
+
+**`endpoints` 契约**
+
+| key | 值 | 用途 |
+|---|---|---|
+| `check` | `/api/subdomains/check` | 名称可用性 + 价格 + 余额 |
+| `whois` | `/api/whois` | WHOIS 详情 |
+| `records` | `/api/records/subdomains/{id}/records` | 点域名卡片时才请求 |
+| `checkin` | `/api/points/checkin` | 签到后 App 带 `?_=` 重拉 bootstrap |
+| `login` / `logout` | `/api/auth/login` · `/api/auth/logout` | 原生登录表单 / 登出 |
+| `web*` | `/dashboard` · `/register` · `/docs` · `/terms` · `/external-domains` · `/report` | 系统浏览器打开 |
+
+**刻意守住的边界**
+
+- **不另写业务规则**：登录态三段复用站点原有纯数据函数，补发奖励、暂停解析标记、
+  额度、有效期判定全部同源，避免两端口径跑偏。
+- **不泄露密钥**：`site` 是显式白名单，从 `buildConfigData` 里挑字段；AI 配置、
+  Token、页脚 HTML、记录类型表等都不下发。`Cache-Control: private, max-age=10`，
+  含登录态绝不 `public`。
+- **不重复读 D1**：公开配置复用 `/api/config` 的 30 秒整响应缓存；后台保存后
+  统一失效。四个数据段用 `Promise.all` 并发，未登录时后三段零查询。
+- **挂在 `requireAuth` 之前**：游客也能读公告 / 统计 / 积分规则，由 bootstrap
+  自己判断 `c.get('user')`。
+- **失败降级**：`domains` / `points` 任一段异常只返回 `null`，接口仍 200，
+  App 显示错误卡而不是崩。
+
+**注册、OAuth、DNS 写入、后台、文档**一律不进这个接口：这些流程有滑块验证、
+审批闸门与安全边界，App 按 `capabilities.browserOnly` 跳系统浏览器完整站点。
+
+专项回归 `scripts/app-api-regression.ts` 真跑 Hono + 内存 D1 覆盖游客 / 登录 /
+字段同源 / 脱敏 / 契约 / 缓存头，并锁住「App 只打一个 bootstrap」。
 
 ---
 
@@ -1923,6 +2007,18 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
   直接在 Checks 页就能看到根因。别把 `set +e` + annotation 这段删掉。
 - **Gradle 报 `BuildConfig` 找不到**：AGP 8+ 默认关闭 BuildConfig 生成，
   `app/build.gradle` 里已显式 `buildFeatures { buildConfig true }`，别删。
+- **怀疑「才几十 KB 是不是没打包完整」**：不是。纯原生 App 没有网页资源、
+  没有 AndroidX / Kotlin 库、没有第三方 SDK，`classes.dex` 只有 5 个类，
+  资源只有 6 张小 PNG 图标。CI 的「校验 APK 产物」会打印 `unzip -l` 清单并
+  断言 `classes.dex` / `resources.arsc` / ≥6 张 PNG 都在，**空壳会直接失败**。
+  体积对照见第 23 节。若哪天突然涨到几 MB，先查是不是有人把 AndroidX 或
+  网页资源加回 `app/build.gradle` / `assets/`。
+- **App 首屏一直转圈 / 四个 tab 全空**：先看 `/api/app/v1/bootstrap` 是否 200。
+  它挂在 `requireAuth` 之前，游客也能调；公网配置 / 统计 / 规则来自 `/api/config`
+  的共享缓存。若接口返回 500，App 会显示断网页且原生上下栏仍在。契约见第 24 节。
+- **签到后余额没变**：App 签到成功后带 `?_=` 重拉 bootstrap，绕开 10 秒私有缓存；
+  如果仍滞后，确认 Worker 侧 `pointsSnapshot` 没抛异常（异常会降级成 `null`，
+  App 显示错误卡，这时去看 Worker 日志而不是清 App 缓存）。
 - **装了打不开 / 一直显示「无法连接到 Noxc」**：先看顶栏副标题的站点域名是否
   还在线；站点迁移到新域名时**不用重装** —— 长按启动 Logo / 顶栏 Logo /
   断网提示标题改地址即可。接口失败只盖内容区，原生上下栏仍在，不是白屏。

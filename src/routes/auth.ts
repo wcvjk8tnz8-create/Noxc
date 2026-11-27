@@ -35,7 +35,7 @@ async function maxPerIp(env) {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 2;
 }
 
-function publicUser(u) {
+export function publicUser(u) {
   return { id: u.id, email: u.email, role: u.role, status: u.status, quota: u.quota, created_at: u.created_at };
 }
 

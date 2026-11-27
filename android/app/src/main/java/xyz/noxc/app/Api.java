@@ -62,6 +62,18 @@ public final class Api {
     private static final String KEY_SITE = "site_url";
     private static final String KEY_SESSION = "session";
 
+    /** bootstrap 下发的接口契约，同一进程内三个 Activity 共用，避免各硬编码一套路径。 */
+    private static JSONObject ENDPOINTS = new JSONObject();
+
+    public static void setEndpoints(JSONObject e) {
+        ENDPOINTS = e == null ? new JSONObject() : e;
+    }
+
+    public String endpoint(String key, String fallback) {
+        String v = ENDPOINTS.optString(key, "");
+        return v.length() > 0 ? v : fallback;
+    }
+
     private final Context ctx;
     private final SharedPreferences pref;
 
@@ -110,6 +122,14 @@ public final class Api {
 
     public void clearSession() {
         pref.edit().remove(KEY_SESSION).apply();
+    }
+
+    /**
+     * App 冷启动专用：一次拿全四个 tab 的数据（站点配置 + 登录态账号 + 域名 + 积分）。
+     * fresh=true 时带 ?_= 绕开 Worker 的 10 秒私有缓存，用于签到 / 登录 / 登出后。
+     */
+    public void bootstrap(boolean fresh, Callback cb) {
+        get("/api/app/v1/bootstrap" + (fresh ? "?_=" + System.currentTimeMillis() : ""), cb);
     }
 
     /** 统一走线程池，回调一定回到主线程，页面代码不用自己切线程。 */

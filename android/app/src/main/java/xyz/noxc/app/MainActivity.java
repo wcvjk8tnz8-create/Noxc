@@ -28,9 +28,10 @@ import java.util.Set;
 /**
  * Noxc 手机版 · 完全原生 App（零 WebView）
  *
- * 打开看到的是原生首页，不是网站首页。四个 tab 全部由 Android 控件绘制，数据
- * 通过 Api.java 直接取 Worker 的 JSON 接口；注册滑块、后台管理、文档等复杂流程
- * 用系统浏览器打开。站点改版不影响 App 界面。
+ * 打开看到的是原生首页，不是网站首页。四个 tab 全部由 Android 控件绘制；
+ * 冷启动只打**一个** `/api/app/v1/bootstrap`，一次拿到站点配置 + 账号 + 域名 + 积分，
+ * 其余交互（查名 / WHOIS / 签到 / 登录）按接口返回的 endpoints 契约走。
+ * 注册滑块、后台管理、文档等复杂流程用系统浏览器打开完整站点。
  *
  * 零第三方依赖：只用 Android 平台 API + org.json + HttpURLConnection。
  */
@@ -39,8 +40,9 @@ public class MainActivity extends Activity {
     private static final int REQ_LOGIN = 7;
 
     private Api api;
-    private JSONObject config;
-    private JSONObject me;
+    private JSONObject appData;     // /api/app/v1/bootstrap 整包
+    private JSONObject site;        // 公开配置白名单
+    private JSONObject endpoints;   // 接口契约，App 不硬编码路径
     private boolean booted;
     private int page = 0;
     private long lastBackAt;
@@ -54,7 +56,7 @@ public class MainActivity extends Activity {
     private TextView barTitle;
     private TextView barSubtitle;
 
-    /* 首页查询卡是常驻控件，刷新 config 时不重建，避免输入内容被清掉 */
+    /* 首页查询卡是常驻控件，刷新时不重建，避免输入内容被清掉 */
     private LinearLayout homeTop;
     private LinearLayout lookupResultBox;
     private EditText lookupInput;
@@ -87,35 +89,40 @@ public class MainActivity extends Activity {
             final int idx = i;
             tabs[i].setOnClickListener(v -> showPage(idx));
         }
-        findViewById(R.id.btn_refresh).setOnClickListener(v -> boot());
+        findViewById(R.id.btn_refresh).setOnClickListener(v -> boot(true));
         findViewById(R.id.btn_more).setOnClickListener(this::showMoreMenu);
-        findViewById(R.id.retry).setOnClickListener(v -> boot());
+        findViewById(R.id.retry).setOnClickListener(v -> boot(true));
         findViewById(R.id.splash_logo).setOnLongClickListener(v -> { showSiteDialog(); return true; });
         findViewById(R.id.error_title).setOnLongClickListener(v -> { showSiteDialog(); return true; });
         findViewById(R.id.bar_logo).setOnLongClickListener(v -> { showSiteDialog(); return true; });
 
         showPage(0);
-        boot();
+        boot(false);
     }
 
-    /* ══════════════ 启动 / 配置 ══════════════ */
+    /* ══════════════ 启动：一个专用接口拿全四页 ══════════════ */
 
-    private void boot() {
+    private void boot(boolean fresh) {
         if (!booted) splash.setVisibility(View.VISIBLE);
         errorView.setVisibility(View.GONE);
         progress.setVisibility(View.VISIBLE);
-        api.get("/api/config", r -> {
+        api.bootstrap(fresh, r -> {
             progress.setVisibility(View.GONE);
             if (!r.ok) {
                 showError(r.message);
                 return;
             }
-            config = r.data;
+            appData = r.data;
+            site = appData.optJSONObject("site");
+            endpoints = appData.optJSONObject("endpoints");
+            if (site == null) site = new JSONObject();
+            if (endpoints == null) endpoints = new JSONObject();
+            Api.setEndpoints(endpoints);
             booted = true;
             splash.setVisibility(View.GONE);
             barSubtitle.setText(api.host());
             renderHome();
-            refreshMe();
+            renderLoggedPages();
         });
     }
 
@@ -128,24 +135,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** /api/auth/me 只打一次，登录态变更后由这里统一重画三个登录相关页。 */
-    private void refreshMe() {
-        if (!api.loggedIn()) {
-            me = null;
-            renderLoggedPages();
-            return;
-        }
-        api.get("/api/auth/me", r -> {
-            if (r.ok) {
-                me = r.data;
-            } else {
-                me = null;
-                if (r.code == 401) api.clearSession();
-            }
-            renderLoggedPages();
-        });
-    }
-
+    /** 登录态变更后统一重画三个页面，不再各打各的接口。 */
     private void renderLoggedPages() {
         renderProfile();
         if (page == 1) loadDomains();
@@ -163,6 +153,16 @@ public class MainActivity extends Activity {
         else if (idx == 1) loadDomains();
         else if (idx == 2) loadPoints();
         else renderProfile();
+    }
+
+    private JSONObject user() {
+        return appData == null ? null : appData.optJSONObject("user");
+    }
+
+    /** endpoints 契约缺失时回落到已知路径，App 不会因为服务端少一个字段就瘫。 */
+    private String ep(String key, String fallback) {
+        String v = endpoints == null ? "" : endpoints.optString(key, "");
+        return v.length() > 0 ? v : fallback;
     }
 
     /* ══════════════ 首页 ══════════════ */
@@ -214,21 +214,21 @@ public class MainActivity extends Activity {
     private void renderHome() {
         ensureHomeSkeleton();
         homeTop.removeAllViews();
-        if (config == null) return;
+        if (site == null) return;
 
         homeTop.addView(Ui.headline(this, getString(R.string.home_tagline)));
-        TextView sub = Ui.body(this, config.optString("siteName", "Noxc"));
+        TextView sub = Ui.body(this, site.optString("siteName", "Noxc"));
         sub.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 14));
         homeTop.addView(sub);
 
-        String ann = config.optString("announcement", "").trim();
+        String ann = site.optString("announcement", "").trim();
         if (ann.length() > 0) {
             LinearLayout c = Ui.card(this);
             c.addView(Ui.title(this, getString(R.string.announcement_label)));
             c.addView(Ui.body(this, ann));   // 纯文本，与网页口径一致，不解析 HTML
             homeTop.addView(c);
         }
-        String mig = config.optString("migrationNotice", "").trim();
+        String mig = site.optString("migrationNotice", "").trim();
         if (mig.length() > 0) {
             LinearLayout c = Ui.card(this);
             c.addView(Ui.title(this, getString(R.string.migration_label)));
@@ -236,7 +236,7 @@ public class MainActivity extends Activity {
             homeTop.addView(c);
         }
 
-        JSONObject st = config.optJSONObject("publicStats");
+        JSONObject st = site.optJSONObject("publicStats");
         if (st != null) {
             LinearLayout c = Ui.card(this);
             c.addView(Ui.title(this, getString(R.string.home_stats)));
@@ -249,7 +249,7 @@ public class MainActivity extends Activity {
             homeTop.addView(c);
         }
 
-        JSONObject pr = config.optJSONObject("pointRules");
+        JSONObject pr = site.optJSONObject("pointRules");
         if (pr != null) {
             LinearLayout c = Ui.card(this);
             c.addView(Ui.title(this, getString(R.string.home_rules)));
@@ -263,11 +263,11 @@ public class MainActivity extends Activity {
     }
 
     private void fillRoots() {
-        if (rootAdapter == null || config == null) return;
+        if (rootAdapter == null || site == null) return;
         String old = rootSpinner.getSelectedItem() == null
                 ? "" : String.valueOf(rootSpinner.getSelectedItem());
-        JSONArray roots = config.optJSONArray("rootDomains");
-        JSONArray paused = config.optJSONArray("pausedRoots");
+        JSONArray roots = site.optJSONArray("rootDomains");
+        JSONArray paused = site.optJSONArray("pausedRoots");
         Set<String> pausedSet = new HashSet<>();
         if (paused != null) {
             for (int i = 0; i < paused.length(); i++) {
@@ -283,7 +283,7 @@ public class MainActivity extends Activity {
             }
         }
         if (open.isEmpty()) {
-            String one = config.optString("rootDomain", "noxc.uk").trim().toLowerCase();
+            String one = site.optString("rootDomain", "noxc.uk").trim().toLowerCase();
             if (one.length() > 0) open.add(one);
         }
         rootAdapter.clear();
@@ -306,7 +306,7 @@ public class MainActivity extends Activity {
         final String fqdnGuess = label + "." + root;
         lookupResultBox.removeAllViews();
         lookupResultBox.addView(Ui.body(this, getString(R.string.loading)));
-        api.get("/api/subdomains/check?label=" + Uri.encode(label)
+        api.get(ep("check", "/api/subdomains/check") + "?label=" + Uri.encode(label)
                 + "&root=" + Uri.encode(root), r -> renderLookup(r, label, root, fqdnGuess));
     }
 
@@ -339,7 +339,7 @@ public class MainActivity extends Activity {
     }
 
     private void whois(String fqdn) {
-        api.get("/api/whois?name=" + Uri.encode(fqdn), r -> {
+        api.get(ep("whois", "/api/whois") + "?name=" + Uri.encode(fqdn), r -> {
             LinearLayout c = Ui.card(this);
             if (!r.ok) {
                 c.addView(Ui.body(this, r.message.length() > 0 ? r.message : getString(R.string.err_api)));
@@ -364,59 +364,55 @@ public class MainActivity extends Activity {
         });
     }
 
-    /* ══════════════ 我的域名 ══════════════ */
+    /* ══════════════ 我的域名（来自 bootstrap，不再单独请求） ══════════════ */
 
     private void loadDomains() {
         LinearLayout p = pageContainers[1];
         p.removeAllViews();
         p.addView(Ui.headline(this, getString(R.string.domains_mine)));
-        if (!api.loggedIn()) {
+        if (!api.loggedIn() || user() == null) {
             p.addView(loginCard());
             return;
         }
-        p.addView(Ui.body(this, getString(R.string.loading)));
-        api.get("/api/subdomains/mine", r -> {
-            p.removeAllViews();
-            p.addView(Ui.headline(this, getString(R.string.domains_mine)));
-            if (!r.ok) {
-                p.addView(errorCard(r.message));
-                return;
-            }
-            LinearLayout q = Ui.card(this);
-            q.addView(Ui.row(this, getString(R.string.quota_used),
-                    r.data.optInt("used", 0) + " / " + r.data.optString("quota", "")));
-            p.addView(q);
-            p.addView(Ui.pill(this, getString(R.string.apply_new), v -> openWeb("register")),
-                    topMarginParams());
+        JSONObject d = appData.optJSONObject("domains");
+        if (d == null) {
+            p.addView(errorCard(getString(R.string.err_api)));
+            return;
+        }
+        LinearLayout q = Ui.card(this);
+        q.addView(Ui.row(this, getString(R.string.quota_used),
+                d.optInt("used", 0) + " / " + d.optString("quota", "")));
+        p.addView(q);
+        p.addView(Ui.pill(this, getString(R.string.apply_new), v -> openWeb("register")),
+                topMarginParams());
 
-            JSONArray items = r.data.optJSONArray("items");
-            if (items == null || items.length() == 0) {
-                LinearLayout c = Ui.card(this);
-                c.addView(Ui.body(this, getString(R.string.no_domains)));
-                p.addView(c, topMarginParams());
-                return;
-            }
-            for (int i = 0; i < items.length(); i++) {
-                JSONObject o = items.optJSONObject(i);
-                if (o == null) continue;
-                final int id = o.optInt("id", 0);
-                final String fqdn = o.optString("fqdn", "");
-                LinearLayout c = Ui.card(this);
-                c.addView(Ui.title(this, fqdn));
-                c.addView(Ui.body(this, statusLabel(o.optString("status", ""))
-                        + (o.optBoolean("dnsPaused") ? " · " + getString(R.string.dns_paused) : "")));
-                c.addView(Ui.row(this, getString(R.string.domain_records),
-                        num(o, "record_count")));
-                c.setClickable(true);
-                c.setOnClickListener(v -> {
-                    Intent it = new Intent(this, DomainDetailActivity.class);
-                    it.putExtra(DomainDetailActivity.EXTRA_ID, id);
-                    it.putExtra(DomainDetailActivity.EXTRA_FQDN, fqdn);
-                    startActivity(it);
-                });
-                p.addView(c, topMarginParams());
-            }
-        });
+        JSONArray items = d.optJSONArray("items");
+        if (items == null || items.length() == 0) {
+            LinearLayout c = Ui.card(this);
+            c.addView(Ui.body(this, getString(R.string.no_domains)));
+            p.addView(c, topMarginParams());
+            return;
+        }
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject o = items.optJSONObject(i);
+            if (o == null) continue;
+            final int id = o.optInt("id", 0);
+            final String fqdn = o.optString("fqdn", "");
+            LinearLayout c = Ui.card(this);
+            c.addView(Ui.title(this, fqdn));
+            c.addView(Ui.body(this, statusLabel(o.optString("status", ""))
+                    + (o.optBoolean("dnsPaused") ? " · " + getString(R.string.dns_paused) : "")));
+            c.addView(Ui.row(this, getString(R.string.domain_records),
+                    num(o, "record_count")));
+            c.setClickable(true);
+            c.setOnClickListener(v -> {
+                Intent it = new Intent(this, DomainDetailActivity.class);
+                it.putExtra(DomainDetailActivity.EXTRA_ID, id);
+                it.putExtra(DomainDetailActivity.EXTRA_FQDN, fqdn);
+                startActivity(it);
+            });
+            p.addView(c, topMarginParams());
+        }
     }
 
     private String statusLabel(String s) {
@@ -430,72 +426,68 @@ public class MainActivity extends Activity {
         }
     }
 
-    /* ══════════════ 积分 ══════════════ */
+    /* ══════════════ 积分（来自 bootstrap） ══════════════ */
 
     private void loadPoints() {
         LinearLayout p = pageContainers[2];
         p.removeAllViews();
         p.addView(Ui.headline(this, getString(R.string.tab_points)));
-        if (!api.loggedIn()) {
+        if (!api.loggedIn() || user() == null) {
             p.addView(loginCard());
             return;
         }
-        p.addView(Ui.body(this, getString(R.string.loading)));
-        api.get("/api/points/me", r -> {
-            p.removeAllViews();
-            p.addView(Ui.headline(this, getString(R.string.tab_points)));
-            if (!r.ok) {
-                p.addView(errorCard(r.message));
-                return;
-            }
-            LinearLayout bal = Ui.card(this);
-            bal.addView(Ui.title(this, getString(R.string.points_balance)));
-            bal.addView(Ui.bigNum(this, r.data.optBoolean("unlimited")
-                    ? getString(R.string.points_unlimited)
-                    : num(r.data, "points")));
-            p.addView(bal);
+        JSONObject r = appData.optJSONObject("points");
+        if (r == null) {
+            p.addView(errorCard(getString(R.string.err_api)));
+            return;
+        }
+        LinearLayout bal = Ui.card(this);
+        bal.addView(Ui.title(this, getString(R.string.points_balance)));
+        bal.addView(Ui.bigNum(this, r.optBoolean("unlimited")
+                ? getString(R.string.points_unlimited)
+                : num(r, "points")));
+        p.addView(bal);
 
-            boolean can = r.data.optBoolean("canCheckIn");
-            LinearLayout ck = Ui.card(this);
-            View.OnClickListener onCheck = can ? v -> checkin() : null;
-            ck.addView(Ui.pill(this, can ? getString(R.string.points_checkin)
-                    : getString(R.string.points_checked), onCheck));
-            p.addView(ck, topMarginParams());
+        boolean can = r.optBoolean("canCheckIn");
+        LinearLayout ck = Ui.card(this);
+        View.OnClickListener onCheck = can ? v -> checkin() : null;
+        ck.addView(Ui.pill(this, can ? getString(R.string.points_checkin)
+                : getString(R.string.points_checked), onCheck));
+        p.addView(ck, topMarginParams());
 
-            JSONObject rules = r.data.optJSONObject("rules");
-            if (rules != null) {
-                LinearLayout rc = Ui.card(this);
-                rc.addView(Ui.title(this, getString(R.string.home_rules)));
-                rc.addView(Ui.row(this, getString(R.string.rule_checkin), "+" + num(rules, "checkin")));
-                rc.addView(Ui.row(this, getString(R.string.rule_initial), "+" + num(rules, "initial")));
-                rc.addView(Ui.row(this, getString(R.string.rule_domain), "-" + num(rules, "domainCost")));
-                rc.addView(Ui.row(this, getString(R.string.rule_short), "-" + num(rules, "shortCost")));
-                p.addView(rc, topMarginParams());
-            }
+        JSONObject rules = r.optJSONObject("rules");
+        if (rules != null) {
+            LinearLayout rc = Ui.card(this);
+            rc.addView(Ui.title(this, getString(R.string.home_rules)));
+            rc.addView(Ui.row(this, getString(R.string.rule_checkin), "+" + num(rules, "checkin")));
+            rc.addView(Ui.row(this, getString(R.string.rule_initial), "+" + num(rules, "initial")));
+            rc.addView(Ui.row(this, getString(R.string.rule_domain), "-" + num(rules, "domainCost")));
+            rc.addView(Ui.row(this, getString(R.string.rule_short), "-" + num(rules, "shortCost")));
+            p.addView(rc, topMarginParams());
+        }
 
-            LinearLayout lc = Ui.card(this);
-            lc.addView(Ui.title(this, getString(R.string.points_logs)));
-            JSONArray logs = r.data.optJSONArray("logs");
-            if (logs == null || logs.length() == 0) {
-                lc.addView(Ui.body(this, getString(R.string.points_no_logs)));
-            } else {
-                for (int i = 0; i < logs.length(); i++) {
-                    JSONObject o = logs.optJSONObject(i);
-                    if (o == null) continue;
-                    int d = o.optInt("delta", 0);
-                    lc.addView(Ui.row(this, (d >= 0 ? "+" : "") + d,
-                            o.optString("reason", "") + " " + o.optString("detail", "")));
-                }
+        LinearLayout lc = Ui.card(this);
+        lc.addView(Ui.title(this, getString(R.string.points_logs)));
+        JSONArray logs = r.optJSONArray("logs");
+        if (logs == null || logs.length() == 0) {
+            lc.addView(Ui.body(this, getString(R.string.points_no_logs)));
+        } else {
+            for (int i = 0; i < logs.length(); i++) {
+                JSONObject o = logs.optJSONObject(i);
+                if (o == null) continue;
+                int delta = o.optInt("delta", 0);
+                lc.addView(Ui.row(this, (delta >= 0 ? "+" : "") + delta,
+                        o.optString("reason", "") + " " + o.optString("detail", "")));
             }
-            p.addView(lc, topMarginParams());
-        });
+        }
+        p.addView(lc, topMarginParams());
     }
 
     private void checkin() {
-        api.post("/api/points/checkin", new JSONObject(), r -> {
+        api.post(ep("checkin", "/api/points/checkin"), new JSONObject(), r -> {
             Toast.makeText(this, r.message.length() > 0 ? r.message : getString(R.string.err_api),
                     Toast.LENGTH_SHORT).show();
-            loadPoints();
+            boot(true);   // 强制 fresh，绕开 bootstrap 的 10 秒私有缓存
         });
     }
 
@@ -505,7 +497,8 @@ public class MainActivity extends Activity {
         LinearLayout p = pageContainers[3];
         p.removeAllViews();
         p.addView(Ui.headline(this, getString(R.string.tab_profile)));
-        if (!api.loggedIn()) {
+        JSONObject u = user();
+        if (!api.loggedIn() || u == null) {
             p.addView(loginCard());
             p.addView(Ui.pill(this, getString(R.string.profile_register),
                     v -> openWeb("register")), topMarginParams());
@@ -514,24 +507,16 @@ public class MainActivity extends Activity {
         }
         LinearLayout c = Ui.card(this);
         c.addView(Ui.title(this, getString(R.string.profile_account)));
-        JSONObject u = me == null ? null : me.optJSONObject("user");
-        if (u != null) {
-            c.addView(Ui.row(this, getString(R.string.profile_email), u.optString("email", "")));
-            c.addView(Ui.row(this, getString(R.string.profile_role), u.optString("role", "")));
-            c.addView(Ui.row(this, getString(R.string.profile_quota), u.optString("quota", "")));
-        }
-        if (me != null) {
-            c.addView(Ui.row(this, getString(R.string.quota_used),
-                    String.valueOf(me.optInt("used", 0))));
-        }
+        c.addView(Ui.row(this, getString(R.string.profile_email), u.optString("email", "")));
+        c.addView(Ui.row(this, getString(R.string.profile_role), u.optString("role", "")));
+        c.addView(Ui.row(this, getString(R.string.profile_quota), u.optString("quota", "")));
+        c.addView(Ui.row(this, getString(R.string.quota_used),
+                String.valueOf(appData.optInt("used", 0))));
         p.addView(c);
         p.addView(Ui.pill(this, getString(R.string.profile_logout), v ->
                 api.logout(r -> {
-                    me = null;
                     Toast.makeText(this, R.string.logged_out, Toast.LENGTH_SHORT).show();
-                    renderProfile();
-                    loadDomains();
-                    loadPoints();
+                    boot(true);   // 登出后重新拉未登录态的 bootstrap
                 })), topMarginParams());
         p.addView(webLinksCard(), topMarginParams());
     }
@@ -625,9 +610,11 @@ public class MainActivity extends Activity {
                     if (v.length() == 0) return;
                     api.setSite(v);
                     api.clearSession();
-                    me = null;
+                    appData = null;
+                    site = null;
+                    booted = false;
                     barSubtitle.setText(api.host());
-                    boot();
+                    boot(true);
                 })
                 .setNegativeButton(R.string.cancel, null)
                 .show();
@@ -636,7 +623,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
-        if (req == REQ_LOGIN && res == RESULT_OK) refreshMe();
+        if (req == REQ_LOGIN && res == RESULT_OK) boot(true);
     }
 
     @Override

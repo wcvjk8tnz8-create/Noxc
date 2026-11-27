@@ -48,6 +48,7 @@ import abuseRoutes from './routes/abuse.js';
 import backupRoutes from './routes/backup.js';
 import emailRequestRoutes from './routes/emailRequests.js';
 import showcaseRoutes from './routes/showcase.js';
+import { createAppRoutes } from './routes/app.js';
 
 const app = new Hono();
 
@@ -334,15 +335,19 @@ async function buildConfigData(c: any) {
 }
 
 /* 公开配置：整响应缓存 30 秒 + 浏览器私有缓存 30 秒。
-   所有字段都是公开配置，不含登录态数据，可安全跨请求复用。 */
-app.get('/api/config', async (c) => {
-  /* 后台保存后前端会带 ?_=<ts> 强制刷新：必须绕过 isolate 缓存，
-     否则落到旧 isolate 会返回 30 秒内的旧配置，破坏「保存即生效」。 */
-  const bypass = !!c.req.query('_');
+   所有字段都是公开配置，不含登录态数据，可安全跨请求复用。
+   /api/app/v1/bootstrap 复用同一份缓存，App 冷启动不会多打一遍 D1。 */
+async function configData(c: any, bypass = false) {
   const hit = bypass ? null : getConfigCache();
   const data = hit ?? await buildConfigData(c);
   if (!hit) setConfigCache(data);
-  const res = ok(c, data);
+  return data;
+}
+
+app.get('/api/config', async (c) => {
+  /* 后台保存后前端会带 ?_=<ts> 强制刷新：必须绕过 isolate 缓存，
+     否则落到旧 isolate 会返回 30 秒内的旧配置，破坏「保存即生效」。 */
+  const res = ok(c, await configData(c, !!c.req.query('_')));
   res.headers.set('Cache-Control', CONFIG_CACHE_CONTROL);
   return res;
 });
@@ -376,6 +381,10 @@ app.route('/api', termsRoutes);
 app.route('/api', whoisRoutes);
 // 用户案例展示：公开只读，默认不展示，只有用户主动开启的域名会出现
 app.route('/api', showcaseRoutes);
+
+/* Noxc 手机版（完全原生 App）专用接口：一次拿全四个 tab 的数据。
+   挂在 requireAuth 之前 —— bootstrap 自己判断登录态，未登录也要能拿到公告/统计。 */
+app.route('/api/app/v1', createAppRoutes((c) => configData(c)));
 
 // 需要登录的接口
 // 滑块验证独立前缀也要登录：未登录领不到挑战，也就没法为别人刷票据

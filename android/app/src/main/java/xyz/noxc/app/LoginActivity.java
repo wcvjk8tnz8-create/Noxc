@@ -60,7 +60,7 @@ public class LoginActivity extends Activity {
             body.put("password", pass);
             body.put("remember", remember.isChecked());
         } catch (Exception ignored) { }
-        api.post("/api/auth/login", body, r -> {
+        api.post(api.endpoint("login", "/api/auth/login"), body, r -> {
             submit.setEnabled(true);
             progress.setVisibility(View.GONE);
             if (r.ok && api.loggedIn()) {

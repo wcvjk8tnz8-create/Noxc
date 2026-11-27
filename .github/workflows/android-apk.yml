@@ -151,6 +151,15 @@ jobs:
                 '| dex bytes:', z.getinfo('classes.dex').file_size if 'classes.dex' in names else 0)
           if missing or png < 6:
               print('::error::APK 内容不完整，缺', ','.join(missing), '图标', png); sys.exit(1)
+          # 打印组成清单：几十 KB 是刻意的（零依赖 / 不打包网页），让体积可复核
+          print('--- APK 组成（按压缩后大小）---')
+          for i in sorted(z.infolist(), key=lambda x: -x.compress_size)[:18]:
+              print('  %8d  %s' % (i.compress_size, i.filename))
+          print('  合计压缩后: %d bytes / %d 项' % (
+              sum(i.compress_size for i in z.infolist()), len(names)))
+          assets = [n for n in names if n.startswith('assets/')]
+          print('  assets/ 条目:', len(assets), '(0 = 没有打包网页资源)')
+          if assets: print('::warning::APK 里出现了 assets/，确认不是把网页又塞回来了')
           " "$APK"
           sha256sum "$APK"
           if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then

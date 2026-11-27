@@ -49,7 +49,9 @@ public class DomainDetailActivity extends Activity {
     private void load() {
         list.removeAllViews();
         list.addView(Ui.title(this, getString(R.string.detail_records)));
-        api.get("/api/records/subdomains/" + id + "/records", r -> {
+        String path = api.endpoint("records", "/api/records/subdomains/{id}/records")
+                .replace("{id}", String.valueOf(id));
+        api.get(path, r -> {
             list.removeAllViews();
             list.addView(Ui.title(this, getString(R.string.detail_records)));
             LinearLayout hint = Ui.card(this);
