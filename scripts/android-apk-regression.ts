@@ -214,8 +214,9 @@ check(/定位 Android SDK/.test(wf) && /ANDROID_HOME/.test(wf)
   && !/setup-android@v3/.test(wf)
   && /platforms;android-34/.test(wf) && /build-tools;34\.0\.0/.test(wf),
   'CI 用 runner 自带 SDK（不重新下载 cmdline-tools）并安装 34 platform / build-tools');
-check(/gradle-version: '8\.9'/.test(wf) && /gradle --version/.test(wf),
-  'setup-gradle 装 Gradle 8.9 并校验 PATH（仓库不提交 wrapper.jar）');
+check(/gradle-8\.9-bin\.zip/.test(wf) && /gradle --version/.test(wf)
+  && !/uses:\s*gradle\/actions\/setup-gradle/.test(wf) && /GITHUB_PATH/.test(wf),
+  'CI 直接下载官方 Gradle 8.9 并写 GITHUB_PATH（不提交 wrapper.jar、不依赖第三方 action）');
 check(/gradle "\$TASK" --no-daemon/.test(wf)
   && /TASK=assembleDebug/.test(wf) && /TASK=assembleRelease/.test(wf),
   '按签名状态自适应 assembleDebug / assembleRelease');

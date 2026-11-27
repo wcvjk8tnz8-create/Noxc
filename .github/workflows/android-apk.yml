@@ -38,7 +38,7 @@ jobs:
           java-version: '17'
 
       # ubuntu-latest 镜像自带 Android SDK。第三方 setup-android action 会重新
-      # 下载 cmdline-tools，在 runner 上直接失败，这里改成探测已装 SDK 并补 PATH。
+      # 下载 cmdline-tools（在 runner 上直接失败），这里只探测已装 SDK 并补 PATH。
       - name: 定位 Android SDK
         run: |
           if [ -z "$ANDROID_HOME" ] || [ ! -d "$ANDROID_HOME" ]; then
@@ -48,27 +48,37 @@ jobs:
           fi
           test -n "$ANDROID_HOME" || { echo "::error::找不到 Android SDK"; exit 1; }
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          sdkmanager --version
-          sdkmanager --list_installed | head -20
+          for d in "$ANDROID_HOME/cmdline-tools/latest/bin" \
+                   "$ANDROID_HOME/cmdline-tools/tools/bin" \
+                   "$ANDROID_HOME/tools/bin" "$ANDROID_HOME/platform-tools"; do
+            [ -d "$d" ] && echo "$d" >> "$GITHUB_PATH" && export PATH="$d:$PATH"
+          done
+          command -v sdkmanager || { echo "::error::sdkmanager 不在 PATH，SDK 布局异常"; exit 1; }
+          sdkmanager --version > /tmp/sdk-version.txt 2>&1 || true
+          head -5 /tmp/sdk-version.txt || true
+          sdkmanager --list_installed > /tmp/sdk-list.txt 2>&1 || true
+          head -20 /tmp/sdk-list.txt || true
 
       - name: Install Android 34 platform / build-tools
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" > /dev/null
-          sdkmanager --list_installed | grep -E 'android-34|34\.0\.0' || true
+          sdkmanager --list_installed > /tmp/sdk-list.txt 2>&1 || true
+          grep -E 'android-34|34\.0\.0' /tmp/sdk-list.txt || true
 
-      # 仓库不提交 gradle-wrapper.jar（二进制），由 action 装 Gradle 8.9 并加入 PATH
+      # 仓库不提交 gradle-wrapper.jar（二进制），直接下载官方 Gradle 8.9 发行版。
+      # 不依赖任何 Gradle 官方 action，也就没有 wrapper 校验 / 缓存插件的不确定性。
       - name: Setup Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-
-      - name: 校验 Gradle / Java
         run: |
-          gradle --version | head -12
-          java -version 2>&1 | head -3
+          curl -fsSL -o "$RUNNER_TEMP/gradle.zip" \
+            https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q -o "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-8.9/bin" >> "$GITHUB_PATH"
+          export PATH="$RUNNER_TEMP/gradle-8.9/bin:$PATH"
+          gradle --version > /tmp/gradle-v.txt 2>&1
+          head -12 /tmp/gradle-v.txt
+          java -version > /tmp/java-v.txt 2>&1 || true
+          head -3 /tmp/java-v.txt || true
 
       - name: 准备 release 签名（没配 Secrets 就走 debug）
         id: sign
@@ -103,13 +113,19 @@ jobs:
 
       - name: 校验 APK 产物
         run: |
-          APK=$(find android/app/build/outputs/apk -name '*.apk' -type f | head -1)
-          if [ -z "$APK" ]; then echo "✗ 没找到 APK"; exit 1; fi
+          APK=$(find android/app/build/outputs/apk -name '*.apk' -type f -print -quit)
+          if [ -z "$APK" ]; then echo "::error::没找到 APK"; exit 1; fi
           echo "APK=$APK"
           ls -lh "$APK"
-          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" | head -6
+          BT="$ANDROID_HOME/build-tools/34.0.0"
+          if [ ! -x "$BT/aapt" ]; then
+            BT=$(dirname "$(find "$ANDROID_HOME/build-tools" -name aapt -type f -print -quit)")
+          fi
+          "$BT/aapt" dump badging "$APK" > /tmp/badging.txt 2>&1
+          head -6 /tmp/badging.txt
           if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then
-            "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$APK" | head -8
+            "$BT/apksigner" verify --print-certs "$APK" > /tmp/certs.txt 2>&1
+            head -8 /tmp/certs.txt
           fi
 
       - name: 上传 APK 到 Artifacts

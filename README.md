@@ -1440,7 +1440,7 @@ Gradle 用环境变量读取，**仓库里没有任何密钥**。
 
 **本地构建**：Android Studio 打开 `android/` 目录即可；命令行需 JDK 17 +
 Android SDK 34 + Gradle 8.9，跑 `cd android && gradle assembleDebug`。
-仓库刻意不提交 `gradle-wrapper.jar`（二进制），CI 由 `setup-gradle` 安装 Gradle。
+仓库刻意不提交 `gradle-wrapper.jar`（二进制），CI 直接下载官方 Gradle 8.9 发行版。
 
 **行为边界**：只放行 https，`usesCleartextTraffic=false`、禁混合内容与 `file://`；
 只申请 `INTERNET` / `ACCESS_NETWORK_STATE` 两个权限；`allowBackup=false` 防会话
@@ -1874,9 +1874,13 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
   下载 cmdline-tools，在这台 runner 上失败并把后面 8 步全 skipped。已改成探测
   ubuntu-latest 镜像自带的 SDK（`/usr/local/lib/android/sdk`），把 `ANDROID_HOME`
   写进 `GITHUB_ENV`、把 `sdkmanager` 路径写进 `GITHUB_PATH`，别把 action 加回来。
-- **`gradle: command not found`**：仓库不提交 `gradle-wrapper.jar`，CI 靠
-  `gradle/actions/setup-gradle@v4` 装 8.9 并加入 PATH；第一步 `gradle --version`
-  就是干这个自检的。本地跑请先自行安装 Gradle 8.9，或用 Android Studio。
+- **`gradle: command not found`**：仓库不提交 `gradle-wrapper.jar`，CI 直接
+  下载官方 `gradle-8.9-bin.zip` 并把 `bin` 写进 `GITHUB_PATH`，紧接着
+  `gradle --version` 自检。本地跑请先自行安装 Gradle 8.9，或用 Android Studio。
+- **明明构建成功却整步标红**：GitHub Actions 的默认 shell 开了 `pipefail`，
+  `sdkmanager --list_installed | head` / `gradle --version | head` 这类管道会因
+  `head` 提前关闭管道而 SIGPIPE 非零。现在所有信息性输出都先重定向到临时文件
+  再 `head`，别把 `| head` 加回来。
 - **Gradle 报 `BuildConfig` 找不到**：AGP 8+ 默认关闭 BuildConfig 生成，
   `app/build.gradle` 里已显式 `buildFeatures { buildConfig true }`，别删。
 - **装了打不开 / 一直白屏**：先看 `aapt dump badging` 确认包内 `SITE_URL` 指向的

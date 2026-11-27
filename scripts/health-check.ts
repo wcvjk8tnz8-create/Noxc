@@ -1962,7 +1962,7 @@ check(/setJavaScriptEnabled\(true\)/.test(apJava)
   && /shouldOverrideUrlLoading/.test(apJava)
   && /KEYCODE_BACK/.test(apJava) && /onShowFileChooser/.test(apJava),
   'WebView 壳：JS / 第三方 cookie / 外链分流 / 返回键 / 文件上传桥接');
-check(/gradle-version: '8\.9'/.test(apWf)
+check(/gradle-8\.9-bin\.zip/.test(apWf)
   && /assembleDebug/.test(apWf) && /assembleRelease/.test(apWf)
   && /aapt" dump badging/.test(apWf)
   && /actions\/upload-artifact@v4/.test(apWf),
