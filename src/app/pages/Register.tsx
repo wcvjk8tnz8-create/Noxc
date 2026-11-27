@@ -303,8 +303,8 @@ export default function RegisterPage() {
         {/* 第三方域名接入：独立页面（文档式说明 + 提交申请），控制台卡片仍保留入口 */}
         <div className="card reg-faq" style={{marginBottom:"14px"}}>
           <div className="head-row"><h3 style={{fontSize:"16px"}} data-en="Third-party domain access">第三方域名接入</h3><span className="badge inf" data-en="SEUS DNS only">固定 SEUS DNS</span></div>
-          <p className="dim" style={{fontSize:12.5,lineHeight:1.8,margin:"8px 0 0"}} data-en="Bring your own full gTLD domain (e.g. xxx.com). Subdomains such as xxx.example.com are not accepted. Point the registrar NS to SEUS DNS, connect via the SEUS API, then wait for the site owner to approve. Marked as (External domain), no quota usage.">
-            想接入自己的完整域名？只允许 <b>gTLD 二级域</b>（如 <b>xxx.com</b>），不接受 <b>xxx.example.com</b> 这类子域名。把注册商 NS 指向 SEUS DNS、用 API 连接后，等待站长在站点设置里批准即可，统一标注「（外部域名）」，不占注册配额。
+          <p className="dim" style={{fontSize:12.5,lineHeight:1.8,margin:"8px 0 0"}} data-en="Bring your own full gTLD domain (e.g. xxx.com). Subdomains such as xxx.example.com are not accepted. Verify ownership with a TXT record at your current DNS provider FIRST, then point the registrar NS to SEUS DNS, connect via the SEUS API, and wait for the site owner to approve. Marked as (External domain), no quota usage.">
+            想接入自己的完整域名？只允许 <b>gTLD 二级域</b>（如 <b>xxx.com</b>），不接受 <b>xxx.example.com</b> 这类子域名。先在<b>当前 DNS 服务商</b>加 TXT 并验证通过，<b>之后</b>才把注册商 NS 改到 SEUS DNS、用 API 连接，等待站长在站点设置里批准即可，统一标注「（外部域名）」，不占注册配额。
           </p>
           <p style={{margin:"10px 0 0"}}><a className="btn sm" href="/external-domains" data-en="Open the standalone guide and apply">查看接入指南并提交申请 →</a></p>
         </div>

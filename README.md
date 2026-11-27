@@ -424,8 +424,9 @@ CNAME 探测走 DoH（cloudflare-dns.com → dns.google 双端点降级），5 �
 「（外部域名）」。流程与准入规则见「**22. 第三方域名接入定版流程**」。
 
 独立表 `external_domains` + 按用户索引，**不占注册配额、不计入公开统计、不写本站 DNS**；
-每账号最多 5 个。旧的「即将上线」闸门已撤，不再有 503 `comingSoon`；也不再做
-TXT 所有权验证、不再让用户选供应商或填 API key。
+每账号最多 5 个。旧的「即将上线」闸门已撤，不再有 503 `comingSoon`；
+**先在当前 DNS 服务商完成 TXT 所有权验证，验证通过后才能改 NS**（见第 22 节），
+不再让用户选供应商或填 API key。
 
 > 记录真正生效仍要求**注册商 NS 指向 SEUS DNS**，这一步由用户在注册商完成，
 > 接口每次都回 NS 与警示，不假装连上 API 就能解析。排错见文末「Z.5 / Z.14」。
@@ -1338,7 +1339,7 @@ FQDN 再查；输入完整域名仍走外部 WHOIS / RDAP。
 
 ---
 
-### 22. 第三方域名接入定版流程（gTLD → SEUS DNS → API → 站长批准）
+### 22. 第三方域名接入定版流程（gTLD → TXT 验证 → 改 NS → SEUS API → 站长批准）
 
 **独立页面**：`/external-domains`（和 `/docs` 一样可直接打开 / 刷新 / 从外链跳入，不会白屏），
 文档式五节结构：概览 / 准入规则 / 接入流程 / 申请与状态 / 常见问题，带本页目录。
@@ -1346,23 +1347,27 @@ FQDN 再查；输入完整域名仍走外部 WHOIS / RDAP。
 侧栏可直达。控制台「注册域名」卡片下面与注册页底部都保留了同一入口（早期要求不删），
 卡片里有「打开独立页面 →」，登录后两处都能提交申请；未登录也能读独立页的说明部分。
 
-站长定的流程，四个步骤一步不多、一步不少：
+站长定的流程，五个步骤一步不多、一步不少：
 
 1. **填自己的完整域名**：只允许 **gTLD 二级域**（如 `xxx.com` / `xxx.xyz` / `xxx.top`）。
    `xxx.example.com` 这类**子域名不受理**；`.cn` / `.uk` / `.cc` / `.io` / `.ai` / `.tv` / `.co`
    等 ccTLD 与国家地区后缀不受理；`example.com` 等文档示例域不受理；
    本站已生效后缀也不能冒充外部域名。白名单在 `src/lib/externalDomainPolicy.ts`
    的 `GTLD_ALLOWLIST`，要放行新的 gTLD 只需加一项并同步回归。
-2. **托管到 SEUS DNS**：到注册商把 NS 改为 `a.ns.fs5.net` / `b.ns.fs5.net`，
+2. **先做 TXT 所有权验证（在改 NS 之前）**：提交后页面给出 `_noxc-verify.<域名>`
+   TXT → `noxc-verify=<随机值>`，用户在域名**当前**的 DNS 服务商添加，点「验证 TXT」
+   （公共 DoH，1.1.1.1 优先 / Google 兜底）。**验证通过前不要改 NS**：NS 一旦切到
+   SEUS，原服务商那条 TXT 不再被全球 DNS 查询，验证会永远失败。
+3. **验证通过后才托管到 SEUS DNS**：到注册商把 NS 改为 `a.ns.fs5.net` / `b.ns.fs5.net`，
    并先在 s.eus 完成该域名的 DNS 托管（BYOS 需 KYC L2 与人工审核，本站不代做）。
-3. **用 API 连接**：站长在「**站点设置 → 第三方域名接入**」的**唯一输入框**里
+4. **用 API 连接**：站长在「**站点设置 → 第三方域名接入**」的**唯一输入框**里
    填一次 `mbt_` MCP Token（需 `dns:read` / `dns:write`），**保存即生效** ——
    不用配环境变量、不用改 Worker Secret、不用重新部署；Zone 按域名自动查，
    不用手动填映射。**留空也能用**：用户点「用 API 连接」时可临时填自己的
    Token 完成本次连接 —— **不落库、不回传**。后端调官方 `dns_zones` 找到
    托管区域与 zone id。
-4. **等待站长批准**：申请出现在「站点设置 → 第三方域名接入」的审批列表
-   （待审核排最前）。**只有已用 SEUS API 连上 zone 的申请能批准**；
+5. **等待站长批准**：申请出现在「站点设置 → 第三方域名接入」的审批列表
+   （待审核排最前）。**只有 **TXT 已验证** 且已用 SEUS API 连上 zone 的申请能批准**；
    批准后域名成为根域名，用户可在该后缀下申请子域。
 
 **固定 SEUS DNS**：接入表单里没有供应商选择；批准后 `root_dns_backends` 显式写
@@ -1371,8 +1376,10 @@ DNS 下拉 `disabled` 且标「SEUS DNS · 第三方接入（固定）」，切�
 `cf.ts` 的 `cfCreate / cfUpdate / cfDelete / cfList` 四个入口都分发到站点级
 SEUS 后端，用连接时查到的 zone id 写相对名（根域 `@`）。
 
-**边界**：不做 TXT 所有权验证 —— 权属链由「SEUS 账号里真实存在托管区域 +
-注册商 NS 指向 SEUS + 站长人工批准」三道关构成。令牌只有一个来源
+**边界**：`connect` / `check-ns` / 站长批准三处后端都复核 `verify_status`，绕过前端
+也跳不过 TXT 验证；验证通过后状态持久化，之后可以删掉那条 TXT。上一版没生成
+token 但已连上 SEUS zone 的存量申请，由一次性幂等迁移放行，新申请一律走 TXT。
+权属链 = TXT 所有权验证 + SEUS 托管区域 + NS 委派 + 人工批准。令牌只有一个来源
 （后台 `settings.seus_api_token`），只存服务端，后台 GET 只回掩码，
 `/api/config` 只有布尔值，脱敏备份会置空。独立表、不占配额、不计入公开统计。
 
@@ -1776,9 +1783,13 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
 - **想给第三方域名换 DNS 后端**：批准后 `external_root_lock` 锁死，下拉 disabled、
   `setDnsBackend` 也会拒绝切到 Cloudflare / Spaceship / AnyNS。这是刻意的，
   避免记录写进别的 zone 却查不到。
-- **把旧的三步流程（TXT 验证 + 用户 API key）当成现行**：`externalVerify.ts`
-  与 `providerDns.ts` 只作为 NS 委派 / 供应商适配层保留，不再是接入主链路；
+- **把「用户自带 API key」当成现行**：用户不再选供应商、不再填自己的 API key；
+  SEUS MCP Token 只从站点设置唯一输入框读取。`externalVerify.ts` **仍是接入主链路**
+  （TXT 所有权验证），`providerDns.ts` 只作 NS 委派 / 供应商适配层；
   「即将上线」闸门已撤，别再按 503 `comingSoon` 排查。
+- **先改 NS 再补 TXT 验证**：顺序反了就永远验证不过 —— TXT 必须加在「当前」
+  权威 DNS 上，NS 切到 SEUS 后原记录不再被全球查询。撤回申请重新提交，
+  在新一轮里严格「先验证、后改 NS」。
 - **以为要配 Worker Secret / 环境变量 / 重新部署**：SEUS 令牌只有后台
   「站点设置 → 第三方域名接入」那一个输入框，`settings.seus_api_token` 一个来源，
   保存时统一失效缓存立即生效。留空也不影响用户提交申请（自带 Token 兜底）。

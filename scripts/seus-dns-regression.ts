@@ -233,6 +233,9 @@ async function main() {
   check(/mbt_/.test(sd) && /不落库|只在本次调用/.test(sd), 'Token 只在内存里用');
   check(/SEUS DNS/.test(dash) && /SEUS DNS/.test(reg) && /mbt_/.test(dash),
     '控制台 / 注册页都写明固定 SEUS DNS 与 mbt_ Token 口径');
+  check(/verifyGate/.test(read('src/routes/externalDomains.ts'))
+    && /app\.post\('\/:id\/verify'/.test(read('src/routes/externalDomains.ts')),
+    '第三方接入先 TXT 验证再改 NS，SEUS 连接接口有顺序守卫');
   check(/seus-dns-regression\.ts/.test(deploy), 'SEUS DNS 回归挂进 CI');
   check(/SEUS DNS/.test(readme) && /s\.eus\/api\/mcp/.test(readme), 'README 记录 SEUS 接入');
   check(/SEUS|seus/.test(hc), '健康巡检含 SEUS 防回流断言');

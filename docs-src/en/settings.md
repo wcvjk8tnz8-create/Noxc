@@ -37,9 +37,10 @@ Standalone page: <a href="/external-domains">`/external-domains`</a> (documentat
 **Flow**
 
 1. Enter your own full domain: **gTLD registrable domains only** (e.g. `xxx.com`, `xxx.xyz`, `xxx.top`). **Subdomains such as `xxx.example.com` are not accepted**, nor are ccTLDs (`.cn`, `.uk`, `.cc`, `.io`, `.ai`, ...), documentation examples (`example.com`) or this site's own active suffixes.
-2. At your registrar, point the **NS to `a.ns.fs5.net` / `b.ns.fs5.net`** and complete DNS hosting for the domain at s.eus first (BYOS requires KYC L2 and manual review; this site does not do it for you).
-3. Click **Connect via API**: the site owner pastes an `mbt_` MCP token into the **single input** under **Site Settings → Third-party domain access** — it takes effect on save, with **no environment variable, Worker Secret or redeploy**; zones are looked up automatically. The site then calls the official `dns_zones` tool to find the hosted zone / zone id. **Leaving it blank also works**: you may temporarily paste your own token when connecting — **used once, never stored**.
-4. **Wait for the site owner's approval**: the request appears under **Site Settings → Third-party domain access**. Once approved the domain becomes a root domain and users can apply for subdomains under it.
+2. Add the `_noxc-verify.<domain>` TXT shown by the page at your **current DNS provider** and click **Verify TXT**. **Do NOT change NS yet** — once NS moves to SEUS this TXT is no longer queried globally and verification can never pass.
+3. Only after verification passes, point the **NS at `a.ns.fs5.net` / `b.ns.fs5.net`** at the registrar and complete DNS hosting at s.eus (BYOS requires KYC L2 and manual review; this site does not do it for you).
+4. Click **Connect via API**: the site owner pastes an `mbt_` MCP token into the **single input** under **Site Settings → Third-party domain access** — it takes effect on save, with **no environment variable, Worker Secret or redeploy**; zones are looked up automatically. The site then calls the official `dns_zones` tool to find the hosted zone / zone id. **Leaving it blank also works**: you may temporarily paste your own token when connecting — **used once, never stored**. Unverified applications cannot use this button or endpoint.
+5. **Wait for the site owner's approval**: the request appears under **Site Settings → Third-party domain access**. Only applications with **verified TXT** and a connected SEUS zone can be approved; afterwards the domain becomes a root domain and users can apply for subdomains under it.
 
 **SEUS DNS only**: there is no provider picker. After approval the DNS-backend dropdown for that root is disabled and reads "SEUS DNS · third-party (locked)"; even an administrator cannot switch it. All DNS records are written by the site backend through the SEUS API.
 
@@ -51,7 +52,7 @@ Standalone page: <a href="/external-domains">`/external-domains`</a> (documentat
 - Names under this site's active suffixes (including the roots) cannot be registered here
 - Up to 5 per account; pending requests can be withdrawn, approved domains are managed by the site owner in Root Domain Management
 - **The site-wide SEUS token has a single source** (the `settings.seus_api_token` field) and stays server-side: the admin page only returns a mask, `/api/config` exposes a boolean, and redacted backups blank it out. A user-supplied token is used only for that single request
-- No TXT ownership check: ownership is established by "a real hosted zone exists in the SEUS account + registrar NS points at SEUS + manual approval by the site owner"
+- **Verify TXT first, THEN change NS**: the owner adds `_noxc-verify` TXT at the current DNS provider and passes verification before NS change / SEUS API connect / admin approval (all three endpoints re-check `verify_status`). Once NS moves, that TXT is no longer queried — the order is mandatory
 
 ## D1 read optimisation
 

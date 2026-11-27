@@ -19,12 +19,24 @@ type ExternalItem = {
   ns: string[]; zoneId: string; connected: boolean; connectedAt: number | null;
   nsDelegated: boolean; apiSource: string; reviewNote: string;
   createdAt: number; note: string;
+  verified: boolean; verifyStatus: string; verifiedAt: number | null;
+  verifyHost: string; verifyValue: string;
 };
 
 export function ExternalDomainsCard() {
   const externalLabel = '（外部域名）';
   const [items, setItems] = useState<ExternalItem[]>([]);
-  const [policy, setPolicy] = useState<any>({ ns: ['a.ns.fs5.net', 'b.ns.fs5.net'], flow: '', max: 5, siteTokenReady: false });
+  const [policy, setPolicy] = useState<any>({
+    ns: ['a.ns.fs5.net', 'b.ns.fs5.net'],
+    flow: [
+      '① 填写你自己的完整域名（只允许 gTLD 二级域）',
+      '② 在域名当前的 DNS 服务商添加 _noxc-verify TXT，点「验证 TXT」——验证通过前不要改 NS',
+      '③ 验证通过后，才到注册商把 NS 改为 a.ns.fs5.net / b.ns.fs5.net，并在 s.eus 完成 DNS 托管',
+      '④ 点「用 API 连接」，站点用 SEUS API 查到托管区域',
+      '⑤ 等待站长在站点设置里批准',
+    ].join('\n'),
+    max: 5, siteTokenReady: false,
+  });
   const [domain, setDomain] = useState('');
   const [note, setNote] = useState('');
   const [apiToken, setApiToken] = useState('');
@@ -81,11 +93,12 @@ export function ExternalDomainsCard() {
       </p>
 
       <div className="alert a-info" style={{ marginTop: '10px', whiteSpace: 'pre-line', lineHeight: 1.8 }}
-        data-en="1) Enter your own full gTLD domain (e.g. xxx.com). Subdomains such as xxx.example.com are not accepted. 2) Point the registrar NS to the two SEUS DNS servers below and complete DNS hosting at s.eus. 3) Click Connect via API; the site uses its SEUS MCP token to find the hosted zone. 4) Wait for the site owner to approve in Site Settings.">
-        {policy.flow || '① 填写你自己的完整域名（只允许 gTLD 二级域）\n② 注册商 NS 改为下方两台，并在 s.eus 完成 DNS 托管\n③ 点「用 API 连接」\n④ 等待站长在站点设置里批准'}
+        data-en="1) Enter your own full gTLD domain (e.g. xxx.com). Subdomains such as xxx.example.com are not accepted. 2) Add the _noxc-verify TXT record at your CURRENT DNS provider and click Verify TXT. Do NOT change NS yet. 3) Only after verification passes, point the registrar NS to the two SEUS DNS servers below and complete hosting at s.eus. 4) Click Connect via API; the site uses its SEUS MCP token to find the hosted zone. 5) Wait for the site owner to approve in Site Settings.">
+        {policy.flow}
       </div>
       <div className="hint" style={{ marginTop: 8 }}>
         <b>SEUS DNS 权威服务器：</b><span className="mono">{policy.ns?.join(' / ')}</span>
+        <br /><b data-en="Verify TXT first, THEN change NS. Once NS moves to SEUS, the TXT at your old DNS provider is no longer queried globally and verification can never pass.">先验证 TXT、后改 NS：NS 一旦切到 SEUS，原服务商那条 TXT 就不再被全球 DNS 查询，验证会永远失败。</b>
         <br /><span data-en="Records will not resolve globally until the registrar NS is pointed to SEUS DNS.">
           NS 未生效前，即使批准，写入的记录也不会被全球 DNS 查询。</span>
         {!policy.siteTokenReady && <><br /><b data-en="No site-wide SEUS MCP token configured yet. Leaving it blank is fine too: you may temporarily paste your own mbt_ token for this one connection.">站长还没在站点设置填 SEUS MCP Token（留空也能用）；连接时可临时填你自己的 mbt_ Token，仅本次使用、不会保存。</b></>}
@@ -125,9 +138,35 @@ export function ExternalDomainsCard() {
             <div className="head-row" style={{ flexWrap: 'wrap', gap: 6 }}>
               <b className="mono">{it.fqdn}</b>
               <span className={it.status === 'approved' ? 'badge ok' : (it.status === 'rejected' ? 'badge warn' : 'badge')}>{it.statusLabel}</span>
+              {it.verified
+                ? <span className="badge ok" data-en="TXT verified">TXT 已验证</span>
+                : <span className="badge warn" data-en="TXT pending">待 TXT 验证</span>}
               {it.connected && <span className="badge inf" data-en="SEUS connected">SEUS 已连接{it.zoneId ? ` · #${it.zoneId}` : ''}</span>}
               {it.nsDelegated && <span className="badge ok" data-en="NS live">NS 已生效</span>}
             </div>
+            {!it.verified && it.status !== 'approved' && it.verifyValue && (
+              <div className="alert a-warn" style={{ marginTop: 8, lineHeight: 1.9 }}>
+                <b data-en="Step 1 · Verify ownership with a TXT record at your CURRENT DNS provider">第 1 步 · 在域名「当前」的 DNS 服务商添加这条 TXT，验证通过前不要改 NS</b>
+                <div style={{ marginTop: 6 }}>
+                  <div>主机名：<span className="mono">{it.verifyHost}</span></div>
+                  <div>类型：<span className="mono">TXT</span></div>
+                  <div>值：<span className="mono">{it.verifyValue}</span></div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <button className="btn sm" disabled={busy}
+                    onClick={() => void act(() => api.post(`/api/external-domains/${it.id}/verify`, {}), 'TXT 验证通过，现在可以去改 NS 了')}
+                    data-en="Verify TXT">验证 TXT</button>
+                </div>
+                <div className="hint" style={{ marginTop: 6 }} data-en="DNS propagation usually takes a few minutes to a few hours. If it fails, check the record name and value, then retry.">
+                  DNS 生效通常要几分钟到几小时；失败就检查主机名与值是否逐字符一致，再点一次。
+                </div>
+              </div>
+            )}
+            {it.verified && (
+              <div className="hint" style={{ marginTop: 6 }} data-en="TXT verified. Step 2: now change the registrar NS to the two SEUS servers below and finish hosting at s.eus.">
+                ✔ TXT 验证通过。第 2 步：现在才去注册商把 NS 改为 <span className="mono">{it.ns?.join(' / ')}</span>，并在 s.eus 完成 DNS 托管。
+              </div>
+            )}
             <div className="hint" style={{ marginTop: 6 }}>
               NS：<span className="mono">{it.ns?.join(' / ')}</span>
               {it.apiSource === 'user' && <span data-en=" · this connection used your temporary token"> · 本次连接用的是你临时填的 Token</span>}
@@ -135,12 +174,14 @@ export function ExternalDomainsCard() {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
               {it.status === 'pending' && (
-                <button className="btn sm" disabled={busy}
+                <button className="btn sm" disabled={busy || !it.verified}
+                  title={!it.verified ? '请先完成 TXT 所有权验证，验证通过后才改 NS' : ''}
                   onClick={() => void act(() => api.post(`/api/external-domains/${it.id}/connect`, apiToken ? { apiToken } : {}), '连接成功')}
                   data-en="Connect via API">用 API 连接</button>
               )}
               {it.status === 'pending' && (
-                <button className="btn sm ghost" disabled={busy}
+                <button className="btn sm ghost" disabled={busy || !it.verified}
+                  title={!it.verified ? '请先完成 TXT 所有权验证' : ''}
                   onClick={() => void act(() => api.post(`/api/external-domains/${it.id}/check-ns`, {}), '已重新检查 NS')}
                   data-en="Recheck NS">重新检查 NS</button>
               )}
@@ -224,6 +265,9 @@ export default function ExternalDomainsPage() {
               <p className="hint" data-en="DNS is fixed to SEUS DNS (a.ns.fs5.net / b.ns.fs5.net). There is no provider picker, and after approval the root is locked to the seus backend; its DNS dropdown in Root domain management is disabled.">
                 DNS <b>固定使用 SEUS DNS</b>（<span className="mono">a.ns.fs5.net / b.ns.fs5.net</span>）：接入表单没有供应商选择；站长批准后该根域名的 DNS 后端锁死 <span className="mono">seus</span>，「根域名管理」里那一行不能切换。
               </p>
+              <p className="hint" data-en="Order is mandatory: add a TXT record at your CURRENT DNS provider and verify ownership BEFORE changing NS. After NS moves to SEUS the old TXT is no longer queried globally, so verification can never pass.">
+                <b>顺序是硬约束</b>：先在域名「当前」的 DNS 服务商加 TXT 并验证通过，<b>之后</b>才去注册商改 NS。NS 一旦切到 SEUS，原服务商那条 TXT 就不再被全球 DNS 查询，验证会永远失败。
+              </p>
             </section>
 
             <section className="card ed-sec" id="ed-rules">
@@ -232,17 +276,18 @@ export default function ExternalDomainsPage() {
                 <li data-en="Only gTLD second-level domains such as xxx.com / xxx.xyz / xxx.top.">只受理 <b>gTLD 二级域</b>，如 <span className="mono">xxx.com</span> / <span className="mono">xxx.xyz</span> / <span className="mono">xxx.top</span>。</li>
                 <li data-en="Subdomains such as xxx.example.com are not accepted. Document example domains and active site suffixes are not accepted either.">不接受 <span className="mono">xxx.example.com</span> 这类子域名，也不接受 <span className="mono">example.com</span> 等示例域与本站已生效后缀。</li>
                 <li data-en="ccTLD and country/region suffixes such as .cn / .uk / .cc / .io / .ai are not accepted.">不接受 <span className="mono">.cn</span> / <span className="mono">.uk</span> / <span className="mono">.cc</span> / <span className="mono">.io</span> / <span className="mono">.ai</span> 等 ccTLD 与国家地区后缀。</li>
-                <li data-en="Up to 5 domains per account; ownership is established by a real hosted zone in the SEUS account, the registrar NS pointing to SEUS, and manual approval by the site owner.">每账号最多 5 个；权属由「SEUS 账号里真实存在托管区域 + 注册商 NS 指向 SEUS + 站长人工批准」三道关构成，不做 TXT 所有权验证。</li>
+                <li data-en="Up to 5 domains per account. Ownership requires a TXT verification at the current DNS provider BEFORE the NS change, plus a real hosted zone in SEUS, NS delegation and manual approval by the site owner.">每账号最多 5 个；权属链 = <b>改 NS 前先完成 TXT 所有权验证</b> + SEUS 账号里真实存在托管区域 + 注册商 NS 指向 SEUS + 站长人工批准。</li>
               </ul>
             </section>
 
             <section className="card ed-sec" id="ed-steps">
               <h2 data-en="Step by step">接入流程</h2>
               <ol className="ed-steps">
-                <li data-en="Enter your own full gTLD domain in the form below and submit the application.">在下方表单填写你自己的完整 gTLD 域名并提交申请。</li>
-                <li data-en="At your registrar, change the NS to a.ns.fs5.net / b.ns.fs5.net, and finish DNS hosting for the domain at s.eus first (BYOS requires KYC L2 and manual review, which the site does not do for you).">到域名注册商把 NS 改为 <span className="mono">a.ns.fs5.net / b.ns.fs5.net</span>，并先在 s.eus 完成该域名的 DNS 托管（BYOS 需 KYC L2 与人工审核，本站不代做）。</li>
-                <li data-en="Click Connect via API. The site uses the SEUS MCP token configured in Site Settings (one single input, effective on save) to call dns_zones and find the hosted zone. If that field is blank, you can temporarily paste your own mbt_ token for this one connection — it is never stored.">点「用 API 连接」：站点用「站点设置 → 第三方域名接入」<b>唯一输入框</b>里的 SEUS MCP Token 调官方 <span className="mono">dns_zones</span> 找到托管区域；该框留空也能用，连接时临时填自己的 <span className="mono">mbt_</span> Token，仅本次使用、不保存。</li>
-                <li data-en="Wait for the site owner to approve in Site Settings → Third-party domain access. Only applications with a connected SEUS zone can be approved; afterwards the domain becomes a root domain and you can apply for subdomains under it.">等待站长在「站点设置 → 第三方域名接入」批准。只有已连上 SEUS zone 的申请能批准；批准后域名成为根域名，可在该后缀下申请子域。</li>
+                <li data-en="Enter your own full gTLD domain in the form below and submit the application.">在下方表单填写你自己的完整 gTLD 域名并提交申请，页面会给出一条专属 TXT 记录。</li>
+                <li data-en="Add the _noxc-verify TXT record at your CURRENT DNS provider, then click Verify TXT. Do NOT change NS yet — after NS moves to SEUS this TXT is no longer queried globally.">在域名<b>当前</b>的 DNS 服务商添加 <span className="mono">_noxc-verify.&lt;域名&gt;</span> TXT，点「验证 TXT」。<b>这一步之前不要改 NS</b>：NS 切到 SEUS 后原 TXT 就查不到了。</li>
+                <li data-en="Only after verification passes, change the registrar NS to a.ns.fs5.net / b.ns.fs5.net and finish DNS hosting at s.eus (BYOS requires KYC L2 and manual review, which the site does not do for you).">验证通过后，才到注册商把 NS 改为 <span className="mono">a.ns.fs5.net / b.ns.fs5.net</span>，并先在 s.eus 完成该域名的 DNS 托管（BYOS 需 KYC L2 与人工审核，本站不代做）。</li>
+                <li data-en="Click Connect via API. The site uses the SEUS MCP token configured in Site Settings (one single input, effective on save) to call dns_zones and find the hosted zone. If that field is blank, you can temporarily paste your own mbt_ token for this one connection — it is never stored.">点「用 API 连接」：站点用「站点设置 → 第三方域名接入」<b>唯一输入框</b>里的 SEUS MCP Token 调官方 <span className="mono">dns_zones</span> 找到托管区域；该框留空也能用，连接时临时填自己的 <span className="mono">mbt_</span> Token，仅本次使用、不保存。未验证 TXT 时该按钮不可用。</li>
+                <li data-en="Wait for the site owner to approve in Site Settings → Third-party domain access. Only applications with verified TXT and a connected SEUS zone can be approved; afterwards the domain becomes a root domain and you can apply for subdomains under it.">等待站长在「站点设置 → 第三方域名接入」批准。只有 <b>TXT 已验证</b> 且已连上 SEUS zone 的申请能批准；批准后域名成为根域名，可在该后缀下申请子域。</li>
               </ol>
               <p className="hint" style={{ marginTop: 12 }} data-en="Records are written into the SEUS hosted zone; they will not resolve globally until the registrar NS actually points to SEUS DNS.">
                 记录写进 SEUS 托管区域；<b>注册商 NS 没指向 SEUS 之前，全球 DNS 不会查询这些记录</b>，页面也会持续提示 NS 未生效。
@@ -263,6 +308,7 @@ export default function ExternalDomainsPage() {
 
             <section className="card ed-sec" id="ed-faq">
               <h2 data-en="FAQ">常见问题</h2>
+              <p data-en="Why verify TXT before changing NS? The TXT sits at the current authoritative DNS. Once the registrar NS points to SEUS, that record is no longer queried and ownership can never be proven. The verified state is stored, so you may delete the TXT afterwards."><b>为什么必须「先 TXT、后改 NS」？</b> TXT 加在当前的权威 DNS 上；注册商 NS 指向 SEUS 后，这条记录就不再被查询，验证会永远失败。验证通过后状态已落库，之后可以删掉那条 TXT。</p>
               <p data-en="Connected but nothing resolves? The registrar NS is still the #1 cause — check with dig NS xxx.com @1.1.1.1, and use the Recheck NS button on the application. DNSSEC at the registrar must be turned off before switching.">
                 <b>连上 API 也写了记录，但解析不生效？</b> 先查注册商 NS：用 <span className="mono">dig NS xxx.com @1.1.1.1</span> 看是否指向 SEUS 两台，或在申请上点「重新检查 NS」。切换前还要先在注册商关闭 DNSSEC。
               </p>

@@ -16,17 +16,18 @@ The allowlist lives in `GTLD_ALLOWLIST`; adding a new gTLD requires one entry pl
 
 ## Step by step
 
-1. Enter your own full domain on the standalone page (or the console card) and submit
-2. At your **registrar**, change the NS to `a.ns.fs5.net` / `b.ns.fs5.net`, and finish DNS hosting for the domain at s.eus first (BYOS requires KYC L2 and manual review, which the site does not do for you)
-3. Click **Connect via API**: the site uses the `mbt_` MCP token from the **single input** under **Site Settings → Third-party domain access** to call the official `dns_zones` tool and find the hosted zone / zone id. It takes effect **on save** — no environment variable, Worker Secret or redeploy; zones are looked up automatically
-4. **Leaving it blank also works**: when no site token is configured, you can temporarily paste your own `mbt_` token while connecting — used for that one request only, never stored or echoed back
-5. Wait for the site owner to approve in **Site Settings → Third-party domain access**. Only applications with a connected SEUS zone can be approved; afterwards the domain becomes a root domain and you can apply for subdomains under it
+1. Enter your own full domain on the standalone page (or the console card) and submit; the page shows a dedicated TXT record: `_noxc-verify.<domain>` → `noxc-verify=<random value>`
+2. Add that TXT at your **current DNS provider** and click **Verify TXT** (public DoH lookup, 1.1.1.1 first, Google as fallback). **Do NOT change NS yet** — once NS moves to SEUS, the old provider's TXT is no longer queried globally and verification can never pass
+3. Only after verification passes, change the NS at your **registrar** to `a.ns.fs5.net` / `b.ns.fs5.net` and finish DNS hosting at s.eus (BYOS requires KYC L2 and manual review, which the site does not do for you)
+4. Click **Connect via API**: the site uses the `mbt_` MCP token from the **single input** under **Site Settings → Third-party domain access** to call the official `dns_zones` tool and find the hosted zone / zone id. It takes effect **on save** — no environment variable, Worker Secret or redeploy; zones are looked up automatically. **Unverified applications cannot use this button or endpoint**
+5. **Leaving it blank also works**: when no site token is configured, you can temporarily paste your own `mbt_` token while connecting — used for that one request only, never stored or echoed back
+6. Wait for the site owner to approve in **Site Settings → Third-party domain access**. Only applications with **verified TXT** and a connected SEUS zone can be approved; afterwards the domain becomes a root domain and you can apply for subdomains under it
 
 After approval, `root_dns_backends` is set to `<domain>:seus` and `external_root_lock` pins it: the DNS dropdown in **Root domain management** is disabled and marked "SEUS DNS · third-party (locked)", and the switch API rejects changes. All four `cfCreate / cfUpdate / cfDelete / cfList` entry points dispatch to the site-level SEUS backend.
 
 ## Ownership and boundaries
 
-There is no TXT ownership check — the chain is "a real hosted zone exists in the SEUS account + registrar NS points to SEUS + manual approval by the site owner".
+**TXT ownership verification comes BEFORE the NS change** — this is a hard gate, not an optional step: the `connect`, `check-ns` and admin approval endpoints all re-check `verify_status`, so bypassing the UI does not skip it. The verified state is persisted, so the TXT record may be deleted afterwards. Legacy applications created before this gate (already connected to a SEUS zone but without a token) are released by a one-time idempotent migration; all new applications go through TXT.
 
 - The token has a single source (`settings.seus_api_token`) and stays server-side; the admin page returns only a mask, `/api/config` exposes a boolean, and redacted backups blank it out
 - Records are written into the SEUS hosted zone; **until the registrar NS points to SEUS, global DNS will never query them**
@@ -37,6 +38,8 @@ There is no TXT ownership check — the chain is "a real hosted zone exists in t
 
 | Symptom | Check |
 |---|---|
+| Changed NS first, then tried to verify TXT | Wrong order: the old provider's TXT is no longer queried. Withdraw and resubmit, then verify before changing NS |
+| Verify TXT keeps failing | Check the record name `_noxc-verify.<domain>`, type TXT and value `noxc-verify=…` character by character; DNS propagation takes minutes to hours. Do not change NS yet |
 | Connected and records written, but nothing resolves | `dig NS xxx.com @1.1.1.1` — are the authoritative NS the two SEUS servers? Use **Recheck NS** on the application |
 | Authentication error | Is the token `mbt_` with `dns:read` / `dns:write`? Do not mix in an AnyNS `nhtdns_` token |
 | Want to switch the DNS backend after approval | Not possible; SEUS DNS is fixed by design, the dropdown is disabled and the switch API rejects it |

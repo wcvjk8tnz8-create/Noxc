@@ -288,6 +288,11 @@ check(/validateExternalDomain/.test(extRoute) && /seusConnect/.test(extRoute)
 check(/cloudflare-dns\.com\/dns-query/.test(extVerify)
   && /dns\.google\/resolve/.test(extVerify) && /type\) === 16/.test(extVerify),
   '所有权验证走公共 DoH JSON，TXT(type=16) 双兜底');
+check(/app\.post\('\/:id\/verify'/.test(extRoute)
+  && /checkOwnership/.test(extRoute) && /verifyGate/.test(extRoute)
+  && /verifyOrder: 'txt-before-ns'/.test(extRoute)
+  && /验证通过前不要改 NS/.test(extRoute),
+  'TXT 验证回到接入主链路，且明确要求验证通过前不要改 NS');
 check(/api\.cloudflare\.com\/client\/v4/.test(extDns)
   && /isNameInDomain/.test(extDns) && /proxied: false/.test(extDns),
   'Cloudflare 官方 v4 写入，名称限定本域名，不默认开代理');

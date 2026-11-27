@@ -1911,6 +1911,34 @@ check(/export default function ExternalDomainsPage/.test(d1ExtPage)
   '独立页是文档式结构（本页目录 / 章节 / 交互区），控制台卡片保留打开入口');
 check(/### 22\./.test(d1Readme) && /\/external-domains/.test(d1Readme),
   'README 写明独立页面入口');
+/* 第三方域名接入：TXT 所有权验证必须先于改 NS，四处后端守卫 + 前端硬锁 */
+const txRoute = read('src/routes/externalDomains.ts');
+const txPolicy = read('src/lib/externalDomainPolicy.ts');
+const txAdm = read('src/routes/admin.ts');
+const txPage = read('src/app/pages/ExternalDomains.tsx');
+const txAdmUi = read('src/app/legacy/admin.ts');
+const txReadme = read('README.md');
+const txGuide = read('docs-src/external-domains.md');
+const txGuideEn = read('docs-src/en/external-domains.md');
+check(/app\.post\('\/:id\/verify'/.test(txRoute) && /checkOwnership/.test(txRoute)
+  && /verifyGate/.test(txRoute) && /newVerifyToken/.test(txRoute)
+  && /verifyOrder: 'txt-before-ns'/.test(txRoute),
+  'TXT 验证是接入主链路：独立 /verify 接口 + DoH 校验 + 顺序标记');
+check((txRoute.match(/verifyGate\(row\)/g) || []).length >= 2
+  && /verify_status \|\| 'pending'\) !== 'verified'/.test(txAdm),
+  'connect / check-ns / 站长批准三处都复核 verify_status，绕过前端也跳不过');
+check(txPolicy.indexOf('验证 TXT') > 0
+  && txPolicy.slice(txPolicy.indexOf('EXTERNAL_FLOW_HINT')).indexOf('验证 TXT')
+     < txPolicy.slice(txPolicy.indexOf('EXTERNAL_FLOW_HINT')).indexOf('才到注册商把 NS'),
+  '策略文案顺序：先 TXT 验证、后改 NS');
+check(/disabled=\{busy \|\| !it\.verified\}/.test(txPage)
+  && /验证通过前不要改 NS/.test(txPage)
+  && /!x\.verified \?/.test(txAdmUi),
+  '前端未验证时连接按钮硬锁，后台审批未验证不给点批准');
+check(/TXT 验证 → 改 NS/.test(txReadme)
+  && /先做 TXT 所有权验证，再改 NS/.test(txGuide)
+  && /BEFORE the NS change/i.test(txGuideEn),
+  'README 与中英文档都写明「先 TXT 验证、后改 NS」');
 
 
 

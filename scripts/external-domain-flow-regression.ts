@@ -1,12 +1,14 @@
 /**
  * 第三方域名接入 · 站长定版流程 · 专项回归
  *
- * 真跑：准入策略 → 提交申请 → SEUS API 连接 → 站长审批 → 根域名锁定 →
- *       cf.ts 把记录写进 SEUS（mock SEUS MCP / DoH + 内存 D1 + Hono）
+ * 真跑：准入策略 → 提交申请 → TXT 所有权验证 → 改 NS → SEUS API 连接 →
+ *       站长审批 → 根域名锁定 → cf.ts 把记录写进 SEUS
+ *       （mock SEUS MCP / TXT+NS DoH + 内存 D1 + Hono）
  *
  * 流程口径：
  *   · 只允许 gTLD 二级域（xxx.com ✓ / xxx.example.com ✗ / xxx.cn ✗）
  *   · 固定 SEUS DNS，不提供供应商选择
+ *   · **先 TXT 验证、后改 NS**：未验证时 connect / check-ns / 批准全被后端拒绝
  *   · 站点级 SEUS MCP Token 优先；用户临时 Token 仅本次连接、不落库
  *   · 站长在「站点设置 → 第三方域名接入」批准后才生效
  *   · 批准后根域名 DNS 后端锁死 seus，下拉与切换接口都不可改
@@ -24,7 +26,7 @@ import { invalidateSettings } from '../src/lib/settingsCache.js';
 import { clearDnsProviderCache, backendFor, cfCreate } from '../src/lib/cf.js';
 import { clearSeusBackendCache } from '../src/lib/seusBackend.js';
 import { setDnsBackend, getBackendMap, externalLockedRoots } from '../src/lib/rootStore.js';
-import externalRoutes, { EXTERNAL_LABEL } from '../src/routes/externalDomains.js';
+import externalRoutes, { EXTERNAL_LABEL, markLegacyExternalVerified, LEGACY_VERIFY_TOKEN } from '../src/routes/externalDomains.js';
 import adminRoutes from '../src/routes/admin.js';
 
 const ok: string[] = [];
@@ -103,22 +105,36 @@ function exec(sql: string, args: any[]) {
       rows.push({ ...r, user_email: u?.email || '' });
     }
   } else if (/^INSERT INTO external_domains/.test(s)) {
-    /* 列顺序：fqdn,user_id,note,provider?,ns1,ns2,zone_id,status,connected_at,
-       ns_delegated,api_source,created_at —— 用位置取，缺列时补默认 */
-    const [fqdn, userId, note, ns1, ns2, createdAt] = args;
+    /* 列顺序（字面量列已省略）：fqdn,user_id,note,ns1,ns2,verify_token,created_at */
+    const [fqdn, userId, note, ns1, ns2, verifyToken, createdAt] = args;
     const id = ++S.seq;
     S.ext.push({
       id, fqdn, user_id: userId, note, provider: 'seus',
-      ns1, ns2, zone_id: '', status: 'pending', connected_at: 0,
+      ns1, ns2, zone_id: '', verify_token: verifyToken || '',
+      verify_status: 'pending', verified_at: null,
+      status: 'pending', connected_at: 0,
       ns_delegated: 0, api_source: '', created_at: createdAt,
       reviewed_at: null, reviewed_by: '', review_note: '',
     });
     lastRowId = id; changes = 1;
+  } else if (/^UPDATE external_domains SET verify_status = 'verified', verified_at = \?, verify_token = \?/.test(s)) {
+    /* 存量迁移：只命中 verify_token 为空且已连上 zone 的旧行，幂等 */
+    for (const r of S.ext) {
+      if (r.verify_token === '' && r.zone_id !== '' && r.verify_status === 'pending') {
+        r.verify_token = args[1];
+        r.verify_status = 'verified';
+        r.verified_at = args[0];
+        changes++;
+      }
+    }
   } else if (/^UPDATE external_domains/.test(s)) {
     const id = Number(/AND status = \?/.test(s) ? args[args.length - 2] : args[args.length - 1]);
     const r = S.ext.find((x) => x.id === id);
     if (r) {
-      if (/SET provider = 'seus', zone_id = \?/.test(s)) {
+      if (/SET verify_status = 'verified', verified_at = \? WHERE id = \?/.test(s)) {
+        r.verify_status = 'verified';
+        r.verified_at = args[0];
+      } else if (/SET provider = 'seus', zone_id = \?/.test(s)) {
         /* bind: zoneId, ns1, ns2, connected_at, ns_delegated, api_source, id */
         [r.zone_id, r.ns1, r.ns2, r.connected_at, r.ns_delegated, r.api_source] = args;
       } else if (/SET ns_delegated = \?/.test(s)) {
@@ -164,15 +180,19 @@ const env = (extra: Record<string, any> = {}) => ({
 /* ───────── mock fetch：SEUS MCP + DoH NS ───────── */
 let seusCalls: Array<{ method: string; name?: string; args?: any }> = [];
 let nsDelegated = true;
+let txtValue = '';   // 当前 DNS 服务商上「实际存在」的 TXT 值，用来控制验证结果
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: any, init: any = {}) => {
   const url = String(typeof input === 'string' ? input : input?.url || '');
-  if (url.includes('cloudflare-dns.com/dns-query')) {
-    return new Response(JSON.stringify({
-      Answer: nsDelegated
+  if (url.includes('cloudflare-dns.com/dns-query') || url.includes('dns.google/resolve')) {
+    /* TXT 所有权查询（type=16）与 NS 委派查询走同一个 DoH mock */
+    const answer = url.includes('type=TXT')
+      ? (txtValue ? [{ type: 16, data: `"${txtValue}"` }] : [])
+      : (nsDelegated
         ? [{ type: 2, data: 'a.ns.fs5.net.' }, { type: 2, data: 'b.ns.fs5.net.' }]
-        : [{ type: 2, data: 'ns1.other-dns.com.' }],
-    }), { status: 200, headers: { 'content-type': 'application/dns-json' } });
+        : [{ type: 2, data: 'ns1.other-dns.com.' }]);
+    return new Response(JSON.stringify({ Answer: answer }),
+      { status: 200, headers: { 'content-type': 'application/dns-json' } });
   }
   if (url.includes('s.eus/api/mcp')) {
     const body = JSON.parse(String(init.body || '{}'));
@@ -219,8 +239,9 @@ async function main() {
   check(!validateExternalDomain('').ok && !validateExternalDomain('bad_label_.com').ok
     && !validateExternalDomain('-x.com').ok,
     '空值 / 下划线 / 连字符开头等非法格式被拒');
-  check(/SEUS|gTLD|站长/.test(EXTERNAL_FLOW_HINT),
-    '接入说明写清 gTLD / SEUS NS / 站长批准三步');
+  check(/SEUS|gTLD|站长/.test(EXTERNAL_FLOW_HINT)
+    && EXTERNAL_FLOW_HINT.indexOf('验证 TXT') < EXTERNAL_FLOW_HINT.indexOf('才到注册商把 NS'),
+    '接入说明顺序正确：先 TXT 验证、后改 NS，再 SEUS API / 站长批准');
 
   /* ═════════ B. 提交申请（Hono 真跑） ═════════ */
   invalidateSettings();
@@ -253,8 +274,17 @@ async function main() {
     && addedJson.item.provider === 'seus',
     '提交 xxx.com → 201，状态「待站长批准」，provider 固定 seus');
   check(addedJson.ns.join(',') === EXTERNAL_NS.join(','), '响应回 SEUS NS 供用户去注册商修改');
-  check(S.ext.length === 1 && S.ext[0].status === 'pending' && S.ext[0].zone_id === '',
-    '申请只落一行 pending，未连接、未写任何 DNS');
+  check(S.ext.length === 1 && S.ext[0].status === 'pending' && S.ext[0].zone_id === ''
+    && S.ext[0].verify_status === 'pending' && /^[0-9a-f]{32}$/.test(S.ext[0].verify_token || ''),
+    '申请只落一行 pending，未连接、未写任何 DNS，生成 32 位验证 token');
+  check(addedJson.item.verified === false
+    && addedJson.item.verifyHost === '_noxc-verify.xxx.com'
+    && /^noxc-verify=[0-9a-f]{32}$/.test(addedJson.item.verifyValue || '')
+    && /验证通过前不要改 NS/.test(String(addedJson.next)),
+    '提交即回专属 TXT 记录名/值，并明确「验证通过前不要改 NS」');
+  check(addedJson.item.verify_token === undefined && addedJson.token === undefined
+    && /^noxc-verify=[0-9a-f]{32}$/.test(addedJson.item.verifyValue || ''),
+    '响应只回拼好的 TXT 值，不额外回裸 token 字段');
   const dup = await callUser('POST', '', { domain: 'xxx.com' });
   check(dup.status === 400 && /已被登记/.test(String((await dup.json() as any).message)),
     '重复域名（含待审核）不允许再提交');
@@ -265,6 +295,53 @@ async function main() {
     && listJson.provider === 'seus' && listJson.siteTokenReady === true,
     '列表返回我的申请 + 固定 provider + 站点级令牌已就绪布尔');
   check(!/mbt_site_token/.test(JSON.stringify(listJson)), '公开列表绝不回显 SEUS 令牌');
+
+  /* ═════════ C0. TXT 所有权验证（顺序硬锁） ═════════ */
+  /* 未验证：connect / check-ns 都被后端挡住，绕过前端也跳不过 */
+  const earlyConn = await callUser('POST', '/1/connect', {});
+  check(earlyConn.status === 400 && /TXT 记录并完成所有权验证/.test(String((await earlyConn.json() as any).message)),
+    '未验证 TXT 就点「用 API 连接」→ 400，明确要求先验证');
+  const earlyNs = await callUser('POST', '/1/check-ns', {});
+  check(earlyNs.status === 400 && /TXT 记录并完成所有权验证/.test(String((await earlyNs.json() as any).message)),
+    '未验证 TXT 就「重新检查 NS」→ 400（不该先改 NS）');
+  check(!seusCalls.some((c) => c.name === 'dns_zones'),
+    '未验证时连 SEUS API 都没调，不会提前产生托管区域');
+
+  /* TXT 还没加：验证失败但提示明确，不算错误 */
+  txtValue = '';
+  const verifyMiss = await callUser('POST', '/1/verify', {});
+  check(verifyMiss.status === 400 && /还没查到 _noxc-verify\.xxx\.com 的 TXT/.test(String((await verifyMiss.json() as any).message)),
+    '原 DNS 上没加 TXT → 明确提示记录名，不算内部错误');
+  check(S.ext[0].verify_status === 'pending', '验证失败不落 verified 状态');
+
+  /* TXT 加上后：验证通过并持久化 */
+  txtValue = String(addedJson.item.verifyValue || '');
+  const verified = await callUser('POST', '/1/verify', {});
+  const verifiedJson: any = await verified.json();
+  check(verified.status === 200 && verifiedJson.item.verified === true
+    && S.ext[0].verify_status === 'verified' && S.ext[0].verified_at,
+    'TXT 验证通过，verify_status / verified_at 落库');
+  check(/现在才去注册商把 NS/.test(String(verifiedJson.next))
+    && String(verifiedJson.next).indexOf('TXT 验证通过') < String(verifiedJson.next).indexOf('NS 改为'),
+    '验证通过的下一步才提示改 NS，顺序不倒');
+  const again = await callUser('POST', '/1/verify', {});
+  check(again.status === 200 && (await again.json() as any).already === true,
+    '重复点验证幂等返回 already，不重复写库');
+  /* 验证通过后即使把 TXT 从原 DNS 删掉，也仍可继续（状态已持久化） */
+  txtValue = '';
+
+  /* 存量迁移：上一版没生成 token 但已连上 zone 的旧申请一次性放行 */
+  S.settings.delete('external_verify_legacy_v1');   // 模拟全新库首次跑迁移
+  S.ext.push({ ...S.ext[0], id: 99, verify_token: '', verify_status: 'pending',
+    verified_at: null, zone_id: '4821' });
+  const migrated = await markLegacyExternalVerified(env());
+  check(migrated >= 1 && S.ext.find((x) => x.id === 99)?.verify_status === 'verified'
+    && S.ext.find((x) => x.id === 99)?.verify_token === LEGACY_VERIFY_TOKEN
+    && S.ext[0].verify_status === 'verified',
+    '存量旧申请一次性迁移放行，不动新申请');
+  const migratedTwice = await markLegacyExternalVerified(env());
+  check(migratedTwice === 0, '迁移 UPDATE 幂等，连跑两次不重复放行');
+  S.ext = S.ext.filter((x) => x.id !== 99);
 
   /* ═════════ C. SEUS API 连接 ═════════ */
   seusCalls.length = 0;
@@ -321,6 +398,13 @@ async function main() {
     && reqJson.items[0].userEmail === 'user@example.com',
     '站长在站点设置能看到申请：域名 / 申请人 / SEUS 连接状态');
   check(!/mbt_/.test(JSON.stringify(reqJson)), '审批列表不回显任何令牌');
+
+  /* 未通过 TXT 验证不能批准（后端兜底，绕过前端也拦得住） */
+  S.ext[0].verify_status = 'pending';
+  const noVerifyApprove = await callAdmin('POST', '/external-domains/1/approve', {});
+  check(noVerifyApprove.status === 400 && /TXT 所有权验证/.test(String((await noVerifyApprove.json() as any).message)),
+    '站长也不能批准未做 TXT 验证的申请');
+  S.ext[0].verify_status = 'verified';
 
   /* 未连接不能批准 */
   S.ext[0].zone_id = '';
@@ -444,6 +528,28 @@ async function main() {
   check(/status\s+TEXT\s+NOT\s+NULL\s+DEFAULT\s+'pending'/.test(schema)
     && /external_root_lock/.test(schema) && /seus_api_token/.test(schema),
     'schema 新库直接带审批字段与 SEUS 配置');
+  /* TXT 先行：四处后端守卫 + 前端硬锁 + 文档顺序，缺一处就要回流 */
+  check(/app\.post\('\/:id\/verify'/.test(route)
+    && /checkOwnership/.test(route) && /verifyGate/.test(route)
+    && (route.match(/verifyGate\(row\)/g) || []).length >= 2
+    && /SET verify_status = 'verified'/.test(route)
+    && /newVerifyToken/.test(route),
+    '后端有 TXT 验证接口、DoH 校验与 connect/check-ns 两处顺序守卫');
+  check(/verify_status \|\| 'pending'\) !== 'verified'/.test(adm)
+    && /TXT 所有权验证/.test(adm),
+    '站长批准接口也复核 verify_status');
+  check(/验证 TXT/.test(page) && /disabled=\{busy \|\| !it\.verified\}/.test(page)
+    && /verifyHost/.test(page) && /验证通过前不要改 NS/.test(page)
+    && /!x\.verified \? '需先完成 TXT 所有权验证'/.test(admUi)
+    && /TXT 已验证/.test(admUi),
+    '前端：验证卡片 + 连接按钮硬锁 + 后台审批列表显示 TXT 状态并禁用批准');
+  check(/先做 TXT 所有权验证，再改 NS/.test(read('docs-src/external-domains.md'))
+    && /验证通过前不要改 NS/.test(read('docs-src/external-domains.md'))
+    && /Verify TXT/i.test(read('docs-src/en/external-domains.md'))
+    && /BEFORE the NS change/i.test(read('docs-src/en/external-domains.md')),
+    '中英文档都写明「先 TXT 验证、后改 NS」及原因');
+  check(/verify_token/.test(schema) && /verify_status/.test(schema),
+    'schema 直接带 TXT 验证三列，老库由幂等 ALTER 补齐');
   check(/external-domain-flow-regression\.ts/.test(deploy), '专项回归挂进 CI');
   check(/### 22\./.test(readme) && /### Z\.14/.test(readme),
     'README 第 22 节写流程、文末 Z.14 记错误');

@@ -1536,10 +1536,13 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
             const r = await api.get('/api/admin/external-domains');
             const list: any[] = r.items || [];
             const stateText: Record<string, string> = { pending: '待站长批准', approved: '已通过', rejected: '已驳回' };
-            box.innerHTML = '<table><thead><tr><th>域名</th><th>申请人</th><th>连接状态</th><th>状态</th><th class="right">操作</th></tr></thead><tbody>'
+            box.innerHTML = '<table><thead><tr><th>域名</th><th>申请人</th><th>TXT 验证</th><th>连接状态</th><th>状态</th><th class="right">操作</th></tr></thead><tbody>'
               + (list.length ? list.map((x) => `<tr>
                   <td class="mono">${esc(x.fqdn)}<div class="hint">${esc(x.ns ? x.ns.join(' / ') : '')}</div></td>
                   <td>${esc(x.userEmail || ('#' + x.userId))}<div class="hint">${esc(x.note || '')}</div></td>
+                  <td>${x.verified
+                    ? '<span class="badge ok">TXT 已验证</span>'
+                    : '<span class="badge warn">待 TXT 验证</span>'}</td>
                   <td>${x.connected
                     ? `<span class="badge ok">SEUS 已连接${x.zoneId ? ' · #' + esc(x.zoneId) : ''}</span>${x.nsDelegated ? ' <span class="badge ok">NS 已生效</span>' : '<div class="hint">NS 待确认</div>'}`
                     : '<span class="badge warn">未连接</span>'}
@@ -1547,7 +1550,7 @@ export async function mountAdmin(_root: HTMLElement | null): Promise<void> {
                   <td><span class="badge ${x.status === 'approved' ? 'ok' : (x.status === 'rejected' ? 'warn' : '')}">${esc(stateText[x.status] || x.status)}</span>
                     ${x.reviewNote ? `<div class="hint">${esc(x.reviewNote)}</div>` : ''}</td>
                   <td class="right nowrap">${x.status === 'pending' ? `
-                    <button class="btn sm ok" type="button" data-exact="approve" data-id="${x.id}"${x.connected ? '' : ' disabled title="需先用 SEUS API 连接"'}>批准</button>
+                    <button class="btn sm ok" type="button" data-exact="approve" data-id="${x.id}"${x.connected && x.verified ? '' : ` disabled title="${!x.verified ? '需先完成 TXT 所有权验证' : '需先用 SEUS API 连接'}"`}>批准</button>
                     <button class="btn sm" type="button" data-exact="reject" data-id="${x.id}">驳回</button>` : '<span class="hint">已处理</span>'}</td>
                 </tr>`).join('') : '<tr><td colspan="5" class="empty">暂无接入申请</td></tr>')
               + '</tbody></table>';

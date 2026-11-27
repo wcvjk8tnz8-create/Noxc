@@ -5,17 +5,19 @@
  *   ① 用户填自己拥有的完整域名（如 xxx.com）
  *   ② 不允许子域名（xxx.example.com 不行），只允许注册局级别的二级域
  *   ③ 只允许 gTLD（通用顶级域），ccTLD / 国家地区后缀一律不受理
- *   ④ 固定托管到 SEUS DNS，NS 必须是 a.ns.fs5.net / b.ns.fs5.net
- *   ⑤ 用 SEUS 的 API（站点级 MCP Token）连接、查到托管区域
- *   ⑥ 站长在「站点设置 → 第三方域名接入」看到申请，批准后才生效
+ *   ④ 先在「当前」DNS 服务商加 _noxc-verify TXT 并验证通过
+ *   ⑤ 验证通过后才改 NS 到 a.ns.fs5.net / b.ns.fs5.net、托管到 s.eus
+ *   ⑥ 用 SEUS 的 API（站点级 MCP Token）连接、查到托管区域
+ *   ⑦ 站长在「站点设置 → 第三方域名接入」看到申请，批准后才生效
  *
  * 为什么用「标签数 === 2」而不是完整 PSL：
  *   co.uk / com.cn 这类公共后缀会让「二级域」判断变复杂，而本策略本来就
  *   只放行 gTLD，这些 ccTLD 委派后缀全部在禁止之列，两段标签是最干净、
  *   也最好向用户解释的口径。要放行新的 gTLD，只需往 GTLD_ALLOWLIST 加一项。
  *
- * 不做 TXT 所有权验证：站长人工批准 + 「SEUS 账号里必须真的存在该托管
- * 区域」+ 「注册商 NS 指向 SEUS」三道关已经构成权属链，不再让用户多填记录。
+ * TXT 验证必须在改 NS 之前：TXT 加在「当前」权威 DNS 上，NS 一旦切到 SEUS，
+ * 原服务商那条 TXT 就不再被全球 DNS 查询，验证会永远失败。验证通过后状态
+ * 持久化，不再依赖 TXT 继续存在；connect / check-ns / 批准三处都复核它。
  */
 import { SEUS_NS } from './seusDns.js';
 
@@ -109,7 +111,8 @@ export function validateExternalDomain(raw: unknown, isOwnRoot = false): Externa
 /** 给前端展示的接入说明（纯文案，不含密钥） */
 export const EXTERNAL_FLOW_HINT = [
   '① 填写你自己的完整域名（只允许 gTLD 二级域，如 xxx.com；不接受 xxx.example.com 这类子域名）',
-  `② 到域名注册商把 NS 改为 ${EXTERNAL_NS.join(' / ')}，并先在 s.eus 完成该域名的 DNS 托管`,
-  '③ 点「用 API 连接」，站点会用 SEUS API 查到托管区域',
-  '④ 站长在「站点设置 → 第三方域名接入」看到申请并批准后生效',
+  `② 在域名当前的 DNS 服务商添加 _noxc-verify TXT，点「验证 TXT」——验证通过前不要改 NS`,
+  `③ 验证通过后，才到注册商把 NS 改为 ${EXTERNAL_NS.join(' / ')}，并在 s.eus 完成 DNS 托管`,
+  '④ 点「用 API 连接」，站点会用 SEUS API 查到托管区域',
+  '⑤ 站长在「站点设置 → 第三方域名接入」看到申请并批准后生效',
 ].join('\n');

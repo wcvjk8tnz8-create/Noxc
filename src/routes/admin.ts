@@ -1475,6 +1475,9 @@ app.get('/external-domains', async (c) => {
         reviewedBy: r.reviewed_by || '', connected: !!r.zone_id,
         connectedAt: r.connected_at || null, apiSource: String(r.api_source || ''),
         nsDelegated: Number(r.ns_delegated || 0) === 1,
+        verified: String(r.verify_status || 'pending') === 'verified',
+        verifyStatus: String(r.verify_status || 'pending'),
+        verifiedAt: r.verified_at || null,
         createdAt: r.created_at,
       })),
       provider: EXTERNAL_DNS_PROVIDER,
@@ -1486,7 +1489,7 @@ app.get('/external-domains', async (c) => {
   }
 });
 
-/** 批准：必须已经用 SEUS API 连上 zone；批准后域名成为根域名且锁死 SEUS 后端 */
+/** 批准：必须先 TXT 验证 + 用 SEUS API 连上 zone；批准后域名成为根域名且锁死 SEUS 后端 */
 app.post('/external-domains/:id/approve', async (c) => {
   const u = c.get('user');
   const id = Number(c.req.param('id'));
@@ -1495,6 +1498,9 @@ app.post('/external-domains/:id/approve', async (c) => {
   if (!row) return fail(c, '申请不存在', 404);
   if (String(row.status || 'pending') === 'approved') return ok(c, { fqdn: row.fqdn, already: true });
   if (String(row.status || 'pending') !== 'pending') return fail(c, '该申请已处理，不能重复批准');
+  if (String(row.verify_status || 'pending') !== 'verified') {
+    return fail(c, '该申请还没完成 TXT 所有权验证，请让用户先在原 DNS 服务商添加 TXT 并验证通过后再改 NS');
+  }
   if (!String(row.zone_id || '').trim()) {
     return fail(c, '该申请还没用 SEUS API 连接成功（缺少托管区域），请让用户先完成连接');
   }
