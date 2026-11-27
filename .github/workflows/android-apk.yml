@@ -109,7 +109,22 @@ jobs:
           TASK=assembleDebug
           if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then TASK=assembleRelease; fi
           echo "▶ gradle $TASK  site=$SITE_URL  signed=${{ steps.sign.outputs.signed }}"
-          gradle "$TASK" --no-daemon --stacktrace -PsiteUrl="$SITE_URL"
+          set +e
+          gradle "$TASK" --no-daemon --stacktrace -PsiteUrl="$SITE_URL" > /tmp/gradle-build.log 2>&1
+          RC=$?
+          set -e
+          tail -40 /tmp/gradle-build.log || true
+          if [ "$RC" -ne 0 ]; then
+            # 日志下载在部分网络环境受限，把关键错误行发成 annotation，
+            # 这样在 Checks API 里就能直接看到根因，不用翻几千行日志。
+            grep -E 'FAILURE:|What went wrong|Caused by:|error:|Error:|Could not|Execution failed|Exception|^\* Try:' \
+              /tmp/gradle-build.log > /tmp/gradle-all-errors.txt || true
+            head -15 /tmp/gradle-all-errors.txt > /tmp/gradle-errors.txt || true
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error::$line"
+            done < /tmp/gradle-errors.txt
+            exit "$RC"
+          fi
 
       - name: 校验 APK 产物
         run: |
