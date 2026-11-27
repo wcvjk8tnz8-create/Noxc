@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/splash_bg" android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent" android:layout_height="64dp"
+        android:background="@color/bar_bg"
+        app:navigationIcon="@drawable/ic_back"
+        app:title="@string/forgot_title"
+        app:titleTextColor="@color/bar_text" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="24dp">
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_forgot_email"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="@string/login_email"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusTopStart="14dp" app:boxCornerRadiusTopEnd="14dp"
+                app:boxCornerRadiusBottomStart="14dp" app:boxCornerRadiusBottomEnd="14dp"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/forgot_email"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:inputType="textEmailAddress"
+                    android:textColor="@color/bar_text"
+                    android:textSize="16sp"  />
+            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/forgot_send"
+                android:layout_width="match_parent" android:layout_height="48dp"
+                android:layout_marginTop="12dp" android:text="@string/forgot_send"
+                app:cornerRadius="14dp" style="@style/Widget.Material3.Button.TonalButton" />
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_forgot_code"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="@string/register_code"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusTopStart="14dp" app:boxCornerRadiusTopEnd="14dp"
+                app:boxCornerRadiusBottomStart="14dp" app:boxCornerRadiusBottomEnd="14dp"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/forgot_code"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:inputType="textVisiblePassword"
+                    android:textColor="@color/bar_text"
+                    android:textSize="16sp"  />
+            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_forgot_new_password"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="@string/forgot_new_password"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusTopStart="14dp" app:boxCornerRadiusTopEnd="14dp"
+                app:boxCornerRadiusBottomStart="14dp" app:boxCornerRadiusBottomEnd="14dp"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/forgot_new_password"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:inputType="textPassword"
+                    android:textColor="@color/bar_text"
+                    android:textSize="16sp"  />
+            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/forgot_submit"
+                android:layout_width="match_parent" android:layout_height="52dp"
+                android:layout_marginTop="18dp" android:text="@string/forgot_button"
+                android:textSize="15sp" app:cornerRadius="18dp"  />
+            <TextView android:id="@+id/form_error"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="10dp" android:textColor="@color/danger"
+                android:textSize="13sp" />
+
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/form_progress"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal" android:layout_marginTop="14dp"
+                android:indeterminate="true" android:visibility="gone"
+                app:indicatorColor="@color/brand_dot" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/forgot_go_login"
+                android:layout_width="match_parent" android:layout_height="52dp"
+                android:layout_marginTop="18dp" android:text="@string/forgot_back_login"
+                android:textSize="15sp" app:cornerRadius="18dp" style="@style/Widget.Material3.Button.TextButton" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>

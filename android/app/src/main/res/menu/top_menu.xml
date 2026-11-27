@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/action_refresh" android:title="@string/bar_refresh" app:showAsAction="never" />
+    <item android:id="@+id/action_full_web" android:title="@string/menu_full_web" app:showAsAction="never" />
+    <item android:id="@+id/action_change_site" android:title="@string/menu_change_site" app:showAsAction="never" />
+    <item android:id="@+id/action_about" android:title="@string/menu_about" app:showAsAction="never" />
+</menu>

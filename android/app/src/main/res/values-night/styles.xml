@@ -1,12 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowActionBar">false</item>
+    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/brand_dot</item>
+        <item name="colorOnPrimary">@color/on_brand</item>
+        <item name="colorPrimaryContainer">@color/brand_container</item>
+        <item name="colorOnPrimaryContainer">@color/bar_text</item>
+        <item name="colorSurface">@color/bar_bg</item>
+        <item name="colorOnSurface">@color/bar_text</item>
+        <item name="colorSurfaceVariant">@color/bar_bg_pressed</item>
+        <item name="colorOnSurfaceVariant">@color/bar_dim</item>
+        <item name="colorSurfaceContainer">@color/card_bg</item>
+        <item name="colorSurfaceContainerHigh">@color/card_bg</item>
+        <item name="colorOutline">@color/bar_hair</item>
+        <item name="colorOutlineVariant">@color/bar_hair</item>
+        <item name="colorError">@color/danger</item>
+        <item name="colorOnError">@color/on_brand</item>
         <item name="android:windowBackground">@color/splash_bg</item>
         <item name="android:statusBarColor">@color/bar_bg</item>
         <item name="android:navigationBarColor">@color/bar_bg</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:colorAccent">@color/brand_dot</item>
+        <item name="windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
     </style>
 </resources>

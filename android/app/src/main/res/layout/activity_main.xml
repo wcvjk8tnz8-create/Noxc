@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Noxc 手机版主界面：全部原生控件，没有 WebView。
-  顶栏 + 四个可切换的原生 ScrollView 页面 + 底部导航。
-  每个页面只有一个 LinearLayout 容器，卡片由 Java 动态生成（见 MainActivity）。
--->
+<!-- Noxc · Material 3 完全原生 App 主界面：Toolbar + 下拉刷新 + 四页 + BottomNavigationView -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/splash_bg">
@@ -15,266 +12,151 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- 原生顶栏 -->
-        <LinearLayout
-            android:id="@+id/topbar"
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="64dp"
             android:background="@color/bar_bg"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp">
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            app:menu="@menu/top_menu"
+            app:titleTextColor="@color/bar_text">
 
             <ImageView
                 android:id="@+id/bar_logo"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_gravity="center_vertical"
                 android:contentDescription="@string/app_name"
                 android:src="@mipmap/ic_launcher" />
 
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:layout_marginEnd="8dp"
-                android:layout_weight="1"
+                android:layout_gravity="center_vertical"
+                android:layout_marginStart="12dp"
                 android:orientation="vertical">
 
                 <TextView
                     android:id="@+id/bar_title"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:text="@string/app_name"
                     android:textColor="@color/bar_text"
-                    android:textSize="15sp"
+                    android:textSize="17sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/bar_subtitle"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="@color/bar_dim"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
+        </com.google.android.material.appbar.MaterialToolbar>
 
-            <TextView
-                android:id="@+id/btn_refresh"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:background="@drawable/bg_pill"
-                android:clickable="true"
-                android:contentDescription="@string/bar_refresh"
-                android:focusable="true"
-                android:gravity="center"
-                android:minWidth="56dp"
-                android:text="@string/bar_refresh"
-                android:textColor="@color/bar_text"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/btn_more"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/bg_pill"
-                android:clickable="true"
-                android:contentDescription="@string/bar_more"
-                android:focusable="true"
-                android:gravity="center"
-                android:minWidth="56dp"
-                android:text="@string/bar_more"
-                android:textColor="@color/bar_text"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <ProgressBar
+        <com.google.android.material.progressindicator.LinearProgressIndicator
             android:id="@+id/progress"
-            style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="2dp"
-            android:indeterminate="false"
-            android:max="100"
-            android:visibility="visible" />
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
+            app:indicatorColor="@color/brand_dot"
+            app:trackColor="@color/bar_hair"
+            app:trackThickness="2dp" />
 
-        <FrameLayout
-            android:id="@+id/content"
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1">
 
-            <!-- 首页 -->
-            <ScrollView
-                android:id="@+id/view_home"
+            <FrameLayout
+                android:id="@+id/content"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:fillViewport="true">
-                <LinearLayout
-                    android:id="@+id/page_home"
+                android:layout_height="match_parent">
+
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/view_home"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp" />
-            </ScrollView>
+                    android:layout_height="match_parent"
+                    android:fillViewport="true">
+                    <LinearLayout android:id="@+id/page_home"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="vertical" android:padding="16dp" />
+                </androidx.core.widget.NestedScrollView>
 
-            <!-- 我的域名 -->
-            <ScrollView
-                android:id="@+id/view_domains"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:fillViewport="true"
-                android:visibility="gone">
-                <LinearLayout
-                    android:id="@+id/page_domains"
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/view_domains"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp" />
-            </ScrollView>
+                    android:layout_height="match_parent"
+                    android:fillViewport="true" android:visibility="gone">
+                    <LinearLayout android:id="@+id/page_domains"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="vertical" android:padding="16dp" />
+                </androidx.core.widget.NestedScrollView>
 
-            <!-- 积分 -->
-            <ScrollView
-                android:id="@+id/view_points"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:fillViewport="true"
-                android:visibility="gone">
-                <LinearLayout
-                    android:id="@+id/page_points"
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/view_points"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp" />
-            </ScrollView>
+                    android:layout_height="match_parent"
+                    android:fillViewport="true" android:visibility="gone">
+                    <LinearLayout android:id="@+id/page_points"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="vertical" android:padding="16dp" />
+                </androidx.core.widget.NestedScrollView>
 
-            <!-- 我的 -->
-            <ScrollView
-                android:id="@+id/view_profile"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:fillViewport="true"
-                android:visibility="gone">
-                <LinearLayout
-                    android:id="@+id/page_profile"
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/view_profile"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp" />
-            </ScrollView>
+                    android:layout_height="match_parent"
+                    android:fillViewport="true" android:visibility="gone">
+                    <LinearLayout android:id="@+id/page_profile"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="vertical" android:padding="16dp" />
+                </androidx.core.widget.NestedScrollView>
 
-            <!-- 断网 / 接口不可达：只盖内容区，原生上下栏保留 -->
-            <LinearLayout
-                android:id="@+id/error"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@color/splash_bg"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:padding="32dp"
-                android:visibility="gone">
-
-                <TextView
-                    android:id="@+id/error_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/offline_title"
-                    android:textColor="@color/splash_text"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                <LinearLayout
+                    android:id="@+id/error"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@color/splash_bg"
                     android:gravity="center"
-                    android:text="@string/offline_body"
-                    android:textColor="@color/splash_dim"
-                    android:textSize="13sp" />
+                    android:orientation="vertical"
+                    android:padding="32dp"
+                    android:visibility="gone">
 
-                <Button
-                    android:id="@+id/retry"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="22dp"
-                    android:minHeight="44dp"
-                    android:text="@string/retry" />
-            </LinearLayout>
-        </FrameLayout>
+                    <TextView android:id="@+id/error_title"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/offline_title" android:textColor="@color/splash_text"
+                        android:textSize="20sp" android:textStyle="bold" />
 
-        <!-- 原生底部导航：四个 tab 都是 TextView，随选中态换背景 -->
-        <LinearLayout
-            android:id="@+id/bottombar"
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp" android:gravity="center"
+                        android:text="@string/offline_body" android:textColor="@color/splash_dim"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/retry"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="22dp" android:minHeight="48dp"
+                        android:text="@string/retry" />
+                </LinearLayout>
+            </FrameLayout>
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+        <com.google.android.material.bottomnavigation.BottomNavigationView
+            android:id="@+id/bottom_nav"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
+            android:layout_height="80dp"
             android:background="@color/bar_bg"
-            android:baselineAligned="false"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp">
-
-            <TextView
-                android:id="@+id/tab_home"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_pill"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:text="@string/tab_home"
-                android:textColor="@color/bar_text"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tab_domains"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_pill"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:text="@string/tab_domains"
-                android:textColor="@color/bar_text"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tab_points"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_pill"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:text="@string/tab_points"
-                android:textColor="@color/bar_text"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tab_profile"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_pill"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:text="@string/tab_profile"
-                android:textColor="@color/bar_text"
-                android:textSize="12sp" />
-        </LinearLayout>
+            app:labelVisibilityMode="labeled"
+            app:menu="@menu/bottom_nav" />
     </LinearLayout>
 
-    <!-- 启动遮罩：长按 Logo 可改站点地址 -->
     <LinearLayout
         android:id="@+id/splash"
         android:layout_width="match_parent"
@@ -283,35 +165,23 @@
         android:gravity="center"
         android:orientation="vertical">
 
-        <ImageView
-            android:id="@+id/splash_logo"
-            android:layout_width="88dp"
-            android:layout_height="88dp"
+        <ImageView android:id="@+id/splash_logo"
+            android:layout_width="88dp" android:layout_height="88dp"
             android:contentDescription="@string/app_name"
             android:src="@mipmap/ic_launcher" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/app_name"
-            android:textColor="@color/splash_text"
-            android:textSize="22sp"
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:text="@string/app_name"
+            android:textColor="@color/splash_text" android:textSize="24sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="@string/loading"
-            android:textColor="@color/splash_dim"
-            android:textSize="13sp" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="6dp" android:text="@string/loading"
+            android:textColor="@color/splash_dim" android:textSize="13sp" />
 
-        <ProgressBar
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_marginTop="22dp"
-            android:indeterminate="true" />
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="22dp" android:indeterminate="true"
+            app:indicatorColor="@color/brand_dot" />
     </LinearLayout>
-
 </FrameLayout>

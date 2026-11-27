@@ -1943,49 +1943,62 @@ check(/TXT 验证 → 改 NS/.test(txReadme)
 
 
 
-/* ── 安卓 App（完全原生，零 WebView）· APK 由 GitHub Actions 编译 ── */
+/* ── 安卓 App（Material 3 完全原生，零 WebView）· APK 由 GitHub Actions 编译 ── */
 const apGradle = read('android/app/build.gradle');
+const apProps = read('android/gradle.properties');
 const apManifest = read('android/app/src/main/AndroidManifest.xml');
 const apMain = read('android/app/src/main/java/xyz/noxc/app/MainActivity.java');
 const apApi = read('android/app/src/main/java/xyz/noxc/app/Api.java');
+const apUi = read('android/app/src/main/java/xyz/noxc/app/Ui.java');
+const apLogin = read('android/app/src/main/java/xyz/noxc/app/LoginActivity.java');
+const apRegister = read('android/app/src/main/java/xyz/noxc/app/RegisterActivity.java');
+const apForgot = read('android/app/src/main/java/xyz/noxc/app/ForgotPasswordActivity.java');
+const apAccount = apLogin + apRegister + apForgot + apMain;
 const apJavaDir = 'android/app/src/main/java/xyz/noxc/app';
 const apAllJava = fs.readdirSync(path.join(root, apJavaDir))
   .filter((f) => f.endsWith('.java'))
   .map((f) => read(apJavaDir + '/' + f)).join('\n');
 const apLayout = read('android/app/src/main/res/layout/activity_main.xml');
+const apStyles = read('android/app/src/main/res/values/styles.xml');
 const apWf = read('.github/workflows/android-apk.yml');
 const apIgnore = read('.gitignore');
 check(/namespace 'xyz\.noxc\.app'/.test(apGradle) && /minSdk 24/.test(apGradle)
   && /buildConfig true/.test(apGradle) && /project\.findProperty\('siteUrl'\)/.test(apGradle),
   '安卓工程：AGP 8 / BuildConfig 显式开启 / 站点地址构建时注入');
+check(/implementation 'com\.google\.android\.material:material:1\.12\.0'/.test(apGradle)
+  && /implementation 'androidx\.appcompat:appcompat:1\.7\.0'/.test(apGradle)
+  && /android\.useAndroidX=true/.test(apProps),
+  '真 Material 3 + AndroidX 依赖打进 APK（体积几 MB，不是玩具包）');
+check(/Theme\.Material3\.DayNight\.NoActionBar/.test(apStyles)
+  && /MaterialToolbar|MaterialShapeDrawable/.test(apLayout + apUi),
+  'M3 DayNight 主题 + Toolbar / 形状引擎');
+check(/MIN_SIZE/.test(apWf) && /::error::APK 体积过小/.test(apWf),
+  'CI 断言 APK ≥ 1.5MB，防止依赖被删回几十 KB');
 check(/usesCleartextTraffic="false"/.test(apManifest)
   && /allowBackup="false"/.test(apManifest)
   && /dataExtractionRules="@xml\/data_extraction_rules"/.test(apManifest)
   && (apManifest.match(/uses-permission/g) || []).length === 2,
-  '安卓 Manifest：禁明文 / 禁备份 / 只两个网络权限');
+  '安卓 Manifest：禁明文 / 禁备份 / 只两个网络权限（含 Custom Tabs 不需要额外权限）');
 const apJavaCode = apAllJava.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 check(!/android\.webkit|WebView|setTextZoom|shouldOverrideUrlLoading/.test(apJavaCode)
   && !/<WebView/.test(apLayout),
   '完全原生 App：全部 Java 与布局零 WebView / 零 android.webkit');
-check(/android:name="\.MainActivity"/.test(apManifest)
-  && /android:name="\.LoginActivity"/.test(apManifest)
-  && /android:name="\.DomainDetailActivity"/.test(apManifest),
-  '三个原生 Activity：主界面 / 登录 / 域名详情');
-check(/view_home/.test(apLayout) && /view_domains/.test(apLayout)
-  && /view_points/.test(apLayout) && /view_profile/.test(apLayout)
-  && /showPage\(int idx\)/.test(apMain),
-  '四个原生 tab 页面，切换的是 ScrollView 而不是网页 URL');
-check(/sh_session/.test(apApi) && /Set-Cookie/.test(apApi)
-  && /setRequestProperty\("Cookie", "sh_session="/.test(apApi)
-  && /HttpURLConnection/.test(apApi) && !/import androidx\./.test(apAllJava),
-  '纯平台网络层：HttpURLConnection + sh_session cookie + 零 AndroidX');
+for (const n of ['MainActivity', 'LoginActivity', 'RegisterActivity',
+  'ForgotPasswordActivity', 'DomainDetailActivity']) {
+  check(apManifest.includes(`android:name=".${n}"`), `Material 3 Activity 注册：${n}`);
+}
+check(!/Intent\.ACTION_VIEW/.test(apAccount)
+  && /CustomTabsIntent/.test(apApi) && /openInApp\(/.test(apApi),
+  '登录 / 注册 / 找回密码全在 App 内原生完成，其余网页走 Custom Tab');
+check(/api\.endpoint\("register"/.test(apRegister)
+  && /api\.endpoint\("reset"/.test(apForgot)
+  && /api\.endpoint\("login"/.test(apLogin),
+  '账号流程三个接口都从 bootstrap 契约取');
 check(/api\.bootstrap\(fresh/.test(apMain) && /ep\("check"/.test(apMain)
   && /\/api\/app\/v1\/bootstrap/.test(apApi)
   && /createAppRoutes/.test(read('src/routes/app.ts'))
   && /app-api-regression\.ts/.test(read('.github/workflows/deploy.yml')),
   'App 专用 bootstrap 接口 + 契约 + 真跑回归都挂进主流程');
-check(/Intent\.ACTION_VIEW/.test(apMain) && /openWeb\("docs"\)/.test(apMain),
-  '复杂流程交系统浏览器，不在 App 内嵌网页');
 check(/gradle-8\.9-bin\.zip/.test(apWf)
   && /assembleDebug/.test(apWf) && /assembleRelease/.test(apWf)
   && /aapt" dump badging/.test(apWf)
@@ -1994,10 +2007,11 @@ check(/gradle-8\.9-bin\.zip/.test(apWf)
 check(/android\/app\/\*\.keystore/.test(apIgnore)
   && !fs.existsSync(path.join(root, 'android/app/release.keystore')),
   'keystore 被 gitignore 且工作区没有明文密钥');
-check(/### 23\./.test(d1Readme) && /### Z\.15/.test(d1Readme)
+check(/### 23\./.test(d1Readme) && /### 24\./.test(d1Readme)
+  && /### Z\.15/.test(d1Readme) && /Material 3/.test(d1Readme)
   && /完全原生/.test(d1Readme)
   && /android-apk-regression\.ts/.test(read('.github/workflows/deploy.yml')),
-  'README 第 23 节 / Z.15 写明完全原生，配置回归挂进主流程');
+  'README 第 23 / 24 / Z.15 写明 Material 3 完全原生，配置回归挂进主流程');
 
 /* ── 数据备份导出 / 重新汇入防回流 ── */
 const bkFmt = read('src/lib/backupFormat.ts');

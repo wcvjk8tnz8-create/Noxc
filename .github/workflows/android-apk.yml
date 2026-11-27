@@ -1,7 +1,7 @@
 name: Build Noxc Android APK
 
-# WebView 壳加载的是线上网页，前端改版不需要重新打包 APK。
-# 所以只有 android/ 或本 workflow 变化时才触发；也可随时手动跑一次。
+# 完全原生 App 不打包网页，前端改版不需要重出包。
+# 只有 android/ 或本 workflow 变化时才触发；也可随时手动跑一次。
 on:
   push:
     branches: [main]
@@ -151,7 +151,7 @@ jobs:
                 '| dex bytes:', z.getinfo('classes.dex').file_size if 'classes.dex' in names else 0)
           if missing or png < 6:
               print('::error::APK 内容不完整，缺', ','.join(missing), '图标', png); sys.exit(1)
-          # 打印组成清单：几十 KB 是刻意的（零依赖 / 不打包网页），让体积可复核
+          # 打印组成清单：Material 3 + AndroidX 会把包拉到几 MB，让体积可复核
           print('--- APK 组成（按压缩后大小）---')
           for i in sorted(z.infolist(), key=lambda x: -x.compress_size)[:18]:
               print('  %8d  %s' % (i.compress_size, i.filename))
@@ -160,6 +160,13 @@ jobs:
           assets = [n for n in names if n.startswith('assets/')]
           print('  assets/ 条目:', len(assets), '(0 = 没有打包网页资源)')
           if assets: print('::warning::APK 里出现了 assets/，确认不是把网页又塞回来了')
+          # 用户明确要「至少几 MB 的真 App」：Material 3 / AndroidX 必须真的打进去。
+          # 若有人把依赖删掉退回几十 KB 的玩具包，这一步直接失败。
+          MIN_SIZE = 1500000
+          size = __import__('os').path.getsize(sys.argv[1])
+          print('  APK 实际体积: %d bytes (%.2f MB)' % (size, size / 1048576.0))
+          if size < MIN_SIZE:
+              print('::error::APK 体积过小 (%d bytes < %d)，Material 3 / AndroidX 依赖可能被删掉了' % (size, MIN_SIZE)); sys.exit(1)
           " "$APK"
           sha256sum "$APK"
           if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then

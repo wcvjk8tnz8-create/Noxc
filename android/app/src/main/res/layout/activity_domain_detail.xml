@@ -1,68 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/splash_bg"
-    android:orientation="vertical">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/splash_bg" android:orientation="vertical">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent" android:layout_height="64dp"
         android:background="@color/bar_bg"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp">
+        app:navigationIcon="@drawable/ic_back"
+        app:title="@string/detail_title"
+        app:titleTextColor="@color/bar_text" />
 
-        <TextView
-            android:id="@+id/detail_back"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:background="@drawable/bg_pill"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:minWidth="56dp"
-            android:text="@string/bar_back"
-            android:textColor="@color/bar_text"
-            android:textSize="12sp" />
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:id="@+id/detail_list"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="16dp" />
+    </androidx.core.widget.NestedScrollView>
 
-        <TextView
-            android:id="@+id/detail_title"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="@string/detail_title"
-            android:textColor="@color/bar_text"
-            android:textSize="15sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:fillViewport="true">
-
-        <LinearLayout
-            android:id="@+id/detail_list"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp" />
-    </ScrollView>
-
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/detail_manage"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_margin="16dp"
-        android:background="@drawable/bg_pill"
-        android:text="@string/detail_manage"
-        android:textColor="@color/bar_text"
-        android:textSize="14sp" />
-
+        android:layout_width="match_parent" android:layout_height="52dp"
+        android:layout_margin="16dp" android:text="@string/detail_manage"
+        app:cornerRadius="18dp" />
 </LinearLayout>

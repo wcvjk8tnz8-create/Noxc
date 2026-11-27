@@ -46,7 +46,9 @@ def main():
                for f in glob.glob(RES + '/layout/*.xml')}
     xml_files = {os.path.splitext(os.path.basename(f))[0]
                  for f in glob.glob(RES + '/xml/*.xml')}
-    ids = names(r'@\+id/([A-Za-z0-9_]+)', glob.glob(RES + '/layout/*.xml'))
+    # id 可能定义在布局，也可能定义在 menu（BottomNavigationView / Toolbar 溢出菜单）
+    ids = names(r'@\+id/([A-Za-z0-9_]+)',
+                glob.glob(RES + '/layout/*.xml') + glob.glob(RES + '/menu/*.xml'))
 
     x, j = xml_all(), java_all()
     checks = [

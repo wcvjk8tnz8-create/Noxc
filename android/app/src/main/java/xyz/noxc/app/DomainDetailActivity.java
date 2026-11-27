@@ -1,23 +1,19 @@
 package xyz.noxc.app;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.Toast;
+
+import com.google.android.material.appbar.MaterialToolbar;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** 原生 DNS 记录列表：直接读 /api/records/subdomains/{id}/records。 */
-public class DomainDetailActivity extends Activity {
+/** 原生 DNS 记录列表：MaterialToolbar + M3 卡片，路径来自 bootstrap 的 endpoints 契约。 */
+public class DomainDetailActivity extends FormActivity {
 
     public static final String EXTRA_ID = "id";
     public static final String EXTRA_FQDN = "fqdn";
 
-    private Api api;
     private LinearLayout list;
     private int id;
     private String fqdn;
@@ -26,23 +22,17 @@ public class DomainDetailActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_domain_detail);
-        api = new Api(this);
+        bindForm();
         list = findViewById(R.id.detail_list);
         id = getIntent().getIntExtra(EXTRA_ID, 0);
         fqdn = getIntent().getStringExtra(EXTRA_FQDN);
         if (fqdn == null) fqdn = "";
 
-        TextView t = findViewById(R.id.detail_title);
-        t.setText(fqdn.length() > 0 ? fqdn : getString(R.string.detail_title));
-        findViewById(R.id.detail_back).setOnClickListener(v -> finish());
-        findViewById(R.id.detail_manage).setOnClickListener(v -> {
-            try {
-                startActivity(new Intent(Intent.ACTION_VIEW,
-                        Uri.parse(api.web("domain?id=" + id + "&tab=records"))));
-            } catch (Exception e) {
-                Toast.makeText(this, R.string.no_browser, Toast.LENGTH_SHORT).show();
-            }
-        });
+        MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        toolbar.setTitle(fqdn.length() > 0 ? fqdn : getString(R.string.detail_title));
+        toolbar.setNavigationOnClickListener(v -> finish());
+        findViewById(R.id.detail_manage).setOnClickListener(v ->
+                api.openInApp(this, "domain?id=" + id + "&tab=records"));
         load();
     }
 

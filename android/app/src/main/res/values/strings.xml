@@ -28,7 +28,7 @@
     <string name="menu_change_site">Change site address</string>
     <string name="menu_about">About</string>
     <string name="about_app">About</string>
-    <string name="about_body">Noxc for Android is a fully native app. Screens are Android views and data comes straight from the site API. Registration, admin and docs open in your browser.</string>
+    <string name="about_body">Noxc for Android is a fully native Material 3 app. Screens are Android views, data comes straight from the site API, and every account flow (sign in, register, reset password) happens inside the app. Admin and docs open in an in-app tab.</string>
 
     <!-- Home -->
     <string name="home_tagline">A good address for every idea.</string>
@@ -105,8 +105,8 @@
     <string name="login_password">Password</string>
     <string name="login_button">Sign in</string>
     <string name="login_remember">Keep me signed in</string>
-    <string name="login_register">Create account in browser</string>
-    <string name="login_forgot">Forgot password</string>
+    <string name="login_register">Create account</string>
+    <string name="login_forgot">Forgot password?</string>
     <string name="login_oauth_nodeloc">Sign in with NodeLoc</string>
     <string name="login_oauth_github">Sign in with GitHub</string>
     <string name="login_empty">Enter email and password</string>
@@ -116,4 +116,30 @@
     <string name="err_network">Network error</string>
     <string name="err_not_logged">Not signed in</string>
     <string name="err_api">Request failed</string>
+    <!-- Material 3 native account flows -->
+    <string name="register_title">Create account</string>
+    <string name="register_confirm">Confirm password</string>
+    <string name="register_code">Email code</string>
+    <string name="register_send_code">Send code</string>
+    <string name="register_agree">I have read and agree to the Terms and Disclaimer</string>
+    <string name="register_terms">Read terms</string>
+    <string name="register_button">Create account</string>
+    <string name="register_have_account">Already have an account? Sign in</string>
+    <string name="register_success">Account created</string>
+    <string name="forgot_title">Reset password</string>
+    <string name="forgot_send">Send reset code</string>
+    <string name="forgot_new_password">New password</string>
+    <string name="forgot_button">Reset password</string>
+    <string name="forgot_back_login">Back to sign in</string>
+    <string name="forgot_success">Password reset. Please sign in again.</string>
+    <string name="err_password_mismatch">Passwords do not match</string>
+    <string name="err_password_short">Password must be at least 8 characters</string>
+    <string name="err_agree_required">Please agree to the terms first</string>
+    <string name="err_email_required">Enter a valid email</string>
+    <string name="err_code_required">Enter the email code</string>
+    <string name="code_sent">Code sent, valid for 10 minutes</string>
+    <string name="terms_body">Noxc provides free subdomains and DNS hosting. Do not use the service for illegal content, abuse, spam, phishing or infringement. The operator may suspend or reclaim domains that violate these terms. Subdomains are provided as-is without warranty; keep your own backups.</string>
+    <string name="terms_full">Open full terms</string>
+    <string name="oauth_opening">Opening sign-in…</string>
+    <string name="lookup_root">Suffix</string>
 </resources>

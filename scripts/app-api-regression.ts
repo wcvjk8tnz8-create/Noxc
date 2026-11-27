@@ -137,15 +137,17 @@ for (const k of ['siteName', 'announcement', 'pointRules', 'rootDomains', 'pause
 /* ───────── D. endpoints 契约 ───────── */
 const eps = guest.body.endpoints || {};
 for (const k of ['check', 'whois', 'records', 'checkin', 'login', 'logout',
+  'register', 'verifySend', 'verifyCheck', 'reset', 'oauthNodeloc', 'oauthGithub',
   'webConsole', 'webRegister', 'webDocs', 'webTerms', 'webExternalDomains', 'webReport']) {
   check(typeof eps[k] === 'string' && eps[k].length > 0, `endpoints 契约齐全：${k}`);
 }
 check(eps.records.includes('{id}'), 'records 契约带 {id} 占位符，App 替换后取记录');
 const caps = guest.body.capabilities || {};
 check(Array.isArray(caps.native) && caps.native.includes('home')
-  && Array.isArray(caps.browserOnly) && caps.browserOnly.includes('register')
+  && caps.native.includes('register') && caps.native.includes('forgotPassword')
+  && Array.isArray(caps.browserOnly) && !caps.browserOnly.includes('register')
   && caps.browserOnly.includes('dnsWrite'),
-  'capabilities 明示原生可做 / 必须走浏览器的流程');
+  'capabilities 明示登录/注册/找回密码已原生，只有 DNS 写入等才走应用内标签页');
 
 /* ───────── E. 登录态真跑 ───────── */
 const logged = await call('/api/app/v1/bootstrap', makeEnv({ loggedIn: true }), 'sh_session=tok-app');
@@ -168,6 +170,10 @@ const apiJava = read('android/app/src/main/java/xyz/noxc/app/Api.java');
 const mainJava = read('android/app/src/main/java/xyz/noxc/app/MainActivity.java');
 const loginJava = read('android/app/src/main/java/xyz/noxc/app/LoginActivity.java');
 const detailJava = read('android/app/src/main/java/xyz/noxc/app/DomainDetailActivity.java');
+const registerJava = read('android/app/src/main/java/xyz/noxc/app/RegisterActivity.java');
+const forgotJava = read('android/app/src/main/java/xyz/noxc/app/ForgotPasswordActivity.java');
+const apiJavaFull = read('android/app/src/main/java/xyz/noxc/app/Api.java');
+const readmeFull = read('README.md');
 const readme = read('README.md');
 
 check(/createAppRoutes\(\(c\) => configData\(c\)\)/.test(indexSrc)
@@ -194,14 +200,24 @@ check(/ep\("check"/.test(mainJava) && /ep\("whois"/.test(mainJava)
   && /ep\("checkin"/.test(mainJava),
   '主界面交互路径从 endpoints 契约读取，不在客户端硬编码');
 check(/api\.endpoint\("login"/.test(loginJava)
+  && /api\.endpoint\("register"/.test(registerJava)
+  && /api\.endpoint\("reset"/.test(forgotJava)
   && /api\.endpoint\("records"/.test(detailJava)
   && /replace\("\{id\}"/.test(detailJava)
   && /Api\.setEndpoints\(endpoints\)/.test(mainJava),
-  '登录页 / 记录页共用同一份契约（含 {id} 占位替换），三个 Activity 零硬编码');
+  '登录 / 注册 / 找回 / 记录页共用同一份契约（含 {id} 占位替换），零硬编码');
+check(!/Intent\.ACTION_VIEW/.test(mainJava + loginJava + registerJava + forgotJava)
+  && /CustomTabsIntent/.test(apiJavaFull) && /api\.openInApp\(/.test(mainJava),
+  '账号流程零外部浏览器跳转，其余网页用 Custom Tab 在 App 内打开');
+check(/new Intent\(this, RegisterActivity\.class\)/.test(loginJava)
+  && /new Intent\(this, ForgotPasswordActivity\.class\)/.test(loginJava),
+  '注册 / 找回密码是 App 内原生 Activity');
+check(/verifyRequired/.test(registerJava), '注册页按 site.verifyRequired 决定验证码字段');
 check(/app-api-regression\.ts/.test(read('.github/workflows/deploy.yml')),
   'App 专用接口回归挂进主 deploy.yml');
-check(/\/api\/app\/v1\/bootstrap/.test(readme)
-  && /完全原生/.test(readme), 'README 写明 App 专用接口与完全原生口径');
+check(/\/api\/app\/v1\/bootstrap/.test(readmeFull)
+  && /Material 3/.test(readmeFull) && /完全原生/.test(readmeFull),
+  'README 写明 App 专用接口与 Material 3 完全原生口径');
 
 /* ───────── G. 反向对照 ───────── */
 const leaked = serialized + ',"api_token":"should-never-appear"';

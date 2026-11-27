@@ -1,21 +1,25 @@
 package xyz.noxc.app;
 
-import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.KeyEvent;
-import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
-import android.widget.ProgressBar;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -26,41 +30,47 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Noxc 手机版 · 完全原生 App（零 WebView）
+ * Noxc 手机版 · Material 3 完全原生 App（零 WebView）
  *
- * 打开看到的是原生首页，不是网站首页。四个 tab 全部由 Android 控件绘制；
- * 冷启动只打**一个** `/api/app/v1/bootstrap`，一次拿到站点配置 + 账号 + 域名 + 积分，
- * 其余交互（查名 / WHOIS / 签到 / 登录）按接口返回的 endpoints 契约走。
- * 注册滑块、后台管理、文档等复杂流程用系统浏览器打开完整站点。
+ * UI 全部是 AndroidX / Material Components 控件：MaterialToolbar、BottomNavigationView、
+ * SwipeRefreshLayout、MaterialShapeDrawable 卡片、MaterialButton、TextInputLayout、
+ * LinearProgressIndicator。冷启动只打 /api/app/v1/bootstrap 一个接口。
  *
- * 零第三方依赖：只用 Android 平台 API + org.json + HttpURLConnection。
+ * 登录 / 注册 / 找回密码全部是 App 内原生表单（LoginActivity / RegisterActivity /
+ * ForgotPasswordActivity），**不再跳外部浏览器**。文档 / 后台 / 条款用 Chrome Custom Tab
+ * 在 App 内打开（Api.openInApp），视觉上不离开 App。
  */
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
 
     private static final int REQ_LOGIN = 7;
+    private static final int[] TAB_IDS = {
+            R.id.tab_home, R.id.tab_domains, R.id.tab_points, R.id.tab_profile};
+    private static final int[] TAB_TITLES = {
+            R.string.tab_home, R.string.tab_domains, R.string.tab_points, R.string.tab_profile};
 
     private Api api;
-    private JSONObject appData;     // /api/app/v1/bootstrap 整包
-    private JSONObject site;        // 公开配置白名单
-    private JSONObject endpoints;   // 接口契约，App 不硬编码路径
+    private JSONObject appData;
+    private JSONObject site;
+    private JSONObject endpoints;
     private boolean booted;
     private int page = 0;
     private long lastBackAt;
 
+    private MaterialToolbar toolbar;
+    private BottomNavigationView bottomNav;
+    private SwipeRefreshLayout swipe;
+    private LinearProgressIndicator progress;
     private View[] pageViews;
-    private TextView[] tabs;
     private LinearLayout[] pageContainers;
-    private ProgressBar progress;
     private View splash;
     private View errorView;
     private TextView barTitle;
     private TextView barSubtitle;
 
-    /* 首页查询卡是常驻控件，刷新时不重建，避免输入内容被清掉 */
     private LinearLayout homeTop;
     private LinearLayout lookupResultBox;
     private EditText lookupInput;
-    private Spinner rootSpinner;
+    private MaterialAutoCompleteTextView rootSpinner;
     private ArrayAdapter<String> rootAdapter;
 
     @Override
@@ -69,32 +79,51 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         api = new Api(this);
 
+        toolbar = findViewById(R.id.toolbar);
+        bottomNav = findViewById(R.id.bottom_nav);
+        swipe = findViewById(R.id.swipe);
+        progress = findViewById(R.id.progress);
         pageViews = new View[]{
                 findViewById(R.id.view_home), findViewById(R.id.view_domains),
                 findViewById(R.id.view_points), findViewById(R.id.view_profile)};
-        tabs = new TextView[]{
-                findViewById(R.id.tab_home), findViewById(R.id.tab_domains),
-                findViewById(R.id.tab_points), findViewById(R.id.tab_profile)};
         pageContainers = new LinearLayout[]{
                 findViewById(R.id.page_home), findViewById(R.id.page_domains),
                 findViewById(R.id.page_points), findViewById(R.id.page_profile)};
-        progress = findViewById(R.id.progress);
         splash = findViewById(R.id.splash);
         errorView = findViewById(R.id.error);
         barTitle = findViewById(R.id.bar_title);
         barSubtitle = findViewById(R.id.bar_subtitle);
         barSubtitle.setText(api.host());
 
-        for (int i = 0; i < 4; i++) {
-            final int idx = i;
-            tabs[i].setOnClickListener(v -> showPage(idx));
-        }
-        findViewById(R.id.btn_refresh).setOnClickListener(v -> boot(true));
-        findViewById(R.id.btn_more).setOnClickListener(this::showMoreMenu);
+        toolbar.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case R.id.action_refresh: boot(true); return true;
+                case R.id.action_full_web: openWeb(""); return true;
+                case R.id.action_change_site: showSiteDialog(); return true;
+                case R.id.action_about:
+                    new MaterialAlertDialogBuilder(this)
+                            .setTitle(R.string.about_app)
+                            .setMessage(R.string.about_body)
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show();
+                    return true;
+                default: return false;
+            }
+        });
+
+        bottomNav.setOnItemSelectedListener(item -> {
+            for (int i = 0; i < TAB_IDS.length; i++) {
+                if (item.getItemId() == TAB_IDS[i]) { showPage(i); return true; }
+            }
+            return false;
+        });
+        swipe.setOnRefreshListener(() -> boot(true));
+
         findViewById(R.id.retry).setOnClickListener(v -> boot(true));
         findViewById(R.id.splash_logo).setOnLongClickListener(v -> { showSiteDialog(); return true; });
         findViewById(R.id.error_title).setOnLongClickListener(v -> { showSiteDialog(); return true; });
-        findViewById(R.id.bar_logo).setOnLongClickListener(v -> { showSiteDialog(); return true; });
+        ((ImageView) findViewById(R.id.bar_logo))
+                .setOnLongClickListener(v -> { showSiteDialog(); return true; });
 
         showPage(0);
         boot(false);
@@ -108,6 +137,7 @@ public class MainActivity extends Activity {
         progress.setVisibility(View.VISIBLE);
         api.bootstrap(fresh, r -> {
             progress.setVisibility(View.GONE);
+            swipe.setRefreshing(false);
             if (!r.ok) {
                 showError(r.message);
                 return;
@@ -129,13 +159,13 @@ public class MainActivity extends Activity {
     private void showError(String msg) {
         splash.setVisibility(View.GONE);
         progress.setVisibility(View.GONE);
+        swipe.setRefreshing(false);
         errorView.setVisibility(View.VISIBLE);
         if (msg != null && msg.length() > 0) {
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
         }
     }
 
-    /** 登录态变更后统一重画三个页面，不再各打各的接口。 */
     private void renderLoggedPages() {
         renderProfile();
         if (page == 1) loadDomains();
@@ -146,9 +176,8 @@ public class MainActivity extends Activity {
         page = idx;
         for (int i = 0; i < 4; i++) {
             pageViews[i].setVisibility(i == idx ? View.VISIBLE : View.GONE);
-            tabs[i].setAlpha(i == idx ? 1f : 0.55f);
         }
-        barTitle.setText(tabs[idx].getText());
+        barTitle.setText(TAB_TITLES[idx]);
         if (idx == 0) renderHome();
         else if (idx == 1) loadDomains();
         else if (idx == 2) loadPoints();
@@ -159,7 +188,6 @@ public class MainActivity extends Activity {
         return appData == null ? null : appData.optJSONObject("user");
     }
 
-    /** endpoints 契约缺失时回落到已知路径，App 不会因为服务端少一个字段就瘫。 */
     private String ep(String key, String fallback) {
         String v = endpoints == null ? "" : endpoints.optString(key, "");
         return v.length() > 0 ? v : fallback;
@@ -186,24 +214,34 @@ public class MainActivity extends Activity {
         lookupInput.setTextSize(16);
         lookupInput.setTextColor(getResources().getColor(R.color.bar_text));
         lookupInput.setHintTextColor(getResources().getColor(R.color.bar_dim));
-        lookupInput.setBackground(getDrawable(R.drawable.bg_input));
-        lookupInput.setPadding(Ui.dp(this, 14), 0, Ui.dp(this, 14), 0);
+        lookupInput.setBackground(Ui.shape(this,
+                getResources().getColor(R.color.input_bg),
+                getResources().getColor(R.color.bar_hair), 14));
+        lookupInput.setPadding(Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10));
         c.addView(lookupInput, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 48)));
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        rootSpinner = new Spinner(this);
+        // Material 3 Exposed Dropdown：后缀选择也是原生 M3 控件
+        rootSpinner = new MaterialAutoCompleteTextView(this);
+        rootSpinner.setHint(R.string.lookup_root);
+        rootSpinner.setTextColor(getResources().getColor(R.color.bar_text));
+        rootSpinner.setBackground(Ui.shape(this,
+                getResources().getColor(R.color.input_bg),
+                getResources().getColor(R.color.bar_hair), 14));
+        rootSpinner.setPadding(Ui.dp(this, 14), Ui.dp(this, 12), Ui.dp(this, 14), Ui.dp(this, 12));
+        rootSpinner.setSingleLine(true);
         rootAdapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, new ArrayList<String>());
-        rootAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                android.R.layout.simple_dropdown_item_1line, new ArrayList<String>());
         rootSpinner.setAdapter(rootAdapter);
+        rootSpinner.setOnItemClickListener((parent, v, pos, id) -> { });
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 44));
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         sp.setMargins(0, Ui.dp(this, 10), 0, Ui.dp(this, 10));
         c.addView(rootSpinner, sp);
 
-        TextView btn = Ui.pill(this, getString(R.string.lookup_button), v -> doLookup());
-        c.addView(btn, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 44)));
+        c.addView(Ui.pill(this, getString(R.string.lookup_button), v -> doLookup()),
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 46)));
 
         lookupResultBox = new LinearLayout(this);
         lookupResultBox.setOrientation(LinearLayout.VERTICAL);
@@ -225,7 +263,7 @@ public class MainActivity extends Activity {
         if (ann.length() > 0) {
             LinearLayout c = Ui.card(this);
             c.addView(Ui.title(this, getString(R.string.announcement_label)));
-            c.addView(Ui.body(this, ann));   // 纯文本，与网页口径一致，不解析 HTML
+            c.addView(Ui.body(this, ann));   // 纯文本，不解析 HTML
             homeTop.addView(c);
         }
         String mig = site.optString("migrationNotice", "").trim();
@@ -264,8 +302,7 @@ public class MainActivity extends Activity {
 
     private void fillRoots() {
         if (rootAdapter == null || site == null) return;
-        String old = rootSpinner.getSelectedItem() == null
-                ? "" : String.valueOf(rootSpinner.getSelectedItem());
+        String old = String.valueOf(rootSpinner.getText());
         JSONArray roots = site.optJSONArray("rootDomains");
         JSONArray paused = site.optJSONArray("pausedRoots");
         Set<String> pausedSet = new HashSet<>();
@@ -289,8 +326,8 @@ public class MainActivity extends Activity {
         rootAdapter.clear();
         rootAdapter.addAll(open);
         rootAdapter.notifyDataSetChanged();
-        int keep = open.indexOf(old);
-        if (keep >= 0) rootSpinner.setSelection(keep);
+        if (open.contains(old)) rootSpinner.setText(old, false);
+        else if (!open.isEmpty()) rootSpinner.setText(open.get(0), false);
     }
 
     private void doLookup() {
@@ -300,9 +337,8 @@ public class MainActivity extends Activity {
             Toast.makeText(this, R.string.lookup_empty, Toast.LENGTH_SHORT).show();
             return;
         }
-        Object sel = rootSpinner.getSelectedItem();
-        if (sel == null) return;
-        final String root = String.valueOf(sel);
+        String root = String.valueOf(rootSpinner.getText()).trim();
+        if (root.length() == 0) return;
         final String fqdnGuess = label + "." + root;
         lookupResultBox.removeAllViews();
         lookupResultBox.addView(Ui.body(this, getString(R.string.loading)));
@@ -364,7 +400,7 @@ public class MainActivity extends Activity {
         });
     }
 
-    /* ══════════════ 我的域名（来自 bootstrap，不再单独请求） ══════════════ */
+    /* ══════════════ 我的域名 ══════════════ */
 
     private void loadDomains() {
         LinearLayout p = pageContainers[1];
@@ -402,8 +438,7 @@ public class MainActivity extends Activity {
             c.addView(Ui.title(this, fqdn));
             c.addView(Ui.body(this, statusLabel(o.optString("status", ""))
                     + (o.optBoolean("dnsPaused") ? " · " + getString(R.string.dns_paused) : "")));
-            c.addView(Ui.row(this, getString(R.string.domain_records),
-                    num(o, "record_count")));
+            c.addView(Ui.row(this, getString(R.string.domain_records), num(o, "record_count")));
             c.setClickable(true);
             c.setOnClickListener(v -> {
                 Intent it = new Intent(this, DomainDetailActivity.class);
@@ -426,7 +461,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    /* ══════════════ 积分（来自 bootstrap） ══════════════ */
+    /* ══════════════ 积分 ══════════════ */
 
     private void loadPoints() {
         LinearLayout p = pageContainers[2];
@@ -444,8 +479,7 @@ public class MainActivity extends Activity {
         LinearLayout bal = Ui.card(this);
         bal.addView(Ui.title(this, getString(R.string.points_balance)));
         bal.addView(Ui.bigNum(this, r.optBoolean("unlimited")
-                ? getString(R.string.points_unlimited)
-                : num(r, "points")));
+                ? getString(R.string.points_unlimited) : num(r, "points")));
         p.addView(bal);
 
         boolean can = r.optBoolean("canCheckIn");
@@ -487,7 +521,7 @@ public class MainActivity extends Activity {
         api.post(ep("checkin", "/api/points/checkin"), new JSONObject(), r -> {
             Toast.makeText(this, r.message.length() > 0 ? r.message : getString(R.string.err_api),
                     Toast.LENGTH_SHORT).show();
-            boot(true);   // 强制 fresh，绕开 bootstrap 的 10 秒私有缓存
+            boot(true);
         });
     }
 
@@ -501,8 +535,9 @@ public class MainActivity extends Activity {
         if (!api.loggedIn() || u == null) {
             p.addView(loginCard());
             p.addView(Ui.pill(this, getString(R.string.profile_register),
-                    v -> openWeb("register")), topMarginParams());
-            p.addView(webLinksCard());
+                    v -> startActivityForResult(new Intent(this, RegisterActivity.class), REQ_LOGIN)),
+                    topMarginParams());
+            p.addView(webLinksCard(), topMarginParams());
             return;
         }
         LinearLayout c = Ui.card(this);
@@ -516,7 +551,7 @@ public class MainActivity extends Activity {
         p.addView(Ui.pill(this, getString(R.string.profile_logout), v ->
                 api.logout(r -> {
                     Toast.makeText(this, R.string.logged_out, Toast.LENGTH_SHORT).show();
-                    boot(true);   // 登出后重新拉未登录态的 bootstrap
+                    boot(true);
                 })), topMarginParams());
         p.addView(webLinksCard(), topMarginParams());
     }
@@ -565,43 +600,17 @@ public class MainActivity extends Activity {
         return String.valueOf(o == null ? 0 : o.optInt(k, 0));
     }
 
+    /** 文档 / 后台 / 条款用 Custom Tab 在 App 内打开，不甩给外部浏览器。 */
     private void openWeb(String path) {
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(api.web(path))));
-        } catch (Exception e) {
-            Toast.makeText(this, R.string.no_browser, Toast.LENGTH_SHORT).show();
-        }
+        api.openInApp(this, path);
     }
 
-    private void showMoreMenu(View anchor) {
-        PopupMenu pm = new PopupMenu(this, anchor);
-        pm.getMenu().add(0, 1, 0, R.string.menu_full_web);
-        pm.getMenu().add(0, 2, 1, R.string.menu_change_site);
-        pm.getMenu().add(0, 3, 2, R.string.menu_about);
-        pm.setOnMenuItemClickListener((MenuItem item) -> {
-            switch (item.getItemId()) {
-                case 1: openWeb(""); return true;
-                case 2: showSiteDialog(); return true;
-                case 3:
-                    new AlertDialog.Builder(this)
-                            .setTitle(R.string.about_app)
-                            .setMessage(R.string.about_body)
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show();
-                    return true;
-                default: return false;
-            }
-        });
-        pm.show();
-    }
-
-    /** 站点迁移到新域名时不用重装 APK：长按启动 Logo / 顶栏 Logo / 断网标题即可改。 */
     private void showSiteDialog() {
         final EditText input = new EditText(this);
         input.setText(api.base());
         input.setSingleLine(true);
         input.setSelection(input.getText().length());
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.site_title)
                 .setMessage(R.string.site_body)
                 .setView(input)

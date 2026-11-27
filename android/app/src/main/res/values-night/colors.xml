@@ -14,6 +14,8 @@
     <color name="input_bg">#121317</color>
     <color name="brand_dot">#E58AB0</color>
     <color name="danger">#E58A8A</color>
+    <color name="on_brand">#15151A</color>
+    <color name="brand_container">#3A2A33</color>
 
     <color name="ic_launcher_background">#151519</color>
 </resources>

@@ -1,13 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowActionBar">false</item>
-        <!-- 冷启动背景仍是深色，避免闪一帧白；状态栏/导航栏与原生上下栏同色 -->
+    <!-- Material 3 DayNight：颜色沿用站点现行黑白灰 + 一点品牌粉，不引入新品牌色 -->
+    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/brand_dot</item>
+        <item name="colorOnPrimary">@color/on_brand</item>
+        <item name="colorPrimaryContainer">@color/brand_container</item>
+        <item name="colorOnPrimaryContainer">@color/bar_text</item>
+        <item name="colorSurface">@color/bar_bg</item>
+        <item name="colorOnSurface">@color/bar_text</item>
+        <item name="colorSurfaceVariant">@color/bar_bg_pressed</item>
+        <item name="colorOnSurfaceVariant">@color/bar_dim</item>
+        <item name="colorSurfaceContainer">@color/card_bg</item>
+        <item name="colorSurfaceContainerHigh">@color/card_bg</item>
+        <item name="colorOutline">@color/bar_hair</item>
+        <item name="colorOutlineVariant">@color/bar_hair</item>
+        <item name="colorError">@color/danger</item>
+        <item name="colorOnError">@color/on_brand</item>
         <item name="android:windowBackground">@color/splash_bg</item>
         <item name="android:statusBarColor">@color/bar_bg</item>
         <item name="android:navigationBarColor">@color/bar_bg</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:colorAccent">@color/brand_dot</item>
+        <item name="windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
     </style>
 </resources>

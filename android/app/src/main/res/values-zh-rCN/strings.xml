@@ -28,7 +28,7 @@
     <string name="menu_change_site">修改站点地址</string>
     <string name="menu_about">关于</string>
     <string name="about_app">关于</string>
-    <string name="about_body">Noxc 手机版是完全原生 App：界面由 Android 控件绘制，数据直接取自站点接口。注册、后台管理与文档在浏览器中打开。</string>
+    <string name="about_body">Noxc 手机版是完全原生的 Material 3 App：界面由 Android 控件绘制，数据直连站点接口，登录 / 注册 / 找回密码全部在 App 内完成。后台与文档用应用内标签页打开。</string>
 
     <!-- 首页 -->
     <string name="home_tagline">给每个想法，一个好记的地址。</string>
@@ -105,8 +105,8 @@
     <string name="login_password">密码</string>
     <string name="login_button">登录</string>
     <string name="login_remember">保持登录</string>
-    <string name="login_register">在浏览器注册账号</string>
-    <string name="login_forgot">忘记密码</string>
+    <string name="login_register">注册账号</string>
+    <string name="login_forgot">忘记密码？</string>
     <string name="login_oauth_nodeloc">使用 NodeLoc 登录</string>
     <string name="login_oauth_github">使用 GitHub 登录</string>
     <string name="login_empty">请填写邮箱和密码</string>
@@ -116,4 +116,30 @@
     <string name="err_network">网络错误</string>
     <string name="err_not_logged">尚未登录</string>
     <string name="err_api">请求失败</string>
+    <!-- Material 3 原生账号流程 -->
+    <string name="register_title">注册账号</string>
+    <string name="register_confirm">确认密码</string>
+    <string name="register_code">邮箱验证码</string>
+    <string name="register_send_code">发送验证码</string>
+    <string name="register_agree">我已阅读并同意《服务条款与免责声明》</string>
+    <string name="register_terms">查看条款</string>
+    <string name="register_button">注册</string>
+    <string name="register_have_account">已有账号？去登录</string>
+    <string name="register_success">注册成功</string>
+    <string name="forgot_title">重置密码</string>
+    <string name="forgot_send">发送重置验证码</string>
+    <string name="forgot_new_password">新密码</string>
+    <string name="forgot_button">重置密码</string>
+    <string name="forgot_back_login">返回登录</string>
+    <string name="forgot_success">密码已重置，请重新登录</string>
+    <string name="err_password_mismatch">两次密码不一致</string>
+    <string name="err_password_short">密码至少 8 位</string>
+    <string name="err_agree_required">请先同意服务条款</string>
+    <string name="err_email_required">请填写有效的邮箱地址</string>
+    <string name="err_code_required">请填写邮箱验证码</string>
+    <string name="code_sent">验证码已发送，10 分钟内有效</string>
+    <string name="terms_body">Noxc 提供免费二级域名与 DNS 托管。请勿将服务用于违法内容、滥用、垃圾邮件、钓鱼或侵权；站方可暂停或回收违规域名。域名按现状提供，不作可用性担保，请自行保留备份。</string>
+    <string name="terms_full">查看完整条款</string>
+    <string name="oauth_opening">正在打开登录…</string>
+    <string name="lookup_root">后缀</string>
 </resources>

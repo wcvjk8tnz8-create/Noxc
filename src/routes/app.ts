@@ -24,7 +24,8 @@ const APP_CONFIG_KEYS = [
   'publicStats', 'pointRules', 'expiry', 'defaultQuota',
   'rootDomain', 'rootDomains', 'pausedRoots', 'dnsPausedRoots',
   'allowSignup', 'applyPaused', 'applyPausedMessage',
-  'nodelocEnabled', 'githubEnabled', 'mailVerifyRequired',
+  'nodelocEnabled', 'githubEnabled', 'mailVerifyRequired', 'verifyRequired',
+  'signupEmailRule', 'signupEmailHint', 'mailOk',
 ] as const;
 
 type BuildConfig = (c: any) => Promise<Record<string, any>>;
@@ -61,7 +62,7 @@ export function createAppRoutes(buildConfigData: BuildConfig) {
       domains,
       points,
       /* App 其余交互都走这里给出的路径，不在客户端硬编码一整套 API。
-         原生端只读取；注册 / 改记录 / 后台 / 文档这类复杂流程走浏览器。 */
+         原生端完成登录 / 注册 / 找回密码；改记录 / 后台 / 文档走应用内标签页。 */
       endpoints: {
         check: '/api/subdomains/check',
         whois: '/api/whois',
@@ -69,6 +70,12 @@ export function createAppRoutes(buildConfigData: BuildConfig) {
         checkin: '/api/points/checkin',
         login: '/api/auth/login',
         logout: '/api/auth/logout',
+        register: '/api/auth/register',
+        verifySend: '/api/auth/verify/send',
+        verifyCheck: '/api/auth/verify/check',
+        reset: '/api/auth/reset',
+        oauthNodeloc: '/api/auth/nodeloc/start',
+        oauthGithub: '/api/auth/github/start',
         webConsole: '/dashboard',
         webRegister: '/register',
         webDocs: '/docs',
@@ -77,8 +84,9 @@ export function createAppRoutes(buildConfigData: BuildConfig) {
         webReport: '/report',
       },
       capabilities: {
-        native: ['home', 'domains', 'points', 'profile', 'login', 'checkin', 'lookup', 'whois'],
-        browserOnly: ['register', 'oauth', 'dnsWrite', 'admin', 'docs', 'externalDomains'],
+        native: ['home', 'domains', 'points', 'profile', 'login', 'register',
+          'forgotPassword', 'checkin', 'lookup', 'whois'],
+        browserOnly: ['dnsWrite', 'admin', 'docs', 'externalDomains', 'oauth'],
       },
     });
     /* 私有短缓存：刷新 / 切后台回来最多省一次往返；含登录态所以绝不 public。

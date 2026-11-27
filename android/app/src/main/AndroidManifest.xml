@@ -37,6 +37,19 @@
             android:name=".DomainDetailActivity"
             android:configChanges="orientation|screenSize|uiMode"
             android:exported="false" />
+
+        <!-- 账号流程全部原生：注册 / 找回密码不跳任何浏览器 -->
+        <activity
+            android:name=".RegisterActivity"
+            android:configChanges="orientation|screenSize|uiMode"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ForgotPasswordActivity"
+            android:configChanges="orientation|screenSize|uiMode"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 
 </manifest>

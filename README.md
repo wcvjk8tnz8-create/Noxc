@@ -24,7 +24,7 @@
 | AnyNS / n.ht 管理 API 接入 | 第 19 节 / 附录 Z.10 |
 | meoy.top 迁移至 AnyNS · 解析已恢复 | 第 21 节 / 附录 Z.12 |
 | 第三方域名接入（独立页 / 文档） | 第 22 节 / `/external-domains` · `/docs/external-domains.html` |
-| Noxc 手机版（完全原生 APK）/ App 专用接口 / 签名 / 换站点 | 第 23 节 · 第 24 节 / `.github/workflows/android-apk.yml` · 附录 Z.15 |
+| Noxc 手机版（Material 3 原生 APK）/ App 专用接口 / 签名 / 换站点 | 第 23 节 · 第 24 节 / `.github/workflows/android-apk.yml` · 附录 Z.15 |
 
 ---
 
@@ -1388,79 +1388,75 @@ token 但已连上 SEUS zone 的存量申请，由一次性幂等迁移放行，
 内存 D1 + Hono 真跑准入校验、提交、连接、站长审批、后端锁定与记录写入。
 **常见错误**见文末「Z.14」。
 
-### 23. Noxc 手机版（完全原生 Android App · GitHub Actions 自动构建）
+### 23. Noxc 手机版（Material 3 完全原生 App · GitHub Actions 自动构建）
 
-**它是什么**：一个**完全原生**的 Android App —— 打开看到的是原生首页，不是网站首页。
-四个 tab 全部由 Android 控件绘制，数据通过 `Api.java` 直接取 Worker 的 JSON 接口；
-**App 里没有任何 WebView**。注册（滑块验证）、后台管理、服务文档、DNS 记录编辑这类
-复杂流程，点按钮用系统浏览器打开完整站点。
+**它是什么**：一个**真正的 Material 3 原生 App**。UI 全部由 AndroidX / Material
+Components 控件绘制 —— `MaterialToolbar`、`BottomNavigationView`、
+`SwipeRefreshLayout`、`TextInputLayout` 输入框、`MaterialShapeDrawable` 卡片、
+`MaterialButton`、两种 ProgressIndicator、矢量图标、M3 亮/暗双主题。
+打开看到的是原生首页，**App 里没有任何 WebView**。
+
+**账号流程全部在 App 内原生完成，不再跳浏览器**：登录、注册（邮箱规则提示 /
+验证码 / 条款勾选）、找回密码（发码 → 填码 → 重置）都是独立 Activity 的原生表单，
+直连 `/api/auth/*`。文档 / 后台 / 条款 / 第三方 OAuth 用 **Chrome Custom Tab**
+在 App 内打开（带 App 名称与工具栏），不会甩给外部浏览器。
 
 > 站点改前端 / 文档**不影响 App 界面**；只有 `android/` 目录变化才重新出包。
 > 接口返回变了（公告、积分规则、统计）App 下次刷新就能看到，不用发版。
 
 | 页面 | 内容 | 数据来源 |
 |---|---|---|
-| 首页 | 站点公告、实时统计、最热后缀 HOT、积分规则、名称查询（可用性 / 价格 / WHOIS） | **`/api/app/v1/bootstrap`** · `check` · `whois` |
-| 域名 | 我的域名列表、状态、记录数、暂停解析标记，点卡片进原生记录页 | **bootstrap** · `records`（点进去才请求） |
-| 积分 | 余额、每日签到、规则、最近流水 | **bootstrap** · `checkin` |
-| 我的 | 账号信息、登录 / 登出、浏览器兜底入口 | **bootstrap** · `logout` |
+| 首页 | 公告、统计、HOT 后缀、积分规则、名称查询（价格 / WHOIS） | **`/api/app/v1/bootstrap`** · `check` · `whois` |
+| 域名 | 列表 / 状态 / 记录数 / 暂停标记，点进原生记录页 | **bootstrap** · `records` |
+| 积分 | 余额、签到、规则、最近流水 | **bootstrap** · `checkin` |
+| 我的 | 账号信息、登录 / 登出、应用内网页入口 | **bootstrap** · `logout` |
 
-**App 专用接口 `GET /api/app/v1/bootstrap`**（第 24 节有完整契约）
+**App 专用接口 `GET /api/app/v1/bootstrap`**（第 24 节有完整契约）：冷启动
+**只打这一个请求**，一次拿到 `site` + `user` + `domains` + `points` +
+`endpoints` 契约 + `capabilities`。登录态数据复用站内原有函数，不另写规则；
+公开配置复用 `/api/config` 的 30 秒缓存，不多打 D1。签到 / 登录 / 登出后
+带 `?_=` 强制 fresh。
 
-冷启动**只打这一个请求**，一次拿到 `site`（公告 / 统计 / HOT / 积分规则 / 后缀名单）
-+ `user` + `domains` + `points`。未登录也能调，登录态三段返回 `null`。
-登录态数据全部复用站点原有函数（`listMineData` / `pointsSnapshot` / `publicUser`），
-**不另写一套**补发奖励、暂停解析、额度、有效期规则；公开配置复用 `/api/config`
-的 30 秒缓存，不多打 D1。响应 `Cache-Control: private, max-age=10`，签到 / 登录 /
-登出后 App 带 `?_=` 强制 fresh。
+**为什么现在是几 MB（而不是几十 KB）**
 
-返回的 `endpoints` 是接口契约（`check` / `whois` / `records` / `checkin` /
-`logout` / 各网页入口），App 从这里读路径，不在客户端硬编码一整套 API；
-`capabilities` 明示哪些流程原生可做、哪些必须跳浏览器。
-
-**登录**：原生邮箱 + 密码表单 → `POST /api/auth/login` → 从 `Set-Cookie` 提取
-`sh_session` 存 `SharedPreferences`，之后每个请求手动带 Cookie 头，杀进程重开不掉登录。
-NodeLoc / GitHub OAuth、注册、忘记密码跳浏览器登录页。
-
-**网络层**：平台 `HttpURLConnection` + `org.json` + 线程池，回调回主线程；统一解析
-`{ success, message }` 信封，按系统语言请求中英文案。**零第三方依赖 / 零 AndroidX**。
-原生栏、卡片、胶囊按钮、明暗双主题沿用站点现行的黑白灰 + 一点品牌粉、全圆角。
-
-**为什么 APK 只有几十 KB**：这是**正常且刻意**的，不是打包漏了东西。
-
-| 原因 | 说明 |
+| 之前 | 现在 |
 |---|---|
-| 不打包网页 | 没有 WebView，也没有把 HTML / CSS / JS / 字体 / 站点图片塞进 assets |
-| 零依赖 | 没有 AndroidX、Kotlin 标准库、图片加载库、React Native —— 这些随便一个就是几 MB |
-| 只有 5 个类 | `classes.dex` 里是纯平台 Java，没有生成的 ViewBinding / Dagger / Room 代码 |
-| 图标很少 | 6 张小 PNG（最大 192×192）+ 1 张 432×432 自适应前景 |
-| debug 签名 | 没配 Secrets 时签名块很小；release 签名也只多几 KB |
+| 5 个纯平台 Java 类、零依赖 | AndroidX AppCompat / Material 3 / SwipeRefresh / RecyclerView / CoordinatorLayout / Custom Tabs 全部打进 dex |
+| 6 张小 PNG | 6 张 PNG + 5 个矢量图标 + 2 套 menu + 5 套布局 + M3 主题资源 |
+| 68 KB debug 包 | **CI 断言 ≥ 1.5 MB**，实测体积见该次 run 的「校验 APK 产物」步骤 |
 
-CI 的「校验 APK 产物」会打印 `unzip -l` 组成清单，并断言必须含
-`classes.dex` / `resources.arsc` / ≥6 张 PNG —— **格式合法但是空壳会被直接判失败**。
-对照：一个带 AndroidX 的普通壳通常 2–5 MB，一个 WebView 壳也会因为打包网页资源到几百 KB 以上。
+这是刻意的：Material 3 组件库本身就有体积，用户明确要「至少几 MB 的真 App」，
+不是把网页塞进 assets 凑数（APK 的 `assets/` 仍为 0）。CI 会打印 APK 组成清单，
+并断言 `classes.dex` / `resources.arsc` / ≥6 张 PNG 都在 —— 空壳直接判失败。
+
+**网络层**仍是平台 `HttpURLConnection` + `org.json` + 线程池（不引入
+OkHttp/Retrofit），回调回主线程，按系统语言请求中英文案。唯一用到的 AndroidX
+网络相关库是 Custom Tabs。原生栏、卡片、胶囊沿用站点现行黑白灰 + 一点品牌粉、
+全圆角。
 
 **目录**（独立子工程，不碰 Vite / Wrangler 主构建链）
 
 | 文件 | 作用 |
 |---|---|
-| `android/app/src/main/java/.../MainActivity.java` | 四个原生 tab、卡片渲染、登录态与浏览器兜底 |
-| `android/app/src/main/java/.../Api.java` | HTTP / session / 统一信封，纯平台 API |
-| `android/app/src/main/java/.../Ui.java` | 原生卡片 / 文字 / 胶囊控件 |
-| `android/app/src/main/java/.../LoginActivity.java` | 原生登录表单 |
+| `android/app/src/main/java/.../MainActivity.java` | M3 Toolbar / BottomNav / 四页卡片 / 登录态 / Custom Tab |
+| `android/app/src/main/java/.../FormActivity.java` | 三个账号表单共享骨架（Toolbar / 错误 / 进度） |
+| `android/app/src/main/java/.../LoginActivity.java` | 原生邮箱密码登录 |
+| `android/app/src/main/java/.../RegisterActivity.java` | 原生注册（验证码 / 条款对话框） |
+| `android/app/src/main/java/.../ForgotPasswordActivity.java` | 原生找回密码 |
 | `android/app/src/main/java/.../DomainDetailActivity.java` | 原生 DNS 记录列表 |
-| `android/app/build.gradle` | AGP 8.5.2 / minSdk 24 / targetSdk 34，`SITE_URL` 构建时注入 |
-| `android/app/src/main/res/` | 三个布局、中英文案、明暗主题、圆角 drawable、5 档密度图标 |
-| `.github/workflows/android-apk.yml` | JDK 17 + Android 34 + Gradle 8.9 → 编译 / 校验 / 上传 APK |
+| `android/app/src/main/java/.../Api.java` | HTTP / session / 统一信封 / Custom Tab |
+| `android/app/src/main/java/.../Ui.java` | MaterialShapeDrawable 卡片 + MaterialButton |
+| `android/app/src/main/res/` | 5 套布局、2 套 menu、矢量图标、中英 127 词条、M3 明暗主题、6 档图标 |
+| `.github/workflows/android-apk.yml` | JDK 17 + Android 34 + Gradle 8.9 → 编译 / 体积校验 / 上传 |
 | `scripts/gen-android-icons.py` | 图标生成脚本（Pillow），产物已入库可复现 |
 
 **拿 APK**：push 到 `main` 且改动涉及 `android/**` 后，去 Actions →
 **Build Noxc Android APK** → 该次 run 底部的 **Artifacts** 下载
-`noxc-apk-<run号>`。也可以随时 `workflow_dispatch` 手动跑一次，可填
-`site_url`，勾选 `create_release` 会同时发到 GitHub Releases。
+`noxc-apk-<run号>`。也可随时 `workflow_dispatch` 手动跑，填 `site_url`、
+勾 `create_release` 会同时发到 GitHub Releases。
 
-**签名（可选，不配也能装）**：CI 会检查四个 Secrets，齐全就构建 `release` 签名版，
-否则明确降级为 `assembleDebug`（debug 签名，同样可直接安装），不会静默失败。
+**签名（可选，不配也能装）**：CI 检查四个 Secrets，齐全就构建 `release` 签名版，
+否则明确降级 `assembleDebug`（debug 签名同样可直接安装）。
 
 ```bash
 keytool -genkeypair -v -keystore noxc.jks -alias noxc \
@@ -1484,21 +1480,22 @@ Gradle 用环境变量读取，**仓库里没有任何密钥**。
 2. CI 手动触发填 `site_url`，或本地 `gradle assembleDebug -PsiteUrl=https://noxc.uk/`
 3. App 内**长按启动 Logo / 顶栏 Logo / 断网提示标题**直接改，存 `SharedPreferences`
 
-**本地构建**：Android Studio 打开 `android/` 目录即可；命令行需 JDK 17 +
-Android SDK 34 + Gradle 8.9，跑 `cd android && gradle assembleDebug`。
-仓库刻意不提交 `gradle-wrapper.jar`（二进制），CI 直接下载官方 Gradle 8.9 发行版。
+**本地构建**：Android Studio 打开 `android/` 目录即可（首次会拉 AndroidX /
+Material 依赖）；命令行需 JDK 17 + Android SDK 34 + Gradle 8.9，跑
+`cd android && gradle assembleDebug`。仓库不提交 `gradle-wrapper.jar`，CI 直接
+下载官方 Gradle 8.9。
 
-**行为边界**：只放行 https，`usesCleartextTraffic=false`；只申请 `INTERNET` /
-`ACCESS_NETWORK_STATE` 两个权限；`allowBackup=false` 防 session 被系统备份带走。
-App 内不做滑块验证、不写 DNS 记录、不跑后台管理 —— 这些统一跳系统浏览器，
-避免在原生端复制一套会和安全规则跑偏的逻辑。双击返回键退出。
+**行为边界**：只放行 https（`usesCleartextTraffic=false`）；只申请
+`INTERNET` / `ACCESS_NETWORK_STATE` 两个权限；`allowBackup=false` 防 session
+被系统备份带走。App 内不做滑块验证、不写 DNS 记录、不跑后台管理 —— 这些按
+`capabilities.browserOnly` 用 Custom Tab 打开完整站点，避免复制一套会和安全规则
+跑偏的逻辑。双击返回键退出。
 
-配置回归 `scripts/android-apk-regression.ts` 会真解析全部 XML / PyYAML / PNG 头，
-并用 `scripts/android-resource-check.py` 交叉校验 XML 的 `@string` / `@color` /
-`@drawable` 与 Java 的 `R.*` 引用（本地没有 android.jar 也能提前抓 aapt 错误），
-锁住「零 WebView / 零 AndroidX / 七个接口 / 浏览器兜底」，挂在主 `deploy.yml`；
-**真编译**在 `android-apk.yml`（`aapt dump badging` + ZIP 内含 dex/资源表/图标 +
-有签名时 `apksigner verify`）。**常见错误**见文末「Z.15」。
+配置回归 `scripts/android-apk-regression.ts` 真解析全部 XML / PyYAML / PNG 头，
+用 `scripts/android-resource-check.py` 交叉校验 XML 的 `@string` / `@color` /
+`@drawable` 与 Java 的 `R.*`，锁住「零 WebView / M3 依赖 / 体积下限 / 账号流程
+零 ACTION_VIEW」；**真编译**在 `android-apk.yml`（`aapt dump badging` + ZIP 内容 +
+体积 ≥1.5MB + 有签名时 `apksigner verify`）。**常见错误**见文末「Z.15」。
 
 ---
 
@@ -1524,7 +1521,7 @@ Cookie: sh_session=…        # 可选，不带即游客态
 | `domains` | `null` | 对象 | 与 `/api/subdomains/mine` **完全同源**（`listMineData`） |
 | `points` | `null` | 对象 | 与 `/api/points/me` **完全同源**（`pointsSnapshot`，含存量奖励补发） |
 | `endpoints` | 对象 | 对象 | 交互路径契约，见下 |
-| `capabilities` | 对象 | 对象 | `native` / `browserOnly` 流程清单 |
+| `capabilities` | 对象 | 对象 | `native` 含登录 / 注册 / 找回密码；`browserOnly` 只剩 DNS 写入 / 后台 / 文档 / OAuth |
 
 **`endpoints` 契约**
 
@@ -1535,6 +1532,10 @@ Cookie: sh_session=…        # 可选，不带即游客态
 | `records` | `/api/records/subdomains/{id}/records` | 点域名卡片时才请求 |
 | `checkin` | `/api/points/checkin` | 签到后 App 带 `?_=` 重拉 bootstrap |
 | `login` / `logout` | `/api/auth/login` · `/api/auth/logout` | 原生登录表单 / 登出 |
+| `register` | `/api/auth/register` | 原生注册（`agreeTerms` / 可选 `code`） |
+| `verifySend` / `verifyCheck` | `/api/auth/verify/send` · `/check` | 注册 / 找回密码发码与校验 |
+| `reset` | `/api/auth/reset` | 原生找回密码提交 |
+| `oauthNodeloc` / `oauthGithub` | `/api/auth/nodeloc/start` · `/github/start` | Custom Tab 内第三方授权 |
 | `web*` | `/dashboard` · `/register` · `/docs` · `/terms` · `/external-domains` · `/report` | 系统浏览器打开 |
 
 **刻意守住的边界**
@@ -1551,8 +1552,13 @@ Cookie: sh_session=…        # 可选，不带即游客态
 - **失败降级**：`domains` / `points` 任一段异常只返回 `null`，接口仍 200，
   App 显示错误卡而不是崩。
 
-**注册、OAuth、DNS 写入、后台、文档**一律不进这个接口：这些流程有滑块验证、
-审批闸门与安全边界，App 按 `capabilities.browserOnly` 跳系统浏览器完整站点。
+**登录 / 注册 / 找回密码的接口契约也在这里**（`register` / `verifySend` /
+`verifyCheck` / `reset`），三个原生表单从契约取路径，不硬编码。
+`site` 额外下发 `verifyRequired` / `signupEmailHint` / `mailOk`，注册页据此决定
+验证码字段是否必填、显示什么邮箱规则提示。
+**DNS 写入、后台、文档、第三方 OAuth** 仍按 `capabilities.browserOnly` 用
+Custom Tab 在 App 内打开完整站点 —— 这些流程有滑块验证、审批闸门与安全边界，
+不在原生端复制一套会跑偏的逻辑。
 
 专项回归 `scripts/app-api-regression.ts` 真跑 Hono + 内存 D1 覆盖游客 / 登录 /
 字段同源 / 脱敏 / 契约 / 缓存头，并锁住「App 只打一个 bootstrap」。
@@ -1968,64 +1974,57 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
 
 ### Z.15 安卓 App 构建 / 使用的常见错误
 
-- **以为是「内嵌网页」，打开就该是网站首页**：这是**刻意否掉**的方案。前两版
-  WebView 壳（含原生顶栏那版）社区实拍反馈「实际效果一般般」，已整体重做成
-  **完全原生 App**：四个 tab 由 Android 控件绘制、数据直连站点 API，
-  `android/` 里 **零 WebView / 零 android.webkit / 零 AndroidX**。
-  回归会真扫全部 Java 与 XML，任何一处 `WebView` 都会让 CI 挂掉，别加回来。
-- **想直接在 App 里注册 / 改 DNS 记录 / 进后台**：这些流程涉及滑块验证、TXT 验证、
-  站长审批与安全闸门，刻意**不在原生端复制**。App 里点对应按钮会跳系统浏览器打开
-  完整站点；原生端只做读取 + 登录 + 签到 + 查询，避免两套逻辑跑偏。
-- **系统「显示大小」调大后网页撑爆布局**：那是 WebView 版的旧问题（textZoom 跟随
-  系统放大）。纯原生版界面用 sp / dp，卡片与导航栏不受网页排版影响；若某天又
-  出现竖排单字，先检查是不是有人把 WebView 加回去了。
-- **登录后又变回未登录**：`sh_session` 从登录响应的 `Set-Cookie` 提取后存
+- **打开是网站首页 / 还在内嵌网页**：这是**刻意否掉**的两版方案。现在是
+  **Material 3 完全原生 App**：四个 tab 由 Android 控件绘制、数据直连站点 API，
+  `android/` 里 **零 WebView / 零 android.webkit**。回归会真扫全部 Java 与 XML，
+  任何一处 `WebView` 都会让 CI 挂掉，别加回来。
+- **登录 / 注册 / 忘记密码跳到浏览器**：早期版本确实这样，现在三个流程都是
+  App 内原生 Activity（`LoginActivity` / `RegisterActivity` /
+  `ForgotPasswordActivity`），直连 `/api/auth/*`。回归断言账号流程里
+  **0 处 `Intent.ACTION_VIEW`**；条款、文档、后台、第三方 OAuth 用
+  **Chrome Custom Tab** 在 App 内打开，视觉上不离开 App。
+  第三方 OAuth 因授权规范必须经浏览器安全上下文，但已不是「甩给外部浏览器」。
+- **系统「显示大小」调大后布局撑爆**：那是 WebView 版旧问题。M3 界面用 sp / dp
+  与 Material 组件自适应；若出现竖排单字，先检查是不是有人把 WebView 加回去了。
+- **怀疑「才几十 KB 是不是没打包完整」**：这一版**不会**。Material 3 +
+  AndroidX 依赖全打进 dex，CI 的「校验 APK 产物」断言 **≥ 1.5 MB** 并打印
+  `unzip -l` 组成清单。若哪天体积掉回几十 KB，说明 `app/build.gradle` 的
+  `dependencies {}` 被删了，CI 会直接失败。体积对照见第 23 节。
+- **Gradle 拉不到 AndroidX / Material 依赖**：`settings.gradle` 已配
+  `google()` + `mavenCentral()`，`gradle.properties` 开了 `android.useAndroidX=true`。
+  CI 首次构建会多花一两分钟下载依赖，属正常；若报 `Could not resolve`，先确认
+  runner 能访问 Google Maven，别改回「零依赖」。
+- **登录后又变回未登录**：`sh_session` 从登录 / 注册响应的 `Set-Cookie` 提取后存
   `SharedPreferences`，每个请求手动带 Cookie。换站点地址时会主动清 session
   （不同域名的会话不通用），重新登录即可。
+- **注册页没有验证码框**：由后台开关决定 —— `site.verifyRequired` 为 true 才显示
+  验证码输入与发送按钮。站点没配邮件服务时 `mailOk=false`，注册照常可用。
 - **push 了前端代码却没生成 APK**：这是**刻意设计**。站点改前端 / 文档不影响
   原生界面；`android-apk.yml` 只在 `android/**`、该 workflow 自身、图标脚本或
-  配置回归变化时触发。想立刻要一个包，用 Actions 里的 **Run workflow** 手动触发。
+  配置回归变化时触发。想立刻要一个包，用 Actions 里的 **Run workflow**。
 - **没配签名 Secrets，只有 `app-debug.apk`**：不是失败。CI 会打 notice 并明确
-  降级到 `assembleDebug`，debug 签名照样能装。要上架/长期分发才需要配
+  降级到 `assembleDebug`，debug 签名照样能装。要上架才需要配
   `NOXC_KEYSTORE_*` 四个 Secret（见第 23 节）。
 - **`Setup Android SDK` 那一步直接挂**：第三方 `setup-android` action 会重新
   下载 cmdline-tools，在这台 runner 上失败并把后面 8 步全 skipped。已改成探测
-  ubuntu-latest 镜像自带的 SDK（`/usr/local/lib/android/sdk`），把 `ANDROID_HOME`
-  写进 `GITHUB_ENV`、把 `sdkmanager` 路径写进 `GITHUB_PATH`，别把 action 加回来。
-- **`gradle: command not found`**：仓库不提交 `gradle-wrapper.jar`，CI 直接
-  下载官方 `gradle-8.9-bin.zip` 并把 `bin` 写进 `GITHUB_PATH`，紧接着
-  `gradle --version` 自检。本地跑请先自行安装 Gradle 8.9，或用 Android Studio。
-- **明明构建成功却整步标红**：GitHub Actions 的默认 shell 开了 `pipefail`，
-  `sdkmanager --list_installed | head` / `gradle --version | head` 这类管道会因
-  `head` 提前关闭管道而 SIGPIPE 非零。现在所有信息性输出都先重定向到临时文件
-  再 `head`，别把 `| head` 加回来。
+  ubuntu-latest 镜像自带的 SDK，别把 action 加回来。
+- **`gradle: command not found`**：仓库不提交 `gradle-wrapper.jar`，CI 直接下载
+  官方 `gradle-8.9-bin.zip` 并写 `GITHUB_PATH`，紧接着 `gradle --version` 自检。
+- **明明构建成功却整步标红**：默认 shell 开了 `pipefail`，`| head` 会因 SIGPIPE
+  非零。现在信息性输出先重定向到临时文件再 `head`，别把 `| head` 加回来。
 - **「构建 APK」偶发标红、后面几步全 skipped**：曾出现过一次该步骤单独失败、
   当时日志下载被网络策略挡住没读到细节，同一份配置重跑即过，判断是 runner
-  侧临时性失败（依赖下载 / 网络抖动），**未确认根因**。现在该步骤把 Gradle 输出落到
-  `/tmp/gradle-build.log`，失败时把 `FAILURE:` / `What went wrong` / `Caused by:`
-  等关键行**发成 check annotation** —— 日志下载在部分网络环境被 403 挡住时，
-  直接在 Checks 页就能看到根因。别把 `set +e` + annotation 这段删掉。
-- **Gradle 报 `BuildConfig` 找不到**：AGP 8+ 默认关闭 BuildConfig 生成，
-  `app/build.gradle` 里已显式 `buildFeatures { buildConfig true }`，别删。
-- **怀疑「才几十 KB 是不是没打包完整」**：不是。纯原生 App 没有网页资源、
-  没有 AndroidX / Kotlin 库、没有第三方 SDK，`classes.dex` 只有 5 个类，
-  资源只有 6 张小 PNG 图标。CI 的「校验 APK 产物」会打印 `unzip -l` 清单并
-  断言 `classes.dex` / `resources.arsc` / ≥6 张 PNG 都在，**空壳会直接失败**。
-  体积对照见第 23 节。若哪天突然涨到几 MB，先查是不是有人把 AndroidX 或
-  网页资源加回 `app/build.gradle` / `assets/`。
-- **App 首屏一直转圈 / 四个 tab 全空**：先看 `/api/app/v1/bootstrap` 是否 200。
-  它挂在 `requireAuth` 之前，游客也能调；公网配置 / 统计 / 规则来自 `/api/config`
-  的共享缓存。若接口返回 500，App 会显示断网页且原生上下栏仍在。契约见第 24 节。
-- **签到后余额没变**：App 签到成功后带 `?_=` 重拉 bootstrap，绕开 10 秒私有缓存；
-  如果仍滞后，确认 Worker 侧 `pointsSnapshot` 没抛异常（异常会降级成 `null`，
-  App 显示错误卡，这时去看 Worker 日志而不是清 App 缓存）。
+  侧临时性失败，**未确认根因**。现在失败时把 `FAILURE:` / `What went wrong` /
+  `Caused by:` 发成 check annotation，日志被 403 挡住时也能在 Checks 页看根因。
+- **Gradle 报 `BuildConfig` 找不到**：AGP 8+ 默认关闭，已显式
+  `buildFeatures { buildConfig true }`，别删。
 - **装了打不开 / 一直显示「无法连接到 Noxc」**：先看顶栏副标题的站点域名是否
   还在线；站点迁移到新域名时**不用重装** —— 长按启动 Logo / 顶栏 Logo /
-  断网提示标题改地址即可。接口失败只盖内容区，原生上下栏仍在，不是白屏。
-- **`net::ERR_CLEARTEXT_NOT_PERMITTED`**：Manifest 写死 `usesCleartextTraffic=false`，
-  站点必须全 https；`Api.setSite()` 会给裸域名自动补 `https://`。
-- **图标在 Android 8+ 显示怪异**：`mipmap-anydpi-v26/ic_launcher.xml` 用自适应图标，
-  前景是 432×432、内容缩在中间 66% 安全区；改图后重跑
-  `python3 scripts/gen-android-icons.py`，别只替换某一档密度。
-- **以为 APK 里打包了网页**：没有。APK 只有原生控件 + 网络层，页面数据实时取自
-  Worker；离线时显示原生断网页，不会假装能用。
+  断网提示标题改地址即可。接口失败只盖内容区，M3 上下栏仍在，不是白屏。
+- **`net::ERR_CLEARTEXT_NOT_PERMITTED`**：Manifest 写死
+  `usesCleartextTraffic=false`，`Api.setSite()` 会给裸域名自动补 `https://`。
+- **图标在 Android 8+ 显示怪异**：`mipmap-anydpi-v26/ic_launcher.xml` 用自适应
+  图标，前景 432×432、内容缩在中间 66% 安全区；改图后重跑
+  `python3 scripts/gen-android-icons.py`。
+- **以为 APK 里打包了网页**：没有。APK 只有原生控件 + Material 资源 + 网络层，
+  页面数据实时取自 Worker；离线时显示原生断网页，不会假装能用。

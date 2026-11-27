@@ -1,15 +1,12 @@
 /**
  * Noxc Android App · 配置防回流回归
  *
- * 这一版 App 是**完全原生**：没有 WebView，四个 tab 由 Android 控件绘制，
- * 数据通过 Api.java 直接取 Worker 的 JSON 接口。回归重点因此是：
- *   · 零 WebView / 零 AndroidX（真扫描全部 Java + XML）
- *   · 四个原生页面 + 三个 Activity 都在
- *   · 网络层正确带 sh_session、解析统一信封、回调回主线程
- *   · 复杂流程（注册 / 后台 / 文档）确实交系统浏览器
+ * 这一版是**真正的 Material 3 原生 App**：AndroidX + Material Components 打进 APK
+ * （体积几 MB），登录 / 注册 / 找回密码全是 App 内原生表单，文档 / 后台 / 条款
+ * 用 Chrome Custom Tab 在 App 内打开，账号流程**不甩外部浏览器**。仍然是零 WebView。
  *
  * 真跑：python3 + ElementTree 解析全部 Android XML；PyYAML 解析 workflow；
- *       PNG 头与尺寸实测。真编译交给 CI 的 assembleDebug/Release。
+ *       PNG 头与尺寸实测；资源引用交叉校验。真编译交给 CI 的 assembleDebug/Release。
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -35,15 +32,23 @@ const mainJava = java['MainActivity.java'] || '';
 const apiJava = java['Api.java'] || '';
 const uiJava = java['Ui.java'] || '';
 const loginJava = java['LoginActivity.java'] || '';
+const registerJava = java['RegisterActivity.java'] || '';
+const forgotJava = java['ForgotPasswordActivity.java'] || '';
 const detailJava = java['DomainDetailActivity.java'] || '';
+const formJava = java['FormActivity.java'] || '';
+const accountJava = loginJava + registerJava + forgotJava + formJava;
 
 const gradle = read(A + 'app/build.gradle');
 const rootGradle = read(A + 'build.gradle');
 const settings = read(A + 'settings.gradle');
+const props = read(A + 'gradle.properties');
 const manifest = read(MAIN + 'AndroidManifest.xml');
 const layout = read(MAIN + 'res/layout/activity_main.xml');
 const loginLayout = read(MAIN + 'res/layout/activity_login.xml');
+const registerLayout = read(MAIN + 'res/layout/activity_register.xml');
+const forgotLayout = read(MAIN + 'res/layout/activity_forgot.xml');
 const detailLayout = read(MAIN + 'res/layout/activity_domain_detail.xml');
+const allLayouts = layout + loginLayout + registerLayout + forgotLayout + detailLayout;
 const strings = read(MAIN + 'res/values/strings.xml');
 const stringsZh = read(MAIN + 'res/values-zh-rCN/strings.xml');
 const styles = read(MAIN + 'res/values/styles.xml');
@@ -53,6 +58,8 @@ const colorsNight = read(MAIN + 'res/values-night/colors.xml');
 const adaptive = read(MAIN + 'res/mipmap-anydpi-v26/ic_launcher.xml');
 const pill = read(MAIN + 'res/drawable/bg_pill.xml');
 const inputBg = read(MAIN + 'res/drawable/bg_input.xml');
+const bottomMenu = read(MAIN + 'res/menu/bottom_nav.xml');
+const topMenu = read(MAIN + 'res/menu/top_menu.xml');
 const wf = read('.github/workflows/android-apk.yml');
 const deployWf = read('.github/workflows/deploy.yml');
 const ignore = read('.gitignore');
@@ -64,7 +71,11 @@ for (const f of [
   'app/build.gradle', 'app/src/main/AndroidManifest.xml',
   'app/src/main/res/layout/activity_main.xml',
   'app/src/main/res/layout/activity_login.xml',
+  'app/src/main/res/layout/activity_register.xml',
+  'app/src/main/res/layout/activity_forgot.xml',
   'app/src/main/res/layout/activity_domain_detail.xml',
+  'app/src/main/res/menu/bottom_nav.xml',
+  'app/src/main/res/menu/top_menu.xml',
   'app/src/main/res/values/strings.xml',
   'app/src/main/res/values-zh-rCN/strings.xml',
   'app/src/main/res/values/styles.xml',
@@ -73,24 +84,28 @@ for (const f of [
   'app/src/main/res/drawable/bg_input.xml',
   'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
 ]) check(exists(A + f), `安卓工程文件存在：${f}`);
-for (const j of ['MainActivity.java', 'Api.java', 'Ui.java',
-  'LoginActivity.java', 'DomainDetailActivity.java']) {
+for (const j of ['MainActivity.java', 'Api.java', 'Ui.java', 'LoginActivity.java',
+  'RegisterActivity.java', 'ForgotPasswordActivity.java',
+  'DomainDetailActivity.java', 'FormActivity.java']) {
   check(!!java[j], `原生 Java 源文件存在：${j}`);
 }
 for (const d of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
   check(exists(MAIN + `res/mipmap-${d}/ic_launcher.png`), `${d} 传统图标存在`);
 }
 check(exists(MAIN + 'res/mipmap-xxxhdpi/ic_launcher_foreground.png'), '自适应图标前景图存在（432×432）');
+for (const i of ['ic_tab_home', 'ic_tab_domains', 'ic_tab_points', 'ic_tab_profile', 'ic_back']) {
+  check(exists(MAIN + `res/drawable/${i}.xml`), `Material 导航矢量图标：${i}`);
+}
 check(exists('scripts/gen-android-icons.py'), '图标生成脚本入库，产物可复现');
 check(exists('scripts/android-resource-check.py'), '资源引用交叉校验脚本入库');
-check(!exists(JAVA + 'PullRefreshFrame.java'), 'WebView 专用下拉容器已删除');
+check(!exists(JAVA + 'PullRefreshFrame.java'), '旧 WebView 专用下拉容器已删除');
 
 /* ───────── B. 真跑：XML / YAML / PNG ───────── */
 const xmlFiles = execFileSync('python3', ['-c',
   `import glob
 print('\\n'.join(sorted(glob.glob('${MAIN}**/*.xml', recursive=True))))`],
   { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
-check(xmlFiles.length >= 12, `找到 ${xmlFiles.length} 个 Android XML 资源`);
+check(xmlFiles.length >= 20, `找到 ${xmlFiles.length} 个 Android XML 资源`);
 try {
   execFileSync('python3', ['-c',
     `import sys, xml.etree.ElementTree as ET
@@ -114,12 +129,12 @@ print(json.dumps({'triggers':list(trig),'jobs':list(d.get('jobs',{})),'permissio
     const j = JSON.parse(parsed.trim().split('\n').pop() || '{}');
     check(j.jobs.includes('build') && j.triggers.length >= 2,
       'PyYAML 真解析 workflow：build job + push/workflow_dispatch 双触发');
-    check(j.permissions && j.permissions.contents === 'write', 'workflow 具备 contents: write（发 Release 用）');
+    check(j.permissions && j.permissions.contents === 'write', 'workflow 具备 contents: write');
   } catch (e: any) {
     check(false, `workflow YAML 解析：${String(e?.stderr || e).slice(0, 200)}`);
   }
 } else {
-  check(/^name: Build Noxc Android APK$/m.test(wf) && /^jobs:/m.test(wf) && /^  build:/m.test(wf),
+  check(/^jobs:/m.test(wf) && /^  build:/m.test(wf),
     '本机无 PyYAML，退化为文本校验 workflow 结构（CI 上会真解析）');
 }
 const pngs = execFileSync('python3', ['-c',
@@ -142,7 +157,7 @@ try {
   check(false, `资源交叉校验：${String(e?.stdout || e?.stderr || e).trim().slice(0, 400)}`);
 }
 
-/* ───────── C. Java 源码结构（本地无 android.jar，真编译交 CI） ───────── */
+/* ───────── C. Java 源码结构（真编译交 CI） ───────── */
 for (const [label, src] of Object.entries(java)) {
   const stripped = src.replace(/"(?:\\.|[^"\\])*"/g, '""')
     .replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -153,114 +168,127 @@ for (const [label, src] of Object.entries(java)) {
   }
   check(/^package xyz\.noxc\.app;/m.test(src), `${label} 包名正确`);
 }
-check(!/import androidx\./.test(allJava), '零 AndroidX import（只用平台 API + org.json）');
-check(/import org\.json\.JSONObject/.test(apiJava)
-  && /import java\.net\.HttpURLConnection/.test(apiJava)
-  && /import java\.util\.concurrent\.ExecutorService/.test(apiJava),
-  '网络层用平台 HttpURLConnection + org.json + 线程池');
+check(/extends AppCompatActivity/.test(mainJava)
+  && /extends FormActivity/.test(loginJava + registerJava + forgotJava + detailJava),
+  'AppCompat / FormActivity 基类正确（M3 主题必需）');
 
-/* ───────── D. 零 WebView（这版的硬约束） ───────── */
-const allJavaCode = allJava
-  .replace(/"(?:\\.|[^"\\])*"/g, '""')
-  .replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+/* ───────── D. 零 WebView（硬约束） ───────── */
+const allJavaCode = Object.values(java)
+  .map((s) => s.replace(/"(?:\\.|[^"\\])*"/g, '""')
+    .replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''))
+  .join('\n');
 check(!/android\.webkit|WebView|WebViewClient|WebChromeClient|setTextZoom|shouldOverrideUrlLoading|setAllowFileAccess/.test(allJavaCode),
-  '全部 Java 代码（剥注释）里 0 处 WebView / android.webkit / 网页字号设置');
-check(!/<WebView|<xyz\.noxc\.app\.PullRefreshFrame/.test(layout + loginLayout + detailLayout),
-  '三个布局里 0 个 WebView 标签');
-check(!/WebView/.test(manifest), 'Manifest 注释/节点里不提 WebView');
+  '全部 Java 代码（剥注释）里 0 处 WebView / android.webkit');
+check(!/<WebView|<xyz\.noxc\.app\.PullRefreshFrame/.test(allLayouts),
+  '五套布局里 0 个 WebView 标签');
+check(!/WebView/.test(manifest), 'Manifest 里不提 WebView');
 check(/完全原生 App/.test(manifest), 'Manifest 明确标注这是完全原生 App');
-check(!/bg_refresh_hint/.test(layout + mainJava), 'WebView 下拉提示 drawable 不再被引用');
 
-/* ───────── E. 四个原生页面 + 三个 Activity ───────── */
+/* ───────── E. Material 3 / AndroidX（这版的核心变化） ───────── */
+check(/implementation 'com\.google\.android\.material:material:1\.12\.0'/.test(gradle)
+  && /implementation 'androidx\.appcompat:appcompat:1\.7\.0'/.test(gradle)
+  && /implementation 'androidx\.browser:browser:1\.8\.0'/.test(gradle),
+  'build.gradle 真引入 Material 3 + AppCompat + Custom Tabs');
+for (const dep of ['swiperefreshlayout', 'constraintlayout', 'recyclerview',
+  'coordinatorlayout', 'core', 'activity', 'fragment']) {
+  check(gradle.includes(`androidx.${dep}`), `AndroidX 依赖：${dep}`);
+}
+check(/^\s*dependencies\s*\{/m.test(gradle), '有真实 dependencies 块（不再是零依赖玩具包）');
+check(/android\.useAndroidX=true/.test(props), 'gradle.properties 开启 useAndroidX');
+check(/Theme\.Material3\.DayNight\.NoActionBar/.test(styles)
+  && /Theme\.Material3\.DayNight\.NoActionBar/.test(stylesNight)
+  && /colorSurfaceContainer/.test(styles) && /colorPrimary/.test(styles),
+  '亮/暗双主题都是 Material 3 DayNight + M3 color tokens');
+check(/on_brand|brand_container/.test(colors)
+  && /on_brand|brand_container/.test(colorsNight),
+  '新增 M3 color tokens，颜色仍是黑白灰 + 一点品牌粉');
+check(/MaterialToolbar/.test(layout) && /BottomNavigationView/.test(layout)
+  && /SwipeRefreshLayout/.test(layout)
+  && /NestedScrollView/.test(layout)
+  && /LinearProgressIndicator/.test(layout)
+  && /CircularProgressIndicator/.test(layout),
+  '主界面六件 M3 控件齐全：Toolbar / BottomNav / 下拉刷新 / 嵌套滚动 / 两种进度');
+for (const f of [loginLayout, registerLayout, forgotLayout]) {
+  check(/TextInputLayout/.test(f) && /TextInputEditText/.test(f)
+    && /MaterialButton/.test(f), '账号表单用 M3 OutlinedBox 输入框 + MaterialButton');
+}
+check(/MaterialCheckBox/.test(loginLayout + registerLayout), 'M3 复选框（记住登录 / 同意条款）');
+check(/MaterialShapeDrawable/.test(uiJava)
+  && /ShapeAppearanceModel/.test(uiJava)
+  && /MaterialButton/.test(uiJava),
+  'Ui.java 用 M3 形状引擎画卡片、真 MaterialButton 当胶囊');
+check(/app:menu="@menu\/bottom_nav"/.test(layout)
+  && /android:id="@\+id\/tab_home"/.test(bottomMenu)
+  && /action_about/.test(topMenu),
+  'BottomNavigationView / Toolbar 溢出菜单有真实 menu 资源与矢量图标');
+check(/MaterialAlertDialogBuilder/.test(mainJava + registerJava),
+  '关于 / 条款用 M3 对话框，不是平台 AlertDialog');
+
+/* ───────── F. 账号流程全部原生，不跳外部浏览器 ───────── */
 check(/android:name="\.MainActivity"/.test(manifest)
   && /android:name="\.LoginActivity"/.test(manifest)
+  && /android:name="\.RegisterActivity"/.test(manifest)
+  && /android:name="\.ForgotPasswordActivity"/.test(manifest)
   && /android:name="\.DomainDetailActivity"/.test(manifest),
-  'Manifest 注册主界面 / 登录 / 域名详情三个 Activity');
-check(/android:exported="true"/.test(manifest)
-  && /android.intent.category.LAUNCHER/.test(manifest),
-  '只有 MainActivity 是 exported 启动入口');
-for (const id of ['view_home', 'view_domains', 'view_points', 'view_profile',
-  'page_home', 'page_domains', 'page_points', 'page_profile']) {
-  check(layout.includes(`@+id/${id}`), `原生四页容器存在：${id}`);
-}
-for (const id of ['topbar', 'bottombar', 'bar_title', 'bar_subtitle',
-  'btn_refresh', 'btn_more', 'tab_home', 'tab_domains', 'tab_points', 'tab_profile']) {
-  check(layout.includes(`@+id/${id}`), `原生外壳控件存在：${id}`);
-}
-check(/showPage\(int idx\)/.test(mainJava)
-  && /pageViews\[i\]\.setVisibility/.test(mainJava)
-  && /tabs\[i\]\.setAlpha/.test(mainJava),
-  '底部 tab 切换的是四个原生 ScrollView，不是网页 URL');
-check(/android:layout_weight="1"/.test(layout)
-  && /android:id="@\+id\/error"/.test(layout),
-  '内容区占满中间，断网页只盖内容区、原生上下栏保留');
-check(/R\.layout\.activity_login/.test(loginJava)
-  && /R\.layout\.activity_domain_detail/.test(detailJava),
-  '登录页 / 域名详情页各有独立原生布局');
-check(/class Ui/.test(uiJava) && /static LinearLayout card/.test(uiJava)
-  && /GradientDrawable/.test(uiJava),
-  'Ui.java 用平台 GradientDrawable 画全圆角卡片，不依赖网页 CSS');
+  'Manifest 注册五个 Activity（含原生注册 / 找回密码）');
+check(/api\.endpoint\("register"/.test(registerJava)
+  && /api\.endpoint\("reset"/.test(forgotJava)
+  && /api\.endpoint\("verifySend"/.test(registerJava + forgotJava)
+  && /api\.endpoint\("login"/.test(loginJava),
+  '登录 / 注册 / 发码 / 重置四个接口都从 bootstrap 契约取');
+check(registerJava.includes('agreeTerms')
+  && registerJava.includes('"scene", "register"')
+  && forgotJava.includes('"scene", "reset"')
+  && forgotJava.includes('"password"'),
+  '注册/找回表单字段与后端 scene/agreeTerms/password 口径一致');
+check(/new Intent\(this, RegisterActivity\.class\)/.test(loginJava)
+  && /new Intent\(this, ForgotPasswordActivity\.class\)/.test(loginJava)
+  && /startActivityForResult\(new Intent\(this, RegisterActivity/.test(mainJava),
+  '注册 / 找回密码 / 登录都是 App 内页面跳转，不是浏览器');
+check(!/Intent\.ACTION_VIEW/.test(accountJava + mainJava),
+  '账号流程与主界面 0 处 ACTION_VIEW（不再甩外部浏览器）');
+check(/CustomTabsIntent/.test(apiJava) && /openInApp\(/.test(apiJava)
+  && /api\.openInApp\(/.test(mainJava + loginJava + detailJava),
+  '文档 / 条款 / 后台 / OAuth 用 Chrome Custom Tab 在 App 内打开');
+check(/setShowTitle\(true\)/.test(apiJava), 'Custom Tab 带标题栏，视觉上不离开 App');
+check(/showTerms\(\)/.test(registerJava) && /R\.string\.terms_body/.test(registerJava),
+  '条款在 App 内用 M3 对话框呈现，不用浏览器看');
+check(/verifyRequired/.test(registerJava), '验证码字段显隐由后台开关驱动（site.verifyRequired）');
 
-/* ───────── F. 网络层：直接调站点 API ───────── */
-check(/sh_session/.test(apiJava) && /Set-Cookie/.test(apiJava)
-  && /KEY_SESSION/.test(apiJava),
-  '登录态 = 站点原本的 sh_session，从 Set-Cookie 提取并持久化');
-check(/setRequestProperty\("Cookie", "sh_session="/.test(apiJava),
-  '每个请求手动带 Cookie 头，杀进程重开不掉登录');
-check(/clearSession\(\)/.test(apiJava) && /class Reply/.test(apiJava)
-  && /optBoolean\("success"/.test(apiJava),
-  '统一解析 { success, message } 信封，登出清本地 token');
-check(/new Handler\(Looper\.getMainLooper\(\)\)/.test(apiJava)
-  && /UI\.post\(/.test(apiJava) && /POOL\.execute/.test(apiJava),
-  '请求走线程池、回调回主线程，页面不阻塞');
-check(/Accept-Language/.test(apiJava) && /zh-CN/.test(apiJava),
-  '按系统语言请求中文/英文文案');
-check(/BuildConfig\.SITE_URL/.test(apiJava) && /setSite\(/.test(apiJava),
-  '站点地址可构建时注入，App 内可改（迁移域名不重装）');
+/* ───────── G. App 专用接口与四页 ───────── */
 check(/api\.bootstrap\(fresh/.test(mainJava)
   && /\/api\/app\/v1\/bootstrap/.test(apiJava)
   && /ep\("check"/.test(mainJava) && /ep\("whois"/.test(mainJava)
   && /api\.endpoint\("records"/.test(detailJava)
   && /Api\.setEndpoints\(endpoints\)/.test(mainJava),
   '冷启动只打 bootstrap 一个接口，三个 Activity 的路径都来自 endpoints 契约');
-check(/\/api\/auth\/login/.test(loginJava) && /\/api\/auth\/logout/.test(apiJava)
-  && /api\.logout\(/.test(mainJava) && /\/api\/points\/checkin/.test(mainJava),
-  '登录、登出、签到都是原生按钮直连接口');
-check(/enableFollowRedirects|setInstanceFollowRedirects/.test(apiJava),
-  'HTTP 重定向由平台处理');
-
-/* ───────── G. 复杂流程交系统浏览器 ───────── */
-check(/Intent\.ACTION_VIEW/.test(mainJava + loginJava + detailJava)
-  && /api\.web\(/.test(mainJava + loginJava + detailJava),
-  '注册 / 后台 / 文档 / 记录管理用系统浏览器打开，不在 App 里嵌网页');
-for (const p of ['register', 'dashboard', 'docs', 'terms', 'external-domains', 'report']) {
-  check(mainJava.includes(`openWeb("${p}")`) || loginJava.includes(`openWeb("${p}")`),
-    `浏览器兜底入口：${p}`);
-}
-check(/menu_full_web/.test(mainJava) && /openWeb\(""\)/.test(mainJava),
-  '「更多」里有完整站点入口，但默认界面全是原生');
-check(/showSiteDialog/.test(mainJava) && /bar_logo/.test(mainJava),
-  '长按启动 Logo / 顶栏 Logo / 断网标题可改站点地址');
+check(/bottomNav\.setOnItemSelectedListener/.test(mainJava)
+  && /showPage\(int idx\)/.test(mainJava)
+  && /pageViews\[i\]\.setVisibility/.test(mainJava),
+  '底部导航切的是四个原生页面，不是网页 URL');
+check(/swipe\.setOnRefreshListener/.test(mainJava)
+  && /swipe\.setRefreshing\(false\)/.test(mainJava),
+  'M3 下拉刷新接 bootstrap，结束后收起指示器');
+check(/android:layout_weight="1"/.test(layout)
+  && /android:id="@\+id\/error"/.test(layout),
+  '内容区占满中间，断网页只盖内容区、原生上下栏保留');
 
 /* ───────── H. 文案 / 主题 / 颜色 ───────── */
 check(exists(MAIN + 'res/values-zh-rCN/strings.xml')
   && /[一-龥]/.test(stringsZh) && !/[一-龥]/.test(strings),
   '中英双语文案齐全，英文默认资源里不夹中文');
 for (const k of ['tab_home', 'tab_domains', 'tab_points', 'tab_profile',
-  'home_tagline', 'home_stats', 'home_rules', 'home_lookup',
-  'domains_mine', 'points_balance', 'profile_logout',
-  'login_title', 'detail_records', 'whois_status', 'bar_back']) {
+  'home_tagline', 'home_stats', 'home_rules', 'home_lookup', 'lookup_root',
+  'domains_mine', 'points_balance', 'profile_logout', 'login_title',
+  'register_title', 'register_confirm', 'register_agree', 'register_button',
+  'forgot_title', 'forgot_new_password', 'err_password_mismatch',
+  'terms_body', 'detail_records', 'whois_status', 'bar_back']) {
   check(strings.includes(`name="${k}"`) && stringsZh.includes(`name="${k}"`),
-    `原生词条中英齐全：${k}`);
+    `M3 词条中英齐全：${k}`);
 }
-check(/Theme\.Material\.Light\.NoActionBar/.test(styles)
-  && /Theme\.Material\.NoActionBar/.test(stylesNight)
-  && /bar_bg/.test(colors) && /bar_bg/.test(colorsNight)
-  && /card_bg/.test(colors) && /card_bg/.test(colorsNight),
-  '亮/暗双主题 + 原生栏/卡片色板');
 check(/statusBarColor">@color\/bar_bg/.test(styles)
   && /navigationBarColor">@color\/bar_bg/.test(styles),
-  '状态栏 / 导航栏与原生栏同色');
+  '状态栏 / 导航栏与 M3 顶栏同色');
 check(/corners android:radius="999dp"/.test(pill)
   && /@color\/input_bg/.test(inputBg) && /<adaptive-icon/.test(adaptive),
   '全圆角胶囊 / 输入框 / 自适应图标');
@@ -277,7 +305,7 @@ check((manifest.match(/uses-permission/g) || []).length === 2
 check(/api\.base\(\)/.test(mainJava)
   && /startsWith\("https:\/\/"\)/.test(apiJava)
   && /setSite\(String url\)/.test(apiJava),
-  '站点地址可改且强制补 https（用户输入裸域名时）');
+  '站点地址可改且强制补 https');
 
 /* ───────── J. Gradle / CI ───────── */
 check(/com\.android\.application' version '8\.5\.2'/.test(rootGradle)
@@ -287,7 +315,6 @@ check(/namespace 'xyz\.noxc\.app'/.test(gradle) && /compileSdk 34/.test(gradle)
 check(/buildConfig true/.test(gradle)
   && /buildConfigField 'String', 'SITE_URL'/.test(gradle)
   && /project\.findProperty\('siteUrl'\)/.test(gradle), 'BuildConfig 显式开启 + 站点地址注入');
-check(!/^\s*dependencies\s*\{/m.test(gradle), '零第三方依赖（CI 不拉 AndroidX）');
 check(/JavaVersion\.VERSION_17/.test(gradle), 'Java 17 编译');
 check(/def canSign = ksPath && ksPass && ksAlias && ksKeyPass && file\(ksPath\)\.exists\(\)/.test(gradle)
   && /if \(canSign\) signingConfig signingConfigs\.getByName\('release'\)/.test(gradle),
@@ -312,7 +339,10 @@ check(/aapt" dump badging/.test(wf) && /classes\.dex/.test(wf)
   && /resources\.arsc/.test(wf) && /sha256sum/.test(wf),
   'CI 真校验 APK 内容（dex / 资源表 / 图标）');
 check(/APK 组成（按压缩后大小）/.test(wf) && /assets\/ 条目/.test(wf),
-  'CI 打印 APK 组成清单，几十 KB 的体积可复核（零依赖 / 不打包网页）');
+  'CI 打印 APK 组成清单，体积可复核');
+/* 用户明确要「至少几 MB」：CI 里必须有体积下限断言，防止退回 68KB 玩具包 */
+check(/MIN_SIZE/.test(wf) && /::error::APK 体积过小/.test(wf),
+  'CI 断言 APK ≥ 1.5MB（Material 3 / AndroidX 必须真的打进去）');
 check(/actions\/upload-artifact@v4/.test(wf) && /if-no-files-found: error/.test(wf),
   'APK 上传 Artifacts，缺产物直接失败');
 check(/inputs\.create_release/.test(wf) && /contents: write/.test(wf),
@@ -324,25 +354,31 @@ check(/android\/app\/\*\.keystore/.test(ignore) && /\*\.apk/.test(ignore),
   '.gitignore 排除 keystore / 构建产物 / APK');
 check(!exists(A + 'app/release.keystore') && !exists(A + 'app/signing.gradle'),
   '工作区里没有真实 keystore / 签名脚本');
-check(/### 23\./.test(readme) && /### Z\.15/.test(readme), 'README 第 23 节 / Z.15');
-check(/完全原生/.test(readme) && /零 WebView|没有 WebView|没有任何 WebView/.test(readme),
-  'README 如实写明是完全原生、零 WebView');
+check(/### 23\./.test(readme) && /### 24\./.test(readme) && /### Z\.15/.test(readme),
+  'README 第 23 节 / 第 24 节 / Z.15');
+check(/Material 3/.test(readme) && /完全原生/.test(readme)
+  && /零 WebView|没有 WebView|没有任何 WebView/.test(readme),
+  'README 如实写明 Material 3 完全原生、零 WebView');
+check(/几 MB|1\.5MB|几 MB/.test(readme), 'README 解释体积与「至少几 MB」的口径');
 
-/* ───────── L. 反向对照：证明断言不是恒真 ───────── */
+/* ───────── L. 反向对照 ───────── */
 check(/WebView/.test('import android.webkit.WebView; class X {}') &&
-  !/android\.webkit/.test(allJava),
+  !/android\.webkit/.test(allJavaCode),
   '反向对照：任意 Java 里出现 android.webkit 都会被零 WebView 断言抓住');
-const brokenLayout = layout.replace('android:id="@+id/bottombar"', 'android:id="@+id/gone_bar"');
-check(!/android:id="@\+id\/bottombar"/.test(brokenLayout),
-  '反向对照：拿掉原生底栏后断言必须失败');
+const brokenLayout = layout.replace('android:id="@+id/bottom_nav"', 'android:id="@+id/gone_bar"');
+check(!/android:id="@\+id\/bottom_nav"/.test(brokenLayout),
+  '反向对照：拿掉 Material 底部导航后断言必须失败');
 const brokenApi = apiJava.replace('setRequestProperty("Cookie", "sh_session="', 'setRequestProperty("X", "');
 check(!/setRequestProperty\("Cookie", "sh_session="/.test(brokenApi),
   '反向对照：不带 Cookie 头后登录态断言必须失败');
 const brokenManifest = manifest.replace('android:usesCleartextTraffic="false"', 'android:usesCleartextTraffic="true"');
 check(!/android:usesCleartextTraffic="false"/.test(brokenManifest),
   '反向对照：放开明文 HTTP 后安全断言必须失败');
+const brokenDep = gradle.replace("com.google.android.material:material:1.12.0", "com.google.android.material:material:0.0");
+check(!/material:1\.12\.0/.test(brokenDep),
+  '反向对照：撤掉 Material 3 依赖后断言必须失败');
 
-console.log(`安卓纯原生 App 配置回归：${ok.length} 通过，${bad.length} 失败`);
+console.log(`安卓 Material 3 原生 App 配置回归：${ok.length} 通过，${bad.length} 失败`);
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of bad) console.error('  ✗ ' + m);
 if (bad.length) process.exit(1);

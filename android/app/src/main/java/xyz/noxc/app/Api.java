@@ -1,9 +1,14 @@
 package xyz.noxc.app;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+
+import androidx.browser.customtabs.CustomTabsIntent;
 
 import org.json.JSONObject;
 
@@ -23,9 +28,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Noxc 手机版 · 纯原生网络层（零第三方依赖）
+ * Noxc 手机版 · 网络层
  *
  * App 里没有任何 WebView：所有数据都由 Android 控件直接向 Worker 的 JSON 接口取。
+ * HTTP 仍用平台 HttpURLConnection + org.json（不引入 OkHttp/Retrofit）；
+ * 唯一用到的 AndroidX 是 androidx.browser 的 Custom Tabs，用于 App 内打开网页。
  * 登录态 = 站点原本的 sh_session cookie，登录后从 Set-Cookie 提取 token 存
  * SharedPreferences，之后每个请求手动带 Cookie 头（不依赖 CookieManager 的内存态，
  * 杀进程重开仍在）。接口统一信封 { success:true, ... } / { success:false, message }。
@@ -148,9 +155,27 @@ public final class Api {
         });
     }
 
-    /** 打开完整网页版：注册滑块、后台管理、文档等复杂流程交给系统浏览器。 */
     public String web(String path) {
         return url(path == null ? "" : path);
+    }
+
+    /**
+     * 用 Chrome Custom Tab 在 **App 内** 打开网页（带 App 名称与工具栏），
+     * 不再 ACTION_VIEW 甩给外部浏览器。条款、文档、后台、第三方 OAuth 都走这里。
+     * 设备没有支持 Custom Tabs 的浏览器时才回落到系统 VIEW。
+     */
+    public void openInApp(Activity a, String path) {
+        try {
+            new CustomTabsIntent.Builder()
+                    .setShowTitle(true)
+                    .setToolbarColor(a.getResources().getColor(R.color.bar_bg))
+                    .build()
+                    .launchUrl(a, Uri.parse(web(path)));
+        } catch (Exception e) {
+            try {
+                a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(web(path))));
+            } catch (Exception ignored) { }
+        }
     }
 
     private void call(String method, String path, JSONObject body, Callback cb) {
