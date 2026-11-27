@@ -14,7 +14,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
 
-        <!-- configChanges 含 uiMode：切深色 / 转屏不重建 Activity，网页不会被迫重载 -->
+        <!-- 完全原生 App：主界面四个 tab，不加载任何网页 -->
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
@@ -26,6 +26,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".LoginActivity"
+            android:configChanges="orientation|screenSize|uiMode"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".DomainDetailActivity"
+            android:configChanges="orientation|screenSize|uiMode"
+            android:exported="false" />
     </application>
 
 </manifest>

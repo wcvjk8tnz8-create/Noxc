@@ -1943,10 +1943,16 @@ check(/TXT 验证 → 改 NS/.test(txReadme)
 
 
 
-/* ── 安卓 App（WebView 壳）· APK 由 GitHub Actions 编译 ── */
+/* ── 安卓 App（完全原生，零 WebView）· APK 由 GitHub Actions 编译 ── */
 const apGradle = read('android/app/build.gradle');
 const apManifest = read('android/app/src/main/AndroidManifest.xml');
-const apJava = read('android/app/src/main/java/xyz/noxc/app/MainActivity.java');
+const apMain = read('android/app/src/main/java/xyz/noxc/app/MainActivity.java');
+const apApi = read('android/app/src/main/java/xyz/noxc/app/Api.java');
+const apJavaDir = 'android/app/src/main/java/xyz/noxc/app';
+const apAllJava = fs.readdirSync(path.join(root, apJavaDir))
+  .filter((f) => f.endsWith('.java'))
+  .map((f) => read(apJavaDir + '/' + f)).join('\n');
+const apLayout = read('android/app/src/main/res/layout/activity_main.xml');
 const apWf = read('.github/workflows/android-apk.yml');
 const apIgnore = read('.gitignore');
 check(/namespace 'xyz\.noxc\.app'/.test(apGradle) && /minSdk 24/.test(apGradle)
@@ -1957,25 +1963,27 @@ check(/usesCleartextTraffic="false"/.test(apManifest)
   && /dataExtractionRules="@xml\/data_extraction_rules"/.test(apManifest)
   && (apManifest.match(/uses-permission/g) || []).length === 2,
   '安卓 Manifest：禁明文 / 禁备份 / 只两个网络权限');
-check(/setJavaScriptEnabled\(true\)/.test(apJava)
-  && /setAcceptThirdPartyCookies/.test(apJava)
-  && /shouldOverrideUrlLoading/.test(apJava)
-  && /KEYCODE_BACK/.test(apJava) && /onShowFileChooser/.test(apJava),
-  'WebView 壳：JS / 第三方 cookie / 外链分流 / 返回键 / 文件上传桥接');
-const apLayout = read('android/app/src/main/res/layout/activity_main.xml');
-const apPull = read('android/app/src/main/java/xyz/noxc/app/PullRefreshFrame.java');
-check(/android:id="@\+id\/topbar"/.test(apLayout)
-  && /android:id="@\+id\/bottombar"/.test(apLayout)
-  && /xyz\.noxc\.app\.PullRefreshFrame/.test(apLayout)
-  && /android:layout_weight="1"/.test(apLayout),
-  '安卓不是全屏塞网页：原生顶栏 + 内容区 + 原生底栏三段式外壳');
-check(/s\.setTextZoom\(100\)/.test(apJava)
-  && /s\.setDefaultFontSize\(16\)/.test(apJava)
-  && /s\.setMinimumFontSize\(12\)/.test(apJava),
-  '锁死 WebView textZoom=100%，系统「显示大小」不会把响应式撑成竖排单字');
-check(/setOnRefreshListener/.test(apJava) && /onInterceptTouchEvent/.test(apPull)
-  && !/import androidx\./.test(apPull),
-  '原生下拉刷新（纯平台 FrameLayout）/ 双击退出 / 底栏随历史栈变灰');
+const apJavaCode = apAllJava.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+check(!/android\.webkit|WebView|setTextZoom|shouldOverrideUrlLoading/.test(apJavaCode)
+  && !/<WebView/.test(apLayout),
+  '完全原生 App：全部 Java 与布局零 WebView / 零 android.webkit');
+check(/android:name="\.MainActivity"/.test(apManifest)
+  && /android:name="\.LoginActivity"/.test(apManifest)
+  && /android:name="\.DomainDetailActivity"/.test(apManifest),
+  '三个原生 Activity：主界面 / 登录 / 域名详情');
+check(/view_home/.test(apLayout) && /view_domains/.test(apLayout)
+  && /view_points/.test(apLayout) && /view_profile/.test(apLayout)
+  && /showPage\(int idx\)/.test(apMain),
+  '四个原生 tab 页面，切换的是 ScrollView 而不是网页 URL');
+check(/sh_session/.test(apApi) && /Set-Cookie/.test(apApi)
+  && /setRequestProperty\("Cookie", "sh_session="/.test(apApi)
+  && /HttpURLConnection/.test(apApi) && !/import androidx\./.test(apAllJava),
+  '纯平台网络层：HttpURLConnection + sh_session cookie + 零 AndroidX');
+check(/\/api\/config/.test(apMain) && /\/api\/subdomains\/mine/.test(apMain)
+  && /\/api\/points\/me/.test(apMain) && /\/api\/whois/.test(apMain),
+  '原生页面直连 config / domains / points / whois 接口');
+check(/Intent\.ACTION_VIEW/.test(apMain) && /openWeb\("docs"\)/.test(apMain),
+  '复杂流程交系统浏览器，不在 App 内嵌网页');
 check(/gradle-8\.9-bin\.zip/.test(apWf)
   && /assembleDebug/.test(apWf) && /assembleRelease/.test(apWf)
   && /aapt" dump badging/.test(apWf)
@@ -1985,8 +1993,9 @@ check(/android\/app\/\*\.keystore/.test(apIgnore)
   && !fs.existsSync(path.join(root, 'android/app/release.keystore')),
   'keystore 被 gitignore 且工作区没有明文密钥');
 check(/### 23\./.test(d1Readme) && /### Z\.15/.test(d1Readme)
+  && /完全原生/.test(d1Readme)
   && /android-apk-regression\.ts/.test(read('.github/workflows/deploy.yml')),
-  'README 第 23 节 / Z.15 与配置回归都挂进主流程');
+  'README 第 23 节 / Z.15 写明完全原生，配置回归挂进主流程');
 
 /* ── 数据备份导出 / 重新汇入防回流 ── */
 const bkFmt = read('src/lib/backupFormat.ts');

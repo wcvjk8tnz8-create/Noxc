@@ -5,23 +5,115 @@
     <string name="offline_title">Can\'t reach Noxc</string>
     <string name="offline_body">Check your connection and try again. Long-press this title to change the site address.</string>
     <string name="retry">Retry</string>
-    <string name="no_file_picker">No file picker available</string>
     <string name="no_browser">No browser available</string>
     <string name="site_title">Site address</string>
     <string name="site_body">Use this when the site moves to a new domain. https is recommended.</string>
-    <string name="site_save">Save &amp; reload</string>
+    <string name="site_save">Save and reload</string>
     <string name="cancel">Cancel</string>
+    <string name="press_back_again">Press back again to exit</string>
 
-    <!-- Native shell chrome -->
+    <!-- Native shell -->
     <string name="bar_more">More</string>
     <string name="bar_refresh">Refresh</string>
     <string name="bar_back">Back</string>
-    <string name="bar_forward">Forward</string>
-    <string name="bar_home">Home</string>
-    <string name="open_in_browser">Open in browser</string>
+    <string name="whois_status">Status</string>
+    <string name="whois_holder">Holder</string>
+    <string name="whois_records">Records</string>
+    <string name="whois_registered">Registered</string>
+    <string name="tab_home">Home</string>
+    <string name="tab_domains">Domains</string>
+    <string name="tab_points">Points</string>
+    <string name="tab_profile">Me</string>
+    <string name="menu_full_web">Full site in browser</string>
+    <string name="menu_change_site">Change site address</string>
+    <string name="menu_about">About</string>
     <string name="about_app">About</string>
-    <string name="about_body">Noxc for Android — a native shell around the live site. Pages always come from the server, so updates need no reinstall.</string>
-    <string name="pull_hint">Pull to refresh</string>
-    <string name="pull_release">Release to refresh</string>
-    <string name="press_back_again">Press back again to exit</string>
+    <string name="about_body">Noxc for Android is a fully native app. Screens are Android views and data comes straight from the site API. Registration, admin and docs open in your browser.</string>
+
+    <!-- Home -->
+    <string name="home_tagline">A good address for every idea.</string>
+    <string name="home_stats">Live stats</string>
+    <string name="stat_domains">Domains</string>
+    <string name="stat_users">Users</string>
+    <string name="stat_hottest">Hottest suffix</string>
+    <string name="hot">HOT</string>
+    <string name="announcement_label">Announcement</string>
+    <string name="migration_label">Maintenance</string>
+    <string name="home_rules">Point rules</string>
+    <string name="rule_checkin">Daily check-in</string>
+    <string name="rule_initial">New user</string>
+    <string name="rule_domain">Normal domain</string>
+    <string name="rule_short">Short domain</string>
+    <string name="home_lookup">Check a name</string>
+    <string name="lookup_hint">Name prefix</string>
+    <string name="lookup_button">Check</string>
+    <string name="lookup_apply">Apply in browser</string>
+    <string name="lookup_whois">WHOIS details</string>
+    <string name="lookup_available">Available</string>
+    <string name="lookup_taken">Taken</string>
+    <string name="lookup_cost">Cost</string>
+    <string name="lookup_points">Balance</string>
+    <string name="lookup_paused">Applications paused for this suffix</string>
+    <string name="lookup_empty">Type a name prefix first</string>
+    <string name="config_load_fail">Could not load site config</string>
+
+    <!-- Domains -->
+    <string name="domains_mine">My domains</string>
+    <string name="need_login">Sign in to see your domains and points.</string>
+    <string name="login_now">Sign in</string>
+    <string name="apply_new">Apply for a domain</string>
+    <string name="no_domains">No domains yet.</string>
+    <string name="quota_used">Quota used</string>
+    <string name="domain_records">Records</string>
+    <string name="dns_paused">DNS paused</string>
+    <string name="detail_title">Domain details</string>
+    <string name="detail_records">DNS records</string>
+    <string name="detail_empty">No records yet.</string>
+    <string name="detail_manage">Manage records in browser</string>
+    <string name="status_pending">Pending</string>
+    <string name="status_approved">Active</string>
+    <string name="status_rejected">Rejected</string>
+    <string name="status_suspended">Suspended</string>
+    <string name="status_reserved">Reserved</string>
+
+    <!-- Points -->
+    <string name="points_balance">Balance</string>
+    <string name="points_unlimited">Unlimited</string>
+    <string name="points_checkin">Check in</string>
+    <string name="points_checked">Checked in today</string>
+    <string name="points_logs">Recent activity</string>
+    <string name="points_no_logs">No activity yet.</string>
+
+    <!-- Profile -->
+    <string name="profile_account">Account</string>
+    <string name="profile_email">Email</string>
+    <string name="profile_role">Role</string>
+    <string name="profile_quota">Quota</string>
+    <string name="profile_logout">Sign out</string>
+    <string name="profile_register">Create account</string>
+    <string name="profile_web_console">Web console</string>
+    <string name="profile_web_docs">Docs</string>
+    <string name="profile_web_terms">Terms</string>
+    <string name="profile_web_external">External domain</string>
+    <string name="profile_web_report">Report abuse</string>
+    <string name="profile_web_more">Open full site</string>
+    <string name="logged_out">Signed out</string>
+
+    <!-- Login -->
+    <string name="login_title">Sign in to Noxc</string>
+    <string name="login_email">Email</string>
+    <string name="login_password">Password</string>
+    <string name="login_button">Sign in</string>
+    <string name="login_remember">Keep me signed in</string>
+    <string name="login_register">Create account in browser</string>
+    <string name="login_forgot">Forgot password</string>
+    <string name="login_oauth_nodeloc">Sign in with NodeLoc</string>
+    <string name="login_oauth_github">Sign in with GitHub</string>
+    <string name="login_empty">Enter email and password</string>
+    <string name="login_success">Signed in</string>
+
+    <!-- Errors -->
+    <string name="err_network">Network error</string>
+    <string name="err_not_logged">Not signed in</string>
+    <string name="err_api">Request failed</string>
 </resources>

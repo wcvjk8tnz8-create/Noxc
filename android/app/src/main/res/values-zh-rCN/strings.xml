@@ -5,23 +5,115 @@
     <string name="offline_title">无法连接到 Noxc</string>
     <string name="offline_body">请检查网络后重试。长按上方标题可以修改站点地址。</string>
     <string name="retry">重试</string>
-    <string name="no_file_picker">没有可用的文件选择器</string>
     <string name="no_browser">没有可用的浏览器</string>
     <string name="site_title">站点地址</string>
     <string name="site_body">站点迁移到新域名时在这里改，建议用 https。</string>
     <string name="site_save">保存并重载</string>
     <string name="cancel">取消</string>
+    <string name="press_back_again">再按一次返回键退出</string>
 
     <!-- 原生外壳 -->
     <string name="bar_more">更多</string>
     <string name="bar_refresh">刷新</string>
-    <string name="bar_back">后退</string>
-    <string name="bar_forward">前进</string>
-    <string name="bar_home">首页</string>
-    <string name="open_in_browser">用浏览器打开</string>
+    <string name="bar_back">返回</string>
+    <string name="whois_status">状态</string>
+    <string name="whois_holder">持有人</string>
+    <string name="whois_records">记录数</string>
+    <string name="whois_registered">注册时间</string>
+    <string name="tab_home">首页</string>
+    <string name="tab_domains">域名</string>
+    <string name="tab_points">积分</string>
+    <string name="tab_profile">我的</string>
+    <string name="menu_full_web">用浏览器打开完整版</string>
+    <string name="menu_change_site">修改站点地址</string>
+    <string name="menu_about">关于</string>
     <string name="about_app">关于</string>
-    <string name="about_body">Noxc 手机版 —— 套在在线站点外的原生外壳。页面实时取自服务器，前端更新无需重装。</string>
-    <string name="pull_hint">下拉刷新</string>
-    <string name="pull_release">松开刷新</string>
-    <string name="press_back_again">再按一次返回键退出</string>
+    <string name="about_body">Noxc 手机版是完全原生 App：界面由 Android 控件绘制，数据直接取自站点接口。注册、后台管理与文档在浏览器中打开。</string>
+
+    <!-- 首页 -->
+    <string name="home_tagline">给每个想法，一个好记的地址。</string>
+    <string name="home_stats">实时统计</string>
+    <string name="stat_domains">已开通域名</string>
+    <string name="stat_users">注册人数</string>
+    <string name="stat_hottest">最热后缀</string>
+    <string name="hot">HOT</string>
+    <string name="announcement_label">站点公告</string>
+    <string name="migration_label">维护提示</string>
+    <string name="home_rules">积分规则</string>
+    <string name="rule_checkin">每日签到</string>
+    <string name="rule_initial">新用户赠送</string>
+    <string name="rule_domain">普通域名</string>
+    <string name="rule_short">单字域名</string>
+    <string name="home_lookup">查询域名</string>
+    <string name="lookup_hint">名称前缀</string>
+    <string name="lookup_button">查询</string>
+    <string name="lookup_apply">在浏览器申请</string>
+    <string name="lookup_whois">WHOIS 详情</string>
+    <string name="lookup_available">可以注册</string>
+    <string name="lookup_taken">已被注册</string>
+    <string name="lookup_cost">所需积分</string>
+    <string name="lookup_points">我的余额</string>
+    <string name="lookup_paused">该后缀已暂停新申请</string>
+    <string name="lookup_empty">请先填写名称前缀</string>
+    <string name="config_load_fail">站点配置读取失败</string>
+
+    <!-- 域名 -->
+    <string name="domains_mine">我的域名</string>
+    <string name="need_login">登录后才能查看域名与积分。</string>
+    <string name="login_now">登录</string>
+    <string name="apply_new">申请新域名</string>
+    <string name="no_domains">还没有域名。</string>
+    <string name="quota_used">已用额度</string>
+    <string name="domain_records">记录数</string>
+    <string name="dns_paused">暂停解析</string>
+    <string name="detail_title">域名详情</string>
+    <string name="detail_records">DNS 记录</string>
+    <string name="detail_empty">还没有 DNS 记录。</string>
+    <string name="detail_manage">在浏览器管理记录</string>
+    <string name="status_pending">待审核</string>
+    <string name="status_approved">已开通</string>
+    <string name="status_rejected">已驳回</string>
+    <string name="status_suspended">已暂停</string>
+    <string name="status_reserved">保留</string>
+
+    <!-- 积分 -->
+    <string name="points_balance">当前积分</string>
+    <string name="points_unlimited">不限</string>
+    <string name="points_checkin">每日签到</string>
+    <string name="points_checked">今日已签到</string>
+    <string name="points_logs">最近流水</string>
+    <string name="points_no_logs">暂无流水。</string>
+
+    <!-- 我的 -->
+    <string name="profile_account">账号信息</string>
+    <string name="profile_email">邮箱</string>
+    <string name="profile_role">角色</string>
+    <string name="profile_quota">额度</string>
+    <string name="profile_logout">退出登录</string>
+    <string name="profile_register">注册账号</string>
+    <string name="profile_web_console">网页控制台</string>
+    <string name="profile_web_docs">服务文档</string>
+    <string name="profile_web_terms">服务条款</string>
+    <string name="profile_web_external">第三方域名接入</string>
+    <string name="profile_web_report">举报滥用</string>
+    <string name="profile_web_more">打开完整版站点</string>
+    <string name="logged_out">已退出登录</string>
+
+    <!-- 登录 -->
+    <string name="login_title">登录 Noxc</string>
+    <string name="login_email">邮箱</string>
+    <string name="login_password">密码</string>
+    <string name="login_button">登录</string>
+    <string name="login_remember">保持登录</string>
+    <string name="login_register">在浏览器注册账号</string>
+    <string name="login_forgot">忘记密码</string>
+    <string name="login_oauth_nodeloc">使用 NodeLoc 登录</string>
+    <string name="login_oauth_github">使用 GitHub 登录</string>
+    <string name="login_empty">请填写邮箱和密码</string>
+    <string name="login_success">登录成功</string>
+
+    <!-- 错误 -->
+    <string name="err_network">网络错误</string>
+    <string name="err_not_logged">尚未登录</string>
+    <string name="err_api">请求失败</string>
 </resources>

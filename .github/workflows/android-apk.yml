@@ -9,6 +9,7 @@ on:
       - 'android/**'
       - '.github/workflows/android-apk.yml'
       - 'scripts/android-apk-regression.ts'
+      - 'scripts/android-resource-check.py'
       - 'scripts/gen-android-icons.py'
   workflow_dispatch:
     inputs:

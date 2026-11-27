@@ -24,7 +24,7 @@
 | AnyNS / n.ht 管理 API 接入 | 第 19 节 / 附录 Z.10 |
 | meoy.top 迁移至 AnyNS · 解析已恢复 | 第 21 节 / 附录 Z.12 |
 | 第三方域名接入（独立页 / 文档） | 第 22 节 / `/external-domains` · `/docs/external-domains.html` |
-| Noxc 手机版 APK / 签名 / 换站点 | 第 23 节 / `.github/workflows/android-apk.yml` · 附录 Z.15 |
+| Noxc 手机版（完全原生 APK）/ 签名 / 换站点 | 第 23 节 / `.github/workflows/android-apk.yml` · 附录 Z.15 |
 
 ---
 
@@ -1388,35 +1388,42 @@ token 但已连上 SEUS zone 的存量申请，由一次性幂等迁移放行，
 内存 D1 + Hono 真跑准入校验、提交、连接、站长审批、后端锁定与记录写入。
 **常见错误**见文末「Z.14」。
 
-### 23. Noxc 手机版（Android APK · GitHub Actions 自动构建）
+### 23. Noxc 手机版（完全原生 Android App · GitHub Actions 自动构建）
 
-**它是什么**：一个原生 Android **外壳 + WebView**，不是把站点用 Kotlin 重写一遍，
-也不是「全屏塞一个网页」。站点本身就是响应式 SPA（见文末 Z.13 的移动端适配），
-所有业务逻辑都在 Worker 上；App 用 Android 平台控件画出**原生顶栏 / 底栏 / 下拉刷新
-/ 启动屏 / 断网覆盖层**，网页只占中间内容区。
+**它是什么**：一个**完全原生**的 Android App —— 打开看到的是原生首页，不是网站首页。
+四个 tab 全部由 Android 控件绘制，数据通过 `Api.java` 直接取 Worker 的 JSON 接口；
+**App 里没有任何 WebView**。注册（滑块验证）、后台管理、服务文档、DNS 记录编辑这类
+复杂流程，点按钮用系统浏览器打开完整站点。
 
-| 原生部分 | 表现 |
-|---|---|
-| 顶栏 | 品牌图标 + 网页标题 + 站点域名，右侧「刷新 / 更多（浏览器打开 · 改站点 · 关于）」 |
-| 底栏 | 后退 / 前进 / 首页 / 刷新，随历史栈变灰 |
-| 手势 | 顶部垂直下拉刷新（纯平台实现，不引入 AndroidX）、双按返回退出 |
-| 状态 | 贴顶栏的加载进度条、只盖内容区的断网页、状态栏与导航栏同色 |
-| 锁字号 | `textZoom=100%` + 基准 16sp，系统「显示大小」不再把响应式撑成竖排单字 |
+> 站点改前端 / 文档**不影响 App 界面**；只有 `android/` 目录变化才重新出包。
+> 接口返回变了（公告、积分规则、统计）App 下次刷新就能看到，不用发版。
 
-启动图标 / 启动屏、返回键、断网重试、文件上传桥接、OAuth 登录所需的 cookie
-持久化也都在。整个外壳保持黑白灰 + 全圆角，颜色沿用站点现行色板。
+| 页面 | 内容 | 数据来源 |
+|---|---|---|
+| 首页 | 站点公告、实时统计、最热后缀 HOT、积分规则、名称查询（可用性 / 价格 / WHOIS） | `/api/config` · `/api/subdomains/check` · `/api/whois` |
+| 域名 | 我的域名列表、状态、记录数、暂停解析标记，点卡片进原生记录页 | `/api/subdomains/mine` · `/api/records/subdomains/:id/records` |
+| 积分 | 余额、每日签到、规则、最近流水 | `/api/points/me` · `/api/points/checkin` |
+| 我的 | 账号信息、登录 / 登出、浏览器兜底入口 | `/api/auth/me` · `/api/auth/logout` |
 
-> **网页更新即时生效，APK 不用跟着重打包。** 所以 CI 只在 `android/` 目录变化时
-> 自动构建，改前端 / 文档不会触发一次多余的 Gradle 编译。
+**登录**：原生邮箱 + 密码表单 → `POST /api/auth/login` → 从 `Set-Cookie` 提取
+`sh_session` 存 `SharedPreferences`，之后每个请求手动带 Cookie 头，杀进程重开不掉登录。
+NodeLoc / GitHub OAuth、注册、忘记密码跳浏览器登录页。
 
-**目录**（独立子工程，不碰 Vite / Wrangler 主构建链，零第三方依赖）
+**网络层**：平台 `HttpURLConnection` + `org.json` + 线程池，回调回主线程；统一解析
+`{ success, message }` 信封，按系统语言请求中英文案。**零第三方依赖 / 零 AndroidX**。
+原生栏、卡片、胶囊按钮、明暗双主题沿用站点现行的黑白灰 + 一点品牌粉、全圆角。
+
+**目录**（独立子工程，不碰 Vite / Wrangler 主构建链）
 
 | 文件 | 作用 |
 |---|---|
-| `android/app/src/main/java/.../MainActivity.java` | 原生外壳接线 + WebView 全部行为，只用 Android 平台 API |
-| `android/app/src/main/java/.../PullRefreshFrame.java` | 纯平台下拉刷新容器（零 AndroidX，不干扰横滑） |
+| `android/app/src/main/java/.../MainActivity.java` | 四个原生 tab、卡片渲染、登录态与浏览器兜底 |
+| `android/app/src/main/java/.../Api.java` | HTTP / session / 统一信封，纯平台 API |
+| `android/app/src/main/java/.../Ui.java` | 原生卡片 / 文字 / 胶囊控件 |
+| `android/app/src/main/java/.../LoginActivity.java` | 原生登录表单 |
+| `android/app/src/main/java/.../DomainDetailActivity.java` | 原生 DNS 记录列表 |
 | `android/app/build.gradle` | AGP 8.5.2 / minSdk 24 / targetSdk 34，`SITE_URL` 构建时注入 |
-| `android/app/src/main/res/` | 中英文案、明暗主题、原生上下栏布局、圆角 drawable、5 档密度图标 |
+| `android/app/src/main/res/` | 三个布局、中英文案、明暗主题、圆角 drawable、5 档密度图标 |
 | `.github/workflows/android-apk.yml` | JDK 17 + Android 34 + Gradle 8.9 → 编译 / 校验 / 上传 APK |
 | `scripts/gen-android-icons.py` | 图标生成脚本（Pillow），产物已入库可复现 |
 
@@ -1454,17 +1461,17 @@ Gradle 用环境变量读取，**仓库里没有任何密钥**。
 Android SDK 34 + Gradle 8.9，跑 `cd android && gradle assembleDebug`。
 仓库刻意不提交 `gradle-wrapper.jar`（二进制），CI 直接下载官方 Gradle 8.9 发行版。
 
-**行为边界**：只放行 https，`usesCleartextTraffic=false`、禁混合内容与 `file://`；
-只申请 `INTERNET` / `ACCESS_NETWORK_STATE` 两个权限；`allowBackup=false` 防会话
-cookie 被备份带走。http/https（含 OAuth 跳转链）留在 App 内，`mailto:` / `tel:` /
-`intent:` 交系统应用；**长按链接**可用系统浏览器打开。UA 追加 ` NoxcApp/1.0`，
-以后网页端要识别 App 内不用改客户端。网页字号锁死 100%，原生栏文字固定单行
-`ellipsize`，两者互不干扰；下拉刷新只在「网页已到顶 + 手势近乎垂直」时接管，
-表格横滚与长按不受影响。
+**行为边界**：只放行 https，`usesCleartextTraffic=false`；只申请 `INTERNET` /
+`ACCESS_NETWORK_STATE` 两个权限；`allowBackup=false` 防 session 被系统备份带走。
+App 内不做滑块验证、不写 DNS 记录、不跑后台管理 —— 这些统一跳系统浏览器，
+避免在原生端复制一套会和安全规则跑偏的逻辑。双击返回键退出。
 
-配置回归 `scripts/android-apk-regression.ts` 会真解析全部 XML / PyYAML /
-PNG 头并锁住签名边界，挂在主 `deploy.yml` 里；**真编译**在 `android-apk.yml`
-（`aapt dump badging` + 有签名时 `apksigner verify`）。**常见错误**见文末「Z.15」。
+配置回归 `scripts/android-apk-regression.ts` 会真解析全部 XML / PyYAML / PNG 头，
+并用 `scripts/android-resource-check.py` 交叉校验 XML 的 `@string` / `@color` /
+`@drawable` 与 Java 的 `R.*` 引用（本地没有 android.jar 也能提前抓 aapt 错误），
+锁住「零 WebView / 零 AndroidX / 七个接口 / 浏览器兜底」，挂在主 `deploy.yml`；
+**真编译**在 `android-apk.yml`（`aapt dump badging` + ZIP 内含 dex/资源表/图标 +
+有签名时 `apksigner verify`）。**常见错误**见文末「Z.15」。
 
 ---
 
@@ -1875,22 +1882,25 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
 - **改完前端看不到新表单**：`Dashboard.tsx` / `Register.tsx` / 后台 JS 都改了，
   强清一次浏览器缓存；Worker isolate 的 30 秒配置缓存最多再等半分钟。
 
-### Z.15 安卓 APK 构建 / 安装的常见错误
+### Z.15 安卓 App 构建 / 使用的常见错误
 
-- **网页里公告压住 Logo、导航竖排成单字**：Android WebView 默认让 `textZoom`
-  跟随系统「字体大小 / 显示大小」，调大后会把站点响应式撑爆（社区实拍反馈）。
-  已在 `MainActivity.setupWebView()` 锁死 `setTextZoom(100)` +
-  `setDefaultFontSize(16)` + `setMinimumFontSize(12)`，**别为了「跟随系统字体」
-  把这三行删掉**；原生栏文字用 sp 且单行 `ellipsize`，本身不会挤坏布局。
-  排查时先在系统设置里把显示大小调回默认对比一次，能复现就是这一层。
-- **看起来还是「内嵌网页」而不是 App**：上一版只做了全屏 WebView + 启动屏，
-  确实太薄。现在顶栏 / 底栏 / 下拉刷新 / 双击退出 / 状态栏配色都是原生控件，
-  网页只占中间内容区；若哪天又变回全屏，检查 `activity_main.xml` 的
-  `topbar / bottombar / PullRefreshFrame / layout_weight` 四件套是否被删。
-- **push 了前端代码却没生成 APK**：这是**刻意设计**。WebView 壳加载线上网页，
-  前端改版不需要重装；`android-apk.yml` 只在 `android/**`、该 workflow 自身、
-  图标脚本或配置回归变化时触发。想立刻要一个包，用 Actions 里的
-  **Run workflow** 手动触发即可。
+- **以为是「内嵌网页」，打开就该是网站首页**：这是**刻意否掉**的方案。前两版
+  WebView 壳（含原生顶栏那版）社区实拍反馈「实际效果一般般」，已整体重做成
+  **完全原生 App**：四个 tab 由 Android 控件绘制、数据直连站点 API，
+  `android/` 里 **零 WebView / 零 android.webkit / 零 AndroidX**。
+  回归会真扫全部 Java 与 XML，任何一处 `WebView` 都会让 CI 挂掉，别加回来。
+- **想直接在 App 里注册 / 改 DNS 记录 / 进后台**：这些流程涉及滑块验证、TXT 验证、
+  站长审批与安全闸门，刻意**不在原生端复制**。App 里点对应按钮会跳系统浏览器打开
+  完整站点；原生端只做读取 + 登录 + 签到 + 查询，避免两套逻辑跑偏。
+- **系统「显示大小」调大后网页撑爆布局**：那是 WebView 版的旧问题（textZoom 跟随
+  系统放大）。纯原生版界面用 sp / dp，卡片与导航栏不受网页排版影响；若某天又
+  出现竖排单字，先检查是不是有人把 WebView 加回去了。
+- **登录后又变回未登录**：`sh_session` 从登录响应的 `Set-Cookie` 提取后存
+  `SharedPreferences`，每个请求手动带 Cookie。换站点地址时会主动清 session
+  （不同域名的会话不通用），重新登录即可。
+- **push 了前端代码却没生成 APK**：这是**刻意设计**。站点改前端 / 文档不影响
+  原生界面；`android-apk.yml` 只在 `android/**`、该 workflow 自身、图标脚本或
+  配置回归变化时触发。想立刻要一个包，用 Actions 里的 **Run workflow** 手动触发。
 - **没配签名 Secrets，只有 `app-debug.apk`**：不是失败。CI 会打 notice 并明确
   降级到 `assembleDebug`，debug 签名照样能装。要上架/长期分发才需要配
   `NOXC_KEYSTORE_*` 四个 Secret（见第 23 节）。
@@ -1913,16 +1923,13 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
   直接在 Checks 页就能看到根因。别把 `set +e` + annotation 这段删掉。
 - **Gradle 报 `BuildConfig` 找不到**：AGP 8+ 默认关闭 BuildConfig 生成，
   `app/build.gradle` 里已显式 `buildFeatures { buildConfig true }`，别删。
-- **装了打不开 / 一直白屏**：先看 `aapt dump badging` 确认包内 `SITE_URL` 指向的
-  域名是否还在线；站点迁移到新域名时**不用重装** —— 长按启动 Logo（或断网提示
-  标题）改地址即可。WebView 需要网络，断网会显示带「重试」的整页提示而不是白屏。
-- **OAuth 登录跳出去就掉登录态**：`CookieManager` 已放行第三方 cookie 并在
-  `onPause()` 里 `flush()`。别用「长按链接 → 系统浏览器」去走登录流程，
-  浏览器和 WebView 的 cookie 不共享；登录请留在 App 内完成。
-- **`net::ERR_CLEARTEXT_NOT_PERMITTED`**：Manifest 写死 `usesCleartextTraffic=false`
-  且 `MIXED_CONTENT_NEVER_ALLOW`。站点必须全 https，别为了图省事改回 http。
+- **装了打不开 / 一直显示「无法连接到 Noxc」**：先看顶栏副标题的站点域名是否
+  还在线；站点迁移到新域名时**不用重装** —— 长按启动 Logo / 顶栏 Logo /
+  断网提示标题改地址即可。接口失败只盖内容区，原生上下栏仍在，不是白屏。
+- **`net::ERR_CLEARTEXT_NOT_PERMITTED`**：Manifest 写死 `usesCleartextTraffic=false`，
+  站点必须全 https；`Api.setSite()` 会给裸域名自动补 `https://`。
 - **图标在 Android 8+ 显示怪异**：`mipmap-anydpi-v26/ic_launcher.xml` 用自适应图标，
   前景是 432×432、内容缩在中间 66% 安全区；改图后重跑
   `python3 scripts/gen-android-icons.py`，别只替换某一档密度。
-- **以为 APK 里打包了网页**：没有。APK 只有一个壳，页面、静态资源、接口全部实时
-  取自 Worker；离线时显示断网页，不会假装能用。
+- **以为 APK 里打包了网页**：没有。APK 只有原生控件 + 网络层，页面数据实时取自
+  Worker；离线时显示原生断网页，不会假装能用。

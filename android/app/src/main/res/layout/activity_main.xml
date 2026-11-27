@@ -1,17 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Noxc 手机版主界面：全部原生控件，没有 WebView。
+  顶栏 + 四个可切换的原生 ScrollView 页面 + 底部导航。
+  每个页面只有一个 LinearLayout 容器，卡片由 Java 动态生成（见 MainActivity）。
+-->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/splash_bg">
 
-    <!-- ══════════ 原生外壳：顶栏 / 进度 / 内容 / 底栏 ══════════ -->
     <LinearLayout
         android:id="@+id/chrome"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- 原生顶栏：品牌 + 当前页标题/站点 + 原生操作 -->
+        <!-- 原生顶栏 -->
         <LinearLayout
             android:id="@+id/topbar"
             android:layout_width="match_parent"
@@ -61,7 +65,7 @@
             <TextView
                 android:id="@+id/btn_refresh"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="40dp"
                 android:background="@drawable/bg_pill"
                 android:clickable="true"
                 android:contentDescription="@string/bar_refresh"
@@ -75,7 +79,7 @@
             <TextView
                 android:id="@+id/btn_more"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="40dp"
                 android:layout_marginStart="8dp"
                 android:background="@drawable/bg_pill"
                 android:clickable="true"
@@ -88,7 +92,6 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- 加载进度：贴在顶栏下沿，不盖网页 -->
         <ProgressBar
             android:id="@+id/progress"
             style="?android:attr/progressBarStyleHorizontal"
@@ -98,41 +101,72 @@
             android:max="100"
             android:visibility="visible" />
 
-        <!-- 内容区：下拉刷新容器 + 断网覆盖 -->
         <FrameLayout
+            android:id="@+id/content"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1">
 
-            <xyz.noxc.app.PullRefreshFrame
-                android:id="@+id/pull"
+            <!-- 首页 -->
+            <ScrollView
+                android:id="@+id/view_home"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
-
-                <WebView
-                    android:id="@+id/webview"
+                android:layout_height="match_parent"
+                android:fillViewport="true">
+                <LinearLayout
+                    android:id="@+id/page_home"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-
-                <!-- 下拉时从顶部滑出的原生提示胶囊 -->
-                <TextView
-                    android:id="@+id/pull_hint"
-                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="top|center_horizontal"
-                    android:layout_marginTop="10dp"
-                    android:alpha="0"
-                    android:background="@drawable/bg_refresh_hint"
-                    android:paddingStart="16dp"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="16dp"
-                    android:paddingBottom="8dp"
-                    android:text="@string/pull_hint"
-                    android:textColor="@color/bar_text"
-                    android:textSize="12sp" />
-            </xyz.noxc.app.PullRefreshFrame>
+                    android:orientation="vertical"
+                    android:padding="16dp" />
+            </ScrollView>
 
-            <!-- 断网：只盖内容区，原生上下栏保留，仍是 App 而不是错误页 -->
+            <!-- 我的域名 -->
+            <ScrollView
+                android:id="@+id/view_domains"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:fillViewport="true"
+                android:visibility="gone">
+                <LinearLayout
+                    android:id="@+id/page_domains"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp" />
+            </ScrollView>
+
+            <!-- 积分 -->
+            <ScrollView
+                android:id="@+id/view_points"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:fillViewport="true"
+                android:visibility="gone">
+                <LinearLayout
+                    android:id="@+id/page_points"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp" />
+            </ScrollView>
+
+            <!-- 我的 -->
+            <ScrollView
+                android:id="@+id/view_profile"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:fillViewport="true"
+                android:visibility="gone">
+                <LinearLayout
+                    android:id="@+id/page_profile"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp" />
+            </ScrollView>
+
+            <!-- 断网 / 接口不可达：只盖内容区，原生上下栏保留 -->
             <LinearLayout
                 android:id="@+id/error"
                 android:layout_width="match_parent"
@@ -171,11 +205,11 @@
             </LinearLayout>
         </FrameLayout>
 
-        <!-- 原生底栏：后退 / 前进 / 首页 / 刷新 -->
+        <!-- 原生底部导航：四个 tab 都是 TextView，随选中态换背景 -->
         <LinearLayout
             android:id="@+id/bottombar"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="60dp"
             android:background="@color/bar_bg"
             android:baselineAligned="false"
             android:gravity="center_vertical"
@@ -184,63 +218,63 @@
             android:paddingEnd="8dp">
 
             <TextView
-                android:id="@+id/nav_back"
+                android:id="@+id/tab_home"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_height="42dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_pill"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center"
-                android:text="@string/bar_back"
+                android:text="@string/tab_home"
                 android:textColor="@color/bar_text"
                 android:textSize="12sp" />
 
             <TextView
-                android:id="@+id/nav_forward"
+                android:id="@+id/tab_domains"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_height="42dp"
                 android:layout_marginStart="6dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_pill"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center"
-                android:text="@string/bar_forward"
+                android:text="@string/tab_domains"
                 android:textColor="@color/bar_text"
                 android:textSize="12sp" />
 
             <TextView
-                android:id="@+id/nav_home"
+                android:id="@+id/tab_points"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_height="42dp"
                 android:layout_marginStart="6dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_pill"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center"
-                android:text="@string/bar_home"
+                android:text="@string/tab_points"
                 android:textColor="@color/bar_text"
                 android:textSize="12sp" />
 
             <TextView
-                android:id="@+id/nav_refresh"
+                android:id="@+id/tab_profile"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_height="42dp"
                 android:layout_marginStart="6dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_pill"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center"
-                android:text="@string/bar_refresh"
+                android:text="@string/tab_profile"
                 android:textColor="@color/bar_text"
                 android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- 启动遮罩盖住整屏（含原生栏）：长按 Logo 可改站点地址 -->
+    <!-- 启动遮罩：长按 Logo 可改站点地址 -->
     <LinearLayout
         android:id="@+id/splash"
         android:layout_width="match_parent"
