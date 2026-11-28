@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -80,9 +81,26 @@ public class LoginActivity extends FormActivity {
                 .show();
     }
 
+    /* 注意：prompt()/pick()/confirm() 是 OpsActivity 的 helper，FormActivity 没有。
+       这里直接内联一个 M3 对话框，避免「cannot find symbol」编译失败。 */
     private void promptCode() {
-        prompt(getString(R.string.login_auth_code),
-                getString(R.string.auth_code_hint), "", this::exchange);
+        final EditText input = new EditText(this);
+        input.setHint(R.string.auth_code_hint);
+        input.setSingleLine(true);
+        input.setTextColor(getResources().getColor(R.color.bar_text));
+        input.setHintTextColor(getResources().getColor(R.color.bar_dim));
+        LinearLayout box = new LinearLayout(this);
+        box.setPadding(Ui.dp(this, 24), Ui.dp(this, 8), Ui.dp(this, 24), 0);
+        box.addView(input, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.login_auth_code)
+                .setView(box)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.common_ok, (d, w) ->
+                        exchange(input.getText().toString().trim()))
+                .show();
     }
 
     /** 用浏览器授权页的一次性码换会话；成功即回到主界面刷新登录态。 */

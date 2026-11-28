@@ -333,6 +333,9 @@ check(/public void (patch|put|delete|endpointCall)/.test(apiJava)
 
 /* ── G3. 浏览器授权登录（真机反馈：GitHub 按钮只剩空白页） ── */
 const loginAct = java['LoginActivity.java'] || '';
+check(!/\bprompt\(/.test(loginJava)
+  && /MaterialAlertDialogBuilder/.test(loginJava),
+  'LoginActivity 不误用 OpsActivity 的 prompt（FormActivity 没有该方法，会 javac 失败）');
 check(/login_browser_auth|login_auth_code/.test(loginJava)
   && /browser_auth_open|appAuthorize/.test(loginJava)
   && /appTokenExchange/.test(loginJava)
