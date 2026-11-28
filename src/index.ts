@@ -384,7 +384,19 @@ app.route('/api', showcaseRoutes);
 
 /* Noxc 手机版（完全原生 App）专用接口：一次拿全四个 tab 的数据。
    挂在 requireAuth 之前 —— bootstrap 自己判断登录态，未登录也要能拿到公告/统计。 */
-app.route('/api/app/v1', createAppRoutes((c) => configData(c)));
+app.route('/api/app/v1', createAppRoutes(
+  (c) => configData(c),
+  /* 管理后台概览复用现有 /api/admin/* 端点：转发原始 Cookie 与 env，
+     服务端 requireAdmin 照常生效，App 专用层不复制任何查询逻辑。 */
+  async (c, path) => {
+    const req = new Request(new URL(path, c.req.url), {
+      method: 'GET',
+      headers: c.req.raw.headers,
+    });
+    const res = await app.fetch(req, c.env, c.executionCtx);
+    return await res.json().catch(() => ({}));
+  },
+));
 
 // 需要登录的接口
 // 滑块验证独立前缀也要登录：未登录领不到挑战，也就没法为别人刷票据

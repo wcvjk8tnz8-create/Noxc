@@ -86,7 +86,9 @@ for (const f of [
 ]) check(exists(A + f), `安卓工程文件存在：${f}`);
 for (const j of ['MainActivity.java', 'Api.java', 'Ui.java', 'LoginActivity.java',
   'RegisterActivity.java', 'ForgotPasswordActivity.java',
-  'DomainDetailActivity.java', 'FormActivity.java']) {
+  'DomainDetailActivity.java', 'FormActivity.java', 'OpsActivity.java',
+  'AdminActivity.java', 'ApplyActivity.java', 'ServicesActivity.java',
+  'CaptchaDialog.java']) {
   check(!!java[j], `原生 Java 源文件存在：${j}`);
 }
 for (const d of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
@@ -235,8 +237,11 @@ check(/android:name="\.MainActivity"/.test(manifest)
   && /android:name="\.LoginActivity"/.test(manifest)
   && /android:name="\.RegisterActivity"/.test(manifest)
   && /android:name="\.ForgotPasswordActivity"/.test(manifest)
-  && /android:name="\.DomainDetailActivity"/.test(manifest),
-  'Manifest 注册五个 Activity（含原生注册 / 找回密码）');
+  && /android:name="\.DomainDetailActivity"/.test(manifest)
+  && /android:name="\.AdminActivity"/.test(manifest)
+  && /android:name="\.ApplyActivity"/.test(manifest)
+  && /android:name="\.ServicesActivity"/.test(manifest),
+  'Manifest 注册八个 Activity（含后台 / 申请 / 服务）');
 check(/api\.endpoint\("register"/.test(registerJava)
   && /api\.endpoint\("reset"/.test(forgotJava)
   && /api\.endpoint\("verifySend"/.test(registerJava + forgotJava)
@@ -265,9 +270,9 @@ check(/verifyRequired/.test(registerJava), '验证码字段显隐由后台开关
 check(/api\.bootstrap\(fresh/.test(mainJava)
   && /\/api\/app\/v1\/bootstrap/.test(apiJava)
   && /ep\("check"/.test(mainJava) && /ep\("whois"/.test(mainJava)
-  && /api\.endpoint\("records"/.test(detailJava)
-  && /Api\.setEndpoints\(endpoints\)/.test(mainJava),
-  '冷启动只打 bootstrap 一个接口，三个 Activity 的路径都来自 endpoints 契约');
+  && /epGet\("records"/.test(detailJava)
+  && /api\.persistEndpoints\(endpoints\)/.test(mainJava),
+  '冷启动只打 bootstrap 一个接口，所有页面的路径都来自 endpoints 契约');
 check(/bottomNav\.setOnItemSelectedListener/.test(mainJava)
   && /showPage\(int idx\)/.test(mainJava)
   && /pageViews\[i\]\.setVisibility/.test(mainJava),
@@ -278,6 +283,50 @@ check(/swipe\.setOnRefreshListener/.test(mainJava)
 check(/android:layout_weight="1"/.test(layout)
   && /android:id="@\+id\/error"/.test(layout),
   '内容区占满中间，断网页只盖内容区、原生上下栏保留');
+
+/* ── G2. 全部东西都能在 App 里操控（管理后台 / DNS / 滑块） ── */
+const adminJava = java['AdminActivity.java'] || '';
+const applyJava = java['ApplyActivity.java'] || '';
+const servicesJava = java['ServicesActivity.java'] || '';
+const opsJava = java['OpsActivity.java'] || '';
+const captchaJava = java['CaptchaDialog.java'] || '';
+check(!!java['AdminActivity.java'] && !!java['ApplyActivity.java']
+  && !!java['ServicesActivity.java'] && !!java['OpsActivity.java']
+  && !!java['CaptchaDialog.java'], '五个原生操控类齐全（后台 / 申请 / 服务 / 骨架 / 滑块）');
+check(/extends OpsActivity/.test(adminJava + applyJava + servicesJava + detailJava)
+  && /epPost|epPatch|epDelete|epPut|epGet/.test(opsJava),
+  '四个操控页共用 OpsActivity 骨架，写操作统一走契约');
+check(/adminOverview/.test(adminJava) && /SECTION_KEYS/.test(adminJava)
+  && /adminApprove|adminReject|adminUserBan|adminUserQuota|adminIpBan|adminSettings/.test(adminJava),
+  '后台原生覆盖审核 / 用户 / 配额 / 封禁 / IP / 站点设置 / 锁 / 审计');
+check(/epPost\("records"/.test(detailJava) && /epPatch\("recordUpdate"/.test(detailJava)
+  && /epDelete\("recordDelete"/.test(detailJava)
+  && /verifyStart|verifyConfirm|forceUnlock/.test(detailJava)
+  && /domain_renew|domain_delete|domain_edit/.test(detailJava),
+  'DNS 记录增/改/删 + 验证锁 + 域名续期/删除/备注全原生');
+check(/CaptchaDialog\.show/.test(applyJava)
+  && /captchaToken/.test(applyJava)
+  && /epPost\("apply"/.test(applyJava),
+  '申请子域名原生：原生滑块票据 + 提交，不再跳浏览器');
+check(/validateTrace|trace|passToken/.test(captchaJava)
+  && /SeekBar/.test(captchaJava) && /onDraw/.test(captchaJava)
+  && /api\.image\(/.test(captchaJava),
+  '原生 M3 滑块：自绘舞台 + SeekBar 轨迹 + 底图下载 + 服务端一次性票据');
+check(/notificationsReadAll|ticketCreate|ticketReply|redeem|transferCommit|abuse|externalDomainVerify|profile|delegation|chatPosts/.test(servicesJava),
+  '用户端服务全原生：通知 / 工单 / 兑换 / 转让 / 举报 / 第三方域名 / 资料 / 委派 / 社区');
+check(/tab_admin/.test(mainJava) && /PAGE_COUNT = 5/.test(mainJava)
+  && /findItem\(R\.id\.tab_admin\)\.setVisible/.test(mainJava)
+  && /new Intent\(this, AdminActivity\.class\)/.test(mainJava),
+  '第 5 个「管理」tab，仅管理员可见');
+check(/new Intent\(this, ApplyActivity\.class\)|applyIntent/.test(mainJava)
+  && /new Intent\(this, ServicesActivity\.class\)/.test(mainJava),
+  '首页 / 域名页 / 我的页的入口都换成原生 Activity');
+check(/adminOverview/.test(read('src/routes/app.ts'))
+  && /\/api\/app\/v1\/admin\/overview/.test(read('src/routes/app.ts')),
+  '后端提供后台概览聚合接口');
+check(/public void (patch|put|delete|endpointCall)/.test(apiJava)
+  && /epPost|epPatch|epPut|epDelete/.test(apiJava),
+  'Api 支持 PATCH/PUT/DELETE + 契约占位符替换');
 
 /* ───────── H. 文案 / 主题 / 颜色 ───────── */
 check(exists(MAIN + 'res/values-zh-rCN/strings.xml')

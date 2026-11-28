@@ -2,6 +2,8 @@ package xyz.noxc.app;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
@@ -60,6 +62,33 @@ public final class Api {
         void on(Reply r);
     }
 
+    /** 原生滑块拼图要下载底图；同样走线程池，回调回主线程。 */
+    public interface ImageCallback {
+        void on(Bitmap bitmap);
+    }
+
+    public void image(String url, ImageCallback cb) {
+        POOL.execute(() -> {
+            Bitmap b = null;
+            try {
+                HttpURLConnection cn = (HttpURLConnection) new URL(url).openConnection();
+                cn.setConnectTimeout(12000);
+                cn.setReadTimeout(12000);
+                cn.setRequestProperty("User-Agent", "NoxcApp/1.0 (Android)");
+                cn.setInstanceFollowRedirects(true);
+                cn.connect();
+                if (cn.getResponseCode() == 200) {
+                    try (InputStream in = cn.getInputStream()) {
+                        b = BitmapFactory.decodeStream(in);
+                    }
+                }
+                cn.disconnect();
+            } catch (Exception ignored) { }
+            final Bitmap out = b;
+            UI.post(() -> cb.on(out));
+        });
+    }
+
     private static final ExecutorService POOL = Executors.newFixedThreadPool(4);
     private static final Handler UI = new Handler(Looper.getMainLooper());
     private static final Pattern SESSION =
@@ -68,12 +97,23 @@ public final class Api {
     private static final String PREF = "noxc";
     private static final String KEY_SITE = "site_url";
     private static final String KEY_SESSION = "session";
+    private static final String KEY_ENDPOINTS = "endpoints";
 
-    /** bootstrap 下发的接口契约，同一进程内三个 Activity 共用，避免各硬编码一套路径。 */
+    /** bootstrap 下发的接口契约：进程内静态共享 + 本地持久化，
+        保证从最近任务直接恢复任意 Activity 时也能拿到路径，不用硬编码。 */
     private static JSONObject ENDPOINTS = new JSONObject();
 
     public static void setEndpoints(JSONObject e) {
         ENDPOINTS = e == null ? new JSONObject() : e;
+    }
+
+    public void persistEndpoints(JSONObject e) {
+        setEndpoints(e);
+        pref.edit().putString(KEY_ENDPOINTS, e == null ? "" : e.toString()).apply();
+    }
+
+    public static boolean hasEndpoints() {
+        return ENDPOINTS.length() > 0;
     }
 
     public String endpoint(String key, String fallback) {
@@ -87,6 +127,12 @@ public final class Api {
     public Api(Context c) {
         ctx = c.getApplicationContext();
         pref = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE);
+        if (!hasEndpoints()) {
+            String cached = pref.getString(KEY_ENDPOINTS, "");
+            if (cached.length() > 0) {
+                try { setEndpoints(new JSONObject(cached)); } catch (Exception ignored) { }
+            }
+        }
     }
 
     public String base() {
@@ -146,6 +192,52 @@ public final class Api {
 
     public void post(String path, JSONObject body, Callback cb) {
         call("POST", path, body == null ? new JSONObject() : body, cb);
+    }
+
+    public void patch(String path, JSONObject body, Callback cb) {
+        call("PATCH", path, body == null ? new JSONObject() : body, cb);
+    }
+
+    public void put(String path, JSONObject body, Callback cb) {
+        call("PUT", path, body == null ? new JSONObject() : body, cb);
+    }
+
+    public void delete(String path, Callback cb) {
+        call("DELETE", path, null, cb);
+    }
+
+    /**
+     * 从 bootstrap 的 endpoints 契约取路径并做占位符替换后发请求。
+     * vars 按 key/value 成对传入，例如 "id","7","rid","12"。
+     * 所有按钮都走这里，客户端不硬编码任何 /api 路径。
+     */
+    public void endpointCall(String key, String method, JSONObject body,
+                             Callback cb, String... vars) {
+        String path = endpoint(key, "");
+        for (int i = 0; i + 1 < vars.length; i += 2) {
+            path = path.replace("{" + vars[i] + "}", vars[i + 1]);
+        }
+        call(method, path, body, cb);
+    }
+
+    public void epGet(String key, Callback cb, String... vars) {
+        endpointCall(key, "GET", null, cb, vars);
+    }
+
+    public void epPost(String key, JSONObject body, Callback cb, String... vars) {
+        endpointCall(key, "POST", body, cb, vars);
+    }
+
+    public void epPatch(String key, JSONObject body, Callback cb, String... vars) {
+        endpointCall(key, "PATCH", body, cb, vars);
+    }
+
+    public void epPut(String key, JSONObject body, Callback cb, String... vars) {
+        endpointCall(key, "PUT", body, cb, vars);
+    }
+
+    public void epDelete(String key, Callback cb, String... vars) {
+        endpointCall(key, "DELETE", null, cb, vars);
     }
 
     public void logout(Callback cb) {

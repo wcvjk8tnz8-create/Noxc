@@ -44,9 +44,11 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQ_LOGIN = 7;
     private static final int[] TAB_IDS = {
-            R.id.tab_home, R.id.tab_domains, R.id.tab_points, R.id.tab_profile};
+            R.id.tab_home, R.id.tab_domains, R.id.tab_points, R.id.tab_profile, R.id.tab_admin};
     private static final int[] TAB_TITLES = {
-            R.string.tab_home, R.string.tab_domains, R.string.tab_points, R.string.tab_profile};
+            R.string.tab_home, R.string.tab_domains, R.string.tab_points,
+            R.string.tab_profile, R.string.tab_admin};
+    private static final int PAGE_COUNT = 5;
 
     private Api api;
     private JSONObject appData;
@@ -85,10 +87,12 @@ public class MainActivity extends AppCompatActivity {
         progress = findViewById(R.id.progress);
         pageViews = new View[]{
                 findViewById(R.id.view_home), findViewById(R.id.view_domains),
-                findViewById(R.id.view_points), findViewById(R.id.view_profile)};
+                findViewById(R.id.view_points), findViewById(R.id.view_profile),
+                findViewById(R.id.view_admin)};
         pageContainers = new LinearLayout[]{
                 findViewById(R.id.page_home), findViewById(R.id.page_domains),
-                findViewById(R.id.page_points), findViewById(R.id.page_profile)};
+                findViewById(R.id.page_points), findViewById(R.id.page_profile),
+                findViewById(R.id.page_admin)};
         splash = findViewById(R.id.splash);
         errorView = findViewById(R.id.error);
         barTitle = findViewById(R.id.bar_title);
@@ -150,7 +154,11 @@ public class MainActivity extends AppCompatActivity {
             endpoints = appData.optJSONObject("endpoints");
             if (site == null) site = new JSONObject();
             if (endpoints == null) endpoints = new JSONObject();
-            Api.setEndpoints(endpoints);
+            api.persistEndpoints(endpoints);
+            /* 管理 tab 只对管理员显示：权限判定在服务端 requireAdmin，
+               这里只控制 UI 显隐，非管理员看不到后台入口。 */
+            boolean admin = user() != null && "admin".equals(user().optString("role", ""));
+            bottomNav.getMenu().findItem(R.id.tab_admin).setVisible(admin);
             booted = true;
             splash.setVisibility(View.GONE);
             barSubtitle.setText(api.host());
@@ -173,18 +181,20 @@ public class MainActivity extends AppCompatActivity {
         renderProfile();
         if (page == 1) loadDomains();
         else if (page == 2) loadPoints();
+        else if (page == 4) renderAdmin();
     }
 
     private void showPage(int idx) {
         page = idx;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < PAGE_COUNT; i++) {
             pageViews[i].setVisibility(i == idx ? View.VISIBLE : View.GONE);
         }
         barTitle.setText(TAB_TITLES[idx]);
         if (idx == 0) renderHome();
         else if (idx == 1) loadDomains();
         else if (idx == 2) loadPoints();
-        else renderProfile();
+        else if (idx == 3) renderProfile();
+        else renderAdmin();
     }
 
     private JSONObject user() {
@@ -371,7 +381,7 @@ public class MainActivity extends AppCompatActivity {
         }
         Ui.hairline(this, c);
         c.addView(Ui.pill(this, getString(R.string.lookup_apply), v ->
-                openWeb("register?label=" + Uri.encode(label) + "&root=" + Uri.encode(root))));
+                startActivityForResult(applyIntent(label, root), REQ_LOGIN)));
         c.addView(Ui.pill(this, getString(R.string.lookup_whois), v -> whois(fqdn)),
                 topMarginParams());
         lookupResultBox.addView(c);
@@ -422,8 +432,8 @@ public class MainActivity extends AppCompatActivity {
         q.addView(Ui.row(this, getString(R.string.quota_used),
                 d.optInt("used", 0) + " / " + d.optString("quota", "")));
         p.addView(q);
-        p.addView(Ui.pill(this, getString(R.string.apply_new), v -> openWeb("register")),
-                topMarginParams());
+        p.addView(Ui.pill(this, getString(R.string.apply_new), v ->
+                startActivityForResult(applyIntent("", ""), REQ_LOGIN)), topMarginParams());
 
         JSONArray items = d.optJSONArray("items");
         if (items == null || items.length() == 0) {
@@ -561,17 +571,48 @@ public class MainActivity extends AppCompatActivity {
 
     private LinearLayout webLinksCard() {
         LinearLayout c = Ui.card(this);
-        c.addView(Ui.title(this, getString(R.string.profile_web_more)));
-        c.addView(Ui.pill(this, getString(R.string.profile_web_console), v -> openWeb("dashboard")));
-        c.addView(Ui.pill(this, getString(R.string.profile_web_docs), v -> openWeb("docs")),
-                topMarginParams());
-        c.addView(Ui.pill(this, getString(R.string.profile_web_terms), v -> openWeb("terms")),
-                topMarginParams());
-        c.addView(Ui.pill(this, getString(R.string.profile_web_external),
-                v -> openWeb("external-domains")), topMarginParams());
-        c.addView(Ui.pill(this, getString(R.string.profile_web_report), v -> openWeb("report")),
-                topMarginParams());
+        c.addView(Ui.title(this, getString(R.string.services_title)));
+        c.addView(Ui.pill(this, getString(R.string.services_title), v ->
+                startActivity(new Intent(this, ServicesActivity.class))));
+        JSONObject me = user();
+        if (me != null && "admin".equals(me.optString("role", ""))) {
+            c.addView(Ui.pill(this, getString(R.string.admin_title), v ->
+                    startActivity(new Intent(this, AdminActivity.class))), topMarginParams());
+        }
+        /* 纯阅读类静态内容仍用 Custom Tab（不是「操控」），视觉上不离开 App。 */
+        c.addView(Ui.pill(this, getString(R.string.profile_web_docs), v ->
+                openWeb("docs")), topMarginParams());
+        c.addView(Ui.pill(this, getString(R.string.profile_web_terms), v ->
+                openWeb("terms")), topMarginParams());
         return c;
+    }
+
+    /** 管理 tab：给管理员一个直达后台的原生入口卡片。 */
+    private void renderAdmin() {
+        LinearLayout p = pageContainers[4];
+        p.removeAllViews();
+        p.addView(Ui.headline(this, getString(R.string.admin_title)));
+        JSONObject me = user();
+        if (!api.loggedIn() || me == null || !"admin".equals(me.optString("role", ""))) {
+            LinearLayout c = Ui.card(this);
+            c.addView(Ui.body(this, getString(R.string.admin_only)));
+            p.addView(c);
+            return;
+        }
+        LinearLayout c = Ui.card(this);
+        c.addView(Ui.title(this, getString(R.string.admin_console_hint)));
+        p.addView(c);
+        p.addView(Ui.pill(this, getString(R.string.admin_title), v ->
+                startActivity(new Intent(this, AdminActivity.class))), topMarginParams());
+        p.addView(Ui.pill(this, getString(R.string.services_title), v ->
+                startActivity(new Intent(this, ServicesActivity.class))), topMarginParams());
+    }
+
+    private Intent applyIntent(String label, String root) {
+        Intent it = new Intent(this, ApplyActivity.class);
+        it.putExtra("label", label);
+        it.putExtra("root", root);
+        return it;
     }
 
     private LinearLayout loginCard() {

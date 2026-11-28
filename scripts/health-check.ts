@@ -2007,6 +2007,40 @@ check(/gradle-8\.9-bin\.zip/.test(apWf)
 check(/android\/app\/\*\.keystore/.test(apIgnore)
   && !fs.existsSync(path.join(root, 'android/app/release.keystore')),
   'keystore 被 gitignore 且工作区没有明文密钥');
+/* 全部东西都能在 App 里操控：管理后台 + DNS 写入 + 申请滑块 + 用户服务 */
+const fnOps = read('android/app/src/main/java/xyz/noxc/app/OpsActivity.java');
+const fnAdmin = read('android/app/src/main/java/xyz/noxc/app/AdminActivity.java');
+const fnApply = read('android/app/src/main/java/xyz/noxc/app/ApplyActivity.java');
+const fnDetail = read('android/app/src/main/java/xyz/noxc/app/DomainDetailActivity.java');
+const fnServices = read('android/app/src/main/java/xyz/noxc/app/ServicesActivity.java');
+const fnCaptcha = read('android/app/src/main/java/xyz/noxc/app/CaptchaDialog.java');
+const fnAppRoute = read('src/routes/app.ts');
+const fnManifest = read('android/app/src/main/AndroidManifest.xml');
+check(/extends OpsActivity/.test(fnAdmin + fnApply + fnDetail + fnServices)
+  && /endpointCall|epPost|epPatch|epDelete|epPut/.test(fnOps + apApi),
+  '四个操控页共用 OpsActivity 骨架，写操作全部走 endpoints 契约');
+check(/adminOverview/.test(fnAdmin) && /adminApprove|adminUserBan|adminSettings|adminIpBan/.test(fnAdmin)
+  && /android:name=".AdminActivity"/.test(fnManifest)
+  && /tab_admin/.test(apMain) && /PAGE_COUNT = 5/.test(apMain),
+  '管理后台原生：第 5 tab + AdminActivity + 审核/用户/IP/设置');
+check(/epPost\("records"/.test(fnDetail) && /epPatch\("recordUpdate"/.test(fnDetail)
+  && /epDelete\("recordDelete"/.test(fnDetail)
+  && /verifyStart|forceUnlock/.test(fnDetail),
+  'DNS 记录增删改 + 验证锁全部原生，不再只读');
+check(/CaptchaDialog\.show/.test(fnApply) && /captchaToken/.test(fnApply)
+  && /validateTrace|passToken/.test(fnCaptcha) && /SeekBar/.test(fnCaptcha),
+  '申请子域名含原生滑块拼图，服务端 HMAC/轨迹/一次性票据照常校验');
+check(/notificationsReadAll|ticketCreate|redeem|transferCommit|abuse|externalDomainVerify|chatPosts/.test(fnServices),
+  '用户端服务（通知/工单/兑换/转让/举报/第三方域名/社区）全原生');
+check(/adminOverview: '\/api\/app\/v1\/admin\/overview'/.test(fnAppRoute)
+  && /r\.get\('\/admin\/overview'/.test(fnAppRoute)
+  && /private, no-store/.test(fnAppRoute),
+  '后台概览聚合接口：转发现有 /api/admin/* + no-store');
+check(/browserOnly: \['oauth'\]/.test(fnAppRoute)
+  && /native: \['home'[\s\S]{0,400}'admin'/.test(fnAppRoute),
+  'capabilities.browserOnly 只剩 oauth，管理后台进入 native');
+check(/全量接口地图|所有写操作都已原生|只剩 `oauth`/.test(d1Readme),
+  'README 明确写明所有写操作已原生、只剩 OAuth 用应用内标签页');
 check(/### 23\./.test(d1Readme) && /### 24\./.test(d1Readme)
   && /### Z\.15/.test(d1Readme) && /Material 3/.test(d1Readme)
   && /完全原生/.test(d1Readme)

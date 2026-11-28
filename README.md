@@ -1398,8 +1398,10 @@ Components 控件绘制 —— `MaterialToolbar`、`BottomNavigationView`、
 
 **账号流程全部在 App 内原生完成，不再跳浏览器**：登录、注册（邮箱规则提示 /
 验证码 / 条款勾选）、找回密码（发码 → 填码 → 重置）都是独立 Activity 的原生表单，
-直连 `/api/auth/*`。文档 / 后台 / 条款 / 第三方 OAuth 用 **Chrome Custom Tab**
-在 App 内打开（带 App 名称与工具栏），不会甩给外部浏览器。
+直连 `/api/auth/*`。**管理后台、DNS 记录增删改、申请子域名（含原生滑块验证）、
+通知 / 工单 / 兑换 / 转让 / 举报 / 第三方域名 / 资料 / NS 委派 / 社区** 也全部是
+App 内原生页面。只有第三方 OAuth（授权规范强制浏览器安全上下文）与静态文档 /
+条款这类**纯阅读内容**用 Chrome Custom Tab 在 App 内打开，不甩外部浏览器。
 
 > 站点改前端 / 文档**不影响 App 界面**；只有 `android/` 目录变化才重新出包。
 > 接口返回变了（公告、积分规则、统计）App 下次刷新就能看到，不用发版。
@@ -1438,13 +1440,18 @@ OkHttp/Retrofit），回调回主线程，按系统语言请求中英文案。�
 
 | 文件 | 作用 |
 |---|---|
-| `android/app/src/main/java/.../MainActivity.java` | M3 Toolbar / BottomNav / 四页卡片 / 登录态 / Custom Tab |
+| `android/app/src/main/java/.../MainActivity.java` | M3 Toolbar / 五 tab（管理员多一个「管理」）/ 登录态 / Custom Tab |
+| `android/app/src/main/java/.../OpsActivity.java` | 通用 M3 卡片列表 / 对话框 / 契约请求骨架 |
+| `android/app/src/main/java/.../AdminActivity.java` | 后台 11 分区：审核 / 用户 / 配额 / 封禁 / IP / 设置 / 锁 / 审计 / 根域名 |
+| `android/app/src/main/java/.../DomainDetailActivity.java` | DNS 记录增 / 改 / 删 + 验证锁 + 域名续期 / 备注 / 释放 |
+| `android/app/src/main/java/.../ApplyActivity.java` | 查价 + 原生滑块 + 提交申请 |
+| `android/app/src/main/java/.../CaptchaDialog.java` | 原生 M3 滑块拼图（自绘舞台 / SeekBar 轨迹 / 服务端一次性票据） |
+| `android/app/src/main/java/.../ServicesActivity.java` | 通知 / 工单 / 兑换 / 转让 / 举报 / 第三方域名 / 资料 / 委派 / 社区 |
 | `android/app/src/main/java/.../FormActivity.java` | 三个账号表单共享骨架（Toolbar / 错误 / 进度） |
 | `android/app/src/main/java/.../LoginActivity.java` | 原生邮箱密码登录 |
 | `android/app/src/main/java/.../RegisterActivity.java` | 原生注册（验证码 / 条款对话框） |
 | `android/app/src/main/java/.../ForgotPasswordActivity.java` | 原生找回密码 |
-| `android/app/src/main/java/.../DomainDetailActivity.java` | 原生 DNS 记录列表 |
-| `android/app/src/main/java/.../Api.java` | HTTP / session / 统一信封 / Custom Tab |
+| `android/app/src/main/java/.../Api.java` | GET/POST/PATCH/PUT/DELETE / session / 统一信封 / endpoints 契约占位替换 / Custom Tab / 底图下载 |
 | `android/app/src/main/java/.../Ui.java` | MaterialShapeDrawable 卡片 + MaterialButton |
 | `android/app/src/main/res/` | 5 套布局、2 套 menu、矢量图标、中英 127 词条、M3 明暗主题、6 档图标 |
 | `.github/workflows/android-apk.yml` | JDK 17 + Android 34 + Gradle 8.9 → 编译 / 体积校验 / 上传 |
@@ -1487,9 +1494,18 @@ Material 依赖）；命令行需 JDK 17 + Android SDK 34 + Gradle 8.9，跑
 
 **行为边界**：只放行 https（`usesCleartextTraffic=false`）；只申请
 `INTERNET` / `ACCESS_NETWORK_STATE` 两个权限；`allowBackup=false` 防 session
-被系统备份带走。App 内不做滑块验证、不写 DNS 记录、不跑后台管理 —— 这些按
-`capabilities.browserOnly` 用 Custom Tab 打开完整站点，避免复制一套会和安全规则
-跑偏的逻辑。双击返回键退出。
+被系统备份带走。**所有写操作都在 App 内原生完成**，没有一项要跳浏览器：
+
+| 能力 | 原生入口 |
+|---|---|
+| 管理后台 | 第 5 个「管理」tab → `AdminActivity`（11 个分区，服务端 `requireAdmin` 照常生效） |
+| DNS 记录 | 域名卡片 → `DomainDetailActivity`（增 / 改 / 删 / 验证锁 / 续期 / 备注 / 释放） |
+| 申请子域名 | `ApplyActivity` → `CaptchaDialog` 原生滑块 → 提交（服务端 HMAC / 轨迹 / 一次性票据照常校验） |
+| 用户服务 | `ServicesActivity`（通知 / 工单 / 兑换 / 转让 / 举报 / 第三方域名 / 资料 / 委派 / 社区） |
+
+`capabilities.browserOnly` 现在**只剩 `oauth`**：第三方授权按规范必须经浏览器安全上下文，
+用 Custom Tab 在 App 内完成；静态文档 / 条款是「阅读」不是「操控」，同样 Custom Tab，
+但视觉上不离开 App。双击返回键退出。
 
 配置回归 `scripts/android-apk-regression.ts` 真解析全部 XML / PyYAML / PNG 头，
 用 `scripts/android-resource-check.py` 交叉校验 XML 的 `@string` / `@color` /
@@ -1521,7 +1537,7 @@ Cookie: sh_session=…        # 可选，不带即游客态
 | `domains` | `null` | 对象 | 与 `/api/subdomains/mine` **完全同源**（`listMineData`） |
 | `points` | `null` | 对象 | 与 `/api/points/me` **完全同源**（`pointsSnapshot`，含存量奖励补发） |
 | `endpoints` | 对象 | 对象 | 交互路径契约，见下 |
-| `capabilities` | 对象 | 对象 | `native` 含登录 / 注册 / 找回密码；`browserOnly` 只剩 DNS 写入 / 后台 / 文档 / OAuth |
+| `capabilities` | 对象 | 对象 | `native` 含 admin / dnsCreate / dnsUpdate / dnsDelete / adminReview / adminSettings / externalDomains 等；`browserOnly` 只剩 `oauth` |
 
 **`endpoints` 契约**
 
@@ -1556,9 +1572,15 @@ Cookie: sh_session=…        # 可选，不带即游客态
 `verifyCheck` / `reset`），三个原生表单从契约取路径，不硬编码。
 `site` 额外下发 `verifyRequired` / `signupEmailHint` / `mailOk`，注册页据此决定
 验证码字段是否必填、显示什么邮箱规则提示。
-**DNS 写入、后台、文档、第三方 OAuth** 仍按 `capabilities.browserOnly` 用
-Custom Tab 在 App 内打开完整站点 —— 这些流程有滑块验证、审批闸门与安全边界，
-不在原生端复制一套会跑偏的逻辑。
+**所有写操作都已原生**：`endpoints` 是**全量接口地图**（公开查询 / 账号 / 域名 /
+DNS / 积分 / 个人中心 / 消息工单 / 第三方域名 / 管理后台共 80+ 条），App 的每个按钮
+从这里读路径并做 `{id}` / `{rid}` / `{domain}` / `{kind}` 占位替换，客户端零硬编码。
+后台首屏另有 `GET /api/app/v1/admin/overview`：通过注入的 dispatch 转发原始 Cookie
+到现有 `/api/admin/*` 端点，并发聚合 11 段数据，`no-store` 不缓存，任一段失败只降级
+`null`。服务端 `requireAdmin` 照常生效，App 专用层不复制任何查询逻辑。
+
+**唯一例外**：第三方 OAuth（`oauth`）按授权规范必须经浏览器安全上下文，用 Custom Tab
+在 App 内完成；静态文档 / 条款是纯阅读内容，同样 Custom Tab。二者都不离开 App。
 
 专项回归 `scripts/app-api-regression.ts` 真跑 Hono + 内存 D1 覆盖游客 / 登录 /
 字段同源 / 脱敏 / 契约 / 缓存头，并锁住「App 只打一个 bootstrap」。
@@ -1981,8 +2003,8 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
 - **登录 / 注册 / 忘记密码跳到浏览器**：早期版本确实这样，现在三个流程都是
   App 内原生 Activity（`LoginActivity` / `RegisterActivity` /
   `ForgotPasswordActivity`），直连 `/api/auth/*`。回归断言账号流程里
-  **0 处 `Intent.ACTION_VIEW`**；条款、文档、后台、第三方 OAuth 用
-  **Chrome Custom Tab** 在 App 内打开，视觉上不离开 App。
+  **0 处 `Intent.ACTION_VIEW`**；后台、DNS、申请、用户服务也全是原生页，
+  只有 OAuth 与纯阅读文档用 **Chrome Custom Tab** 在 App 内打开。
   第三方 OAuth 因授权规范必须经浏览器安全上下文，但已不是「甩给外部浏览器」。
 - **系统「显示大小」调大后布局撑爆**：那是 WebView 版旧问题。M3 界面用 sp / dp
   与 Material 组件自适应；若出现竖排单字，先检查是不是有人把 WebView 加回去了。

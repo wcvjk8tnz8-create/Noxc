@@ -138,16 +138,20 @@ for (const k of ['siteName', 'announcement', 'pointRules', 'rootDomains', 'pause
 const eps = guest.body.endpoints || {};
 for (const k of ['check', 'whois', 'records', 'checkin', 'login', 'logout',
   'register', 'verifySend', 'verifyCheck', 'reset', 'oauthNodeloc', 'oauthGithub',
-  'webConsole', 'webRegister', 'webDocs', 'webTerms', 'webExternalDomains', 'webReport']) {
+  'webConsole', 'webDocs', 'webTerms', 'webExternalDomains', 'webReport',
+  'adminOverview', 'records', 'recordUpdate', 'recordDelete', 'apply',
+  'adminApprove', 'adminUserBan', 'adminSettings', 'captcha', 'captchaVerify']) {
   check(typeof eps[k] === 'string' && eps[k].length > 0, `endpoints 契约齐全：${k}`);
 }
 check(eps.records.includes('{id}'), 'records 契约带 {id} 占位符，App 替换后取记录');
 const caps = guest.body.capabilities || {};
-check(Array.isArray(caps.native) && caps.native.includes('home')
-  && caps.native.includes('register') && caps.native.includes('forgotPassword')
-  && Array.isArray(caps.browserOnly) && !caps.browserOnly.includes('register')
-  && caps.browserOnly.includes('dnsWrite'),
-  'capabilities 明示登录/注册/找回密码已原生，只有 DNS 写入等才走应用内标签页');
+check(Array.isArray(caps.native) && caps.native.includes('admin')
+  && caps.native.includes('dnsCreate') && caps.native.includes('dnsUpdate')
+  && caps.native.includes('dnsDelete') && caps.native.includes('adminReview')
+  && caps.native.includes('adminSettings') && caps.native.includes('externalDomains')
+  && Array.isArray(caps.browserOnly) && caps.browserOnly.length === 1
+  && caps.browserOnly[0] === 'oauth',
+  'capabilities：管理后台 / DNS 写入全部原生，browserOnly 只剩第三方 OAuth');
 
 /* ───────── E. 登录态真跑 ───────── */
 const logged = await call('/api/app/v1/bootstrap', makeEnv({ loggedIn: true }), 'sh_session=tok-app');
@@ -163,6 +167,16 @@ check(logged.body.domains === null || typeof logged.body.domains === 'object',
 check(logged.body.points === null || typeof logged.body.points === 'object',
   'points 要么正常返回对象，要么降级 null，绝不让 App 崩');
 
+/* ── E2. 管理后台概览聚合（真跑 dispatch） ── */
+const overview = await call('/api/app/v1/admin/overview', makeEnv());
+check(overview.status === 200, '后台概览接口游客也 200（服务端 requireAdmin 逐段拒绝，降级 null）');
+check(overview.body.sections && typeof overview.body.sections === 'object',
+  '概览返回 sections 对象，任一段失败只降级 null 不拖垮 App');
+check((String(overview.headers.get('Cache-Control') || '')).includes('no-store'),
+  '后台概览 no-store，绝不缓存管理员数据');
+check(overview.body.sections && Object.keys(overview.body.sections).length >= 10,
+  '概览并发聚合 ≥10 段后台数据');
+
 /* ───────── F. 源码静态断言 ───────── */
 const appRoute = read('src/routes/app.ts');
 const indexSrc = read('src/index.ts');
@@ -176,7 +190,7 @@ const apiJavaFull = read('android/app/src/main/java/xyz/noxc/app/Api.java');
 const readmeFull = read('README.md');
 const readme = read('README.md');
 
-check(/createAppRoutes\(\(c\) => configData\(c\)\)/.test(indexSrc)
+check(/createAppRoutes\(\s*\(c\) => configData\(c\)/s.test(indexSrc)
   && /app\.route\('\/api\/app\/v1'/.test(indexSrc),
   '注册在 requireAuth 之前，且复用 /api/config 的 30 秒缓存（不多打 D1）');
 check(/app\.route\('\/api\/app\/v1'/.test(indexSrc)
@@ -202,10 +216,10 @@ check(/ep\("check"/.test(mainJava) && /ep\("whois"/.test(mainJava)
 check(/api\.endpoint\("login"/.test(loginJava)
   && /api\.endpoint\("register"/.test(registerJava)
   && /api\.endpoint\("reset"/.test(forgotJava)
-  && /api\.endpoint\("records"/.test(detailJava)
-  && /replace\("\{id\}"/.test(detailJava)
-  && /Api\.setEndpoints\(endpoints\)/.test(mainJava),
-  '登录 / 注册 / 找回 / 记录页共用同一份契约（含 {id} 占位替换），零硬编码');
+  && /epGet\("records"/.test(detailJava)
+  && /endpointCall|epPost/.test(read('android/app/src/main/java/xyz/noxc/app/Api.java'))
+  && /api\.persistEndpoints\(endpoints\)/.test(mainJava),
+  '登录 / 注册 / 找回 / DNS 页共用同一份契约（Api.endpointCall 占位替换），零硬编码');
 check(!/Intent\.ACTION_VIEW/.test(mainJava + loginJava + registerJava + forgotJava)
   && /CustomTabsIntent/.test(apiJavaFull) && /api\.openInApp\(/.test(mainJava),
   '账号流程零外部浏览器跳转，其余网页用 Custom Tab 在 App 内打开');

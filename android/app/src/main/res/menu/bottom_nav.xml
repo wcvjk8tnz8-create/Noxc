@@ -4,4 +4,5 @@
     <item android:id="@+id/tab_domains" android:icon="@drawable/ic_tab_domains" android:title="@string/tab_domains" />
     <item android:id="@+id/tab_points" android:icon="@drawable/ic_tab_points" android:title="@string/tab_points" />
     <item android:id="@+id/tab_profile" android:icon="@drawable/ic_tab_profile" android:title="@string/tab_profile" />
+    <item android:id="@+id/tab_admin" android:icon="@drawable/ic_tab_admin" android:title="@string/tab_admin" />
 </menu>
