@@ -63,7 +63,22 @@ jobs:
 
       - name: Dart 静态分析（错误即失败）
         working-directory: flutter
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: |
+          set +e
+          flutter analyze --no-fatal-infos --no-fatal-warnings > /tmp/analyze.txt 2>&1
+          code=$?
+          # 日志下载常被网络策略 403 挡住，把每条 error 发成 check annotation，
+          # 这样在 Checks 页 / annotations API 就能看到具体文件与行号。
+          python3 - <<'PY'
+          import re
+          text = open('/tmp/analyze.txt', encoding='utf-8', errors='replace').read()
+          errs = [l for l in text.splitlines() if re.search(r'\berror\b', l, re.I) and '•' in l]
+          for l in errs[:40]:
+              print('::error::' + l.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          print('analyze errors:', len(errs))
+          PY
+          tail -80 /tmp/analyze.txt
+          exit $code
 
       - name: 构建 APK
         working-directory: flutter
