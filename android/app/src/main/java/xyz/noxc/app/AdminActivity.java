@@ -337,9 +337,11 @@ public class AdminActivity extends OpsActivity {
             JSONObject d = items.optJSONObject(i);
             if (d == null) continue;
             final String id = String.valueOf(n(d, "id"));
-            String title = s(d, "domain");
-            if (title.length() == 0) title = s(d, "email");
-            if (title.length() == 0) title = s(d, "fqdn");
+            String candidate = s(d, "domain");
+            if (candidate.length() == 0) candidate = s(d, "email");
+            if (candidate.length() == 0) candidate = s(d, "fqdn");
+            final String title = candidate;
+            /* lambda 里引用的局部变量必须 effectively final，先用 candidate 拼好再定稿。 */
             card(title, s(d, "status") + "  ·  " + s(d, "owner_email")
                             + "  ·  " + s(d, "email"),
                     button(R.string.admin_approve, v ->
