@@ -2064,6 +2064,29 @@ check(/app\.get\('\/app-authorize'/.test(fnIdx)
 check(/全量接口地图|浏览器授权登录|接口不存在/.test(d1Readme),
   'README 记录浏览器授权登录与 DNS 路径修复');
 
+/* 全站功能中心 + 精美动效（用户允许几十 MB、要参考主流 App） */
+const fnMotion = read('android/app/src/main/java/xyz/noxc/app/Motion.java');
+const fnSchemaTs = read('src/lib/appSchema.ts');
+const fnSchemaJava = read('android/app/src/main/java/xyz/noxc/app/SchemaActivity.java');
+const fnHubXml = read('android/app/src/main/res/layout/activity_hub.xml');
+const fnGradle = read('android/app/build.gradle');
+check(/class Motion/.test(fnMotion) && /stagger|countUp|scene|reduced/.test(fnMotion),
+  '动效基建：错落入场 / 数字滚动 / 共享元素 / 减少动画');
+check(/lottie:6\.4\.0/.test(fnGradle) && /dynamicanimation/.test(fnGradle),
+  'Lottie + 物理弹簧依赖已引入');
+check(fs.existsSync('android/app/src/main/assets/fonts/NotoSerifSC-VF.ttf')
+  && fs.existsSync('android/app/src/main/assets/fonts/OFL.txt'),
+  '内置 OFL 中文字体与许可证，排版不依赖系统');
+check(/FxView/.test(fnHubXml) && /LottieAnimationView/.test(fnHubXml)
+  && /hub_skeleton/.test(fnHubXml), '功能中心有骨架屏与 Lottie 主视觉');
+check(/APP_SCHEMA/.test(fnSchemaTs) && /schemaEndpointKeys/.test(fnSchemaTs)
+  && /app\/v1\/schema/.test(read('src/routes/app.ts')),
+  '服务端下发全站功能 schema，App 通用渲染器消费');
+check(/renderForm|runAction|loadData/.test(fnSchemaJava),
+  'App 通用渲染器覆盖动态表单 / 动作 / 数据列表');
+check(/schema|功能中心|几十 MB|Lottie|骨架屏/.test(d1Readme),
+  'README 记录功能中心、体积口径与动效设计');
+
 check(/### 23\./.test(d1Readme) && /### 24\./.test(d1Readme)
   && /### Z\.15/.test(d1Readme) && /Material 3/.test(d1Readme)
   && /完全原生/.test(d1Readme)

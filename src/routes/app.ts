@@ -18,6 +18,7 @@ import { ok } from '../lib/util.js';
 import { publicUser } from './auth.js';
 import { listMineData } from './subdomains.js';
 import { pointsSnapshot } from './points.js';
+import { APP_SCHEMA, schemaEndpointKeys } from '../lib/appSchema.js';
 
 export const APP_API_VERSION = 'noxc-app/v1';
 
@@ -39,6 +40,17 @@ type BuildConfig = (c: any) => Promise<Record<string, any>>;
  */
 export function createAppRoutes(buildConfigData: BuildConfig, dispatch?: (c: any, path: string) => Promise<any>) {
   const r = new Hono();
+
+  /** GET /api/app/v1/schema —— 全站功能描述。
+      Android 的 SchemaActivity 拉这份描述生成原生 M3 页面，新增功能只改
+      scripts/gen-app-schema.py，不用发版。schema 是静态的，可长缓存但带版本号；
+      登录态不影响内容（admin 标记只是 UI 显隐，服务端仍 requireAdmin）。 */
+  r.get('/schema', async (c) => {
+    const res = ok(c, APP_SCHEMA);
+    res.headers.set('Cache-Control', 'public, max-age=300');
+    res.headers.set('X-Schema-Version', String(APP_SCHEMA.v));
+    return res;
+  });
 
   /** GET /api/app/v1/admin/overview —— 管理后台首屏一次拿全 9 段数据。
       通过注入的 dispatch 复用现有 /api/admin/* 端点（同源、同 requireAdmin），
@@ -91,6 +103,11 @@ export function createAppRoutes(buildConfigData: BuildConfig, dispatch?: (c: any
     /* 管理员标识随登录态下发：App 据此显示第 5 个「管理」tab。
        真正的权限判定仍在服务端 requireAdmin，这个字段只控制 UI 显隐。 */
     site.isAdmin = !!u && u.role === 'admin';
+    /* 功能中心：版本号 + 分组/页面/接口计数，App 首页的数字滚动与 Bento 卡用。 */
+    site.schemaVersion = APP_SCHEMA.v;
+    site.featureGroups = APP_SCHEMA.groups.length;
+    site.featureScreens = APP_SCHEMA.groups.reduce((n, g) => n + g.screens.length, 0);
+    site.featureEndpoints = schemaEndpointKeys().length;
 
     const res = ok(c, {
       api: APP_API_VERSION,
@@ -107,6 +124,8 @@ export function createAppRoutes(buildConfigData: BuildConfig, dispatch?: (c: any
         // 公开查询
         check: '/api/subdomains/check',
         whois: '/api/whois',
+        schema: '/api/app/v1/schema',
+        subdomainProviders: '/api/subdomains/providers',
         config: '/api/config',
         terms: '/api/terms',
         rules: '/api/rules',
@@ -120,7 +139,13 @@ export function createAppRoutes(buildConfigData: BuildConfig, dispatch?: (c: any
         verifySend: '/api/auth/verify/send',
         verifyCheck: '/api/auth/verify/check',
         reset: '/api/auth/reset',
+        resetToken: '/api/auth/reset-token',
         me: '/api/auth/me',
+        githubStatus: '/api/auth/github/status',
+        githubUnbind: '/api/auth/github/unbind',
+        githubClaimStar: '/api/auth/github/claim-star',
+        nodelocStatus: '/api/auth/nodeloc/status',
+        nodelocUnbind: '/api/auth/nodeloc/unbind',
         oauthNodeloc: '/api/auth/nodeloc/start',
         oauthGithub: '/api/auth/github/start',
         // 浏览器授权登录：在站点登录后点「授权给 App」，App 用一次性码换会话
@@ -148,17 +173,23 @@ export function createAppRoutes(buildConfigData: BuildConfig, dispatch?: (c: any
         rewards: '/api/points/rewards',
         redeem: '/api/redeem/redeem',
         redeemMine: '/api/redeem/mine',
+        redeemPreview: '/api/redeem/preview',
+        redeemToggle: '/api/redeem/admin/{id}/toggle',
+        redeemDelete: '/api/redeem/admin/{id}',
         redeemGenerate: '/api/redeem/admin/generate',
         redeemList: '/api/redeem/admin/list',
+        redeemAdminAllDelete: '/api/redeem/admin/all',
         // 个人中心 / 消息 / 工单 / 转让 / 举报 / 聊天
         profile: '/api/profile',
         profileEmailSend: '/api/profile/email/send',
         profileEmailConfirm: '/api/profile/email/confirm',
+        profileAvatar: '/api/profile/avatar',
         passwordSendCode: '/api/auth/password/send-code',
         passwordChange: '/api/auth/password',
         notifications: '/api/notifications',
         notificationsRead: '/api/notifications/read',
         notificationsReadAll: '/api/notifications/read-all',
+        notificationsUnread: '/api/notifications/unread',
         notificationDelete: '/api/notifications/{id}',
         tickets: '/api/tickets',
         ticketCreate: '/api/tickets',
@@ -167,16 +198,24 @@ export function createAppRoutes(buildConfigData: BuildConfig, dispatch?: (c: any
         ticketDetail: '/api/tickets/{id}',
         transferNotice: '/api/transfer/notice',
         transferPreview: '/api/transfer/preview',
+        transferCheck: '/api/transfer/check',
         transferCommit: '/api/transfer/commit',
         transferMine: '/api/transfer/mine',
         abuse: '/api/abuse',
         abuseAdmin: '/api/abuse/admin',
+        abuseAdminUpdate: '/api/abuse/admin/{id}',
+        abuseAdminSuspend: '/api/abuse/admin/{id}/suspend',
         abuseMine: '/api/abuse/mine',
         chatPosts: '/api/chat/posts',
         chatReply: '/api/chat/posts/{id}/replies',
+        chatReplyDelete: '/api/chat/replies/{id}',
+        chatFlag: '/api/chat/posts/{id}/flag',
+        chatPostDelete: '/api/chat/posts/{id}',
         delegationProviders: '/api/delegation/providers',
         delegation: '/api/subdomains/{id}/delegation',
         delegationCheck: '/api/subdomains/{id}/delegation/check',
+        delegationAlt: '/api/delegation/{id}/delegation',
+        delegationAltCheck: '/api/delegation/{id}/delegation/check',
         // 第三方域名
         externalDomains: '/api/external-domains',
         externalDomainVerify: '/api/external-domains/{id}/verify',
@@ -215,13 +254,24 @@ export function createAppRoutes(buildConfigData: BuildConfig, dispatch?: (c: any
         adminEmailApprove: '/api/admin/email-requests/{id}/approve',
         adminEmailReject: '/api/admin/email-requests/{id}/reject',
         adminEmailAllowlist: '/api/admin/email-allowlist',
+        adminEmailAllowlistDelete: '/api/admin/email-allowlist/{email}',
         adminRoots: '/api/admin/roots',
+        adminRootDelete: '/api/admin/roots/{domain}',
+        adminAnynsDomains: '/api/admin/anyns/domains',
+        adminAnynsAdd: '/api/admin/anyns/add',
+        adminSpaceshipDomains: '/api/admin/spaceship/domains',
+        adminSpaceshipAdd: '/api/admin/spaceship/add',
+        adminSpaceshipTest: '/api/admin/spaceship/test',
+        adminSpaceshipRootsDelete: '/api/admin/spaceship/roots/{domain}',
         adminRootBackend: '/api/admin/roots/{domain}/backend',
         adminRootRestore: '/api/admin/roots/{domain}/restore',
         adminResetLogo: '/api/admin/settings/reset-logo',
         adminBackupExport: '/api/admin/backup/export/{kind}',
         adminBackupImport: '/api/admin/backup/import/{kind}',
         adminAiReviewRun: '/api/admin/ai-review-run',
+        adminAiModels: '/api/admin/ai-models',
+        adminAiTest: '/api/admin/ai-test',
+        adminAiDiagnose: '/api/admin/ai-diagnose',
         adminAiReviewStatus: '/api/admin/ai-review-status',
         // 纯阅读类（Custom Tab 在 App 内打开，不算「操控」）
         webConsole: '/dashboard',

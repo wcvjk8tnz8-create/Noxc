@@ -88,4 +88,9 @@ dependencies {
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.coordinatorlayout:coordinatorlayout:1.2.0'
     implementation 'androidx.browser:browser:1.8.0'   // Chrome Custom Tabs：App 内打开网页，不甩给外部浏览器
+    /* 精美动效：Lottie 播放 7 组矢量动画（启动 / 加载 / 成功 / 空状态 / 奖励 / 域名 / 后台）。
+       用户明确「体积可以几十 MB、要精美动画」，不再为了压缩包体砍资源。 */
+    implementation 'com.airbnb.android:lottie:6.4.0'
+    // 物理弹簧微交互（按压回弹 / 卡片入场），主流 App 的「可触摸」质感
+    implementation 'androidx.dynamicanimation:dynamicanimation:1.0.0'
 }

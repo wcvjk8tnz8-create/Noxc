@@ -66,6 +66,15 @@
             android:configChanges="orientation|screenSize|uiMode" />
         <activity android:name=".ServicesActivity" android:exported="false"
             android:configChanges="orientation|screenSize|uiMode" />
+
+        <!-- 全站功能中心：Bento 网格 → 分组 → schema 通用渲染器 -->
+        <activity android:name=".HubActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|uiMode" />
+        <activity android:name=".GroupActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|uiMode" />
+        <activity android:name=".SchemaActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|uiMode"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 
 </manifest>

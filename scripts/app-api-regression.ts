@@ -320,6 +320,7 @@ for (const m of idxSrcAll.matchAll(/app\.(get|post|patch|put|delete)\('([^']+)'/
 /* createAppRoutes 是 factory：/admin/overview 定义在 factory 内部（r.get），
    不是文件顶层的 app.get，所以要按实际挂载前缀手工补一次。 */
 addRoute('/api/app/v1/admin/overview', 'get');
+addRoute('/api/app/v1/schema', 'get');
 const appTs = read('src/routes/app.ts');
 const epBlock = appTs.slice(appTs.indexOf('endpoints: {'), appTs.indexOf('      capabilities: {'));
 const eps: Record<string, string> = {};
@@ -424,10 +425,128 @@ const dnsOld = await call('/api/records/subdomains/1/records', makeEnv({ loggedI
 check(dnsOld.body.message === '接口不存在',
   '反向对照：旧的错误路径确实会命中「接口不存在」兜底（证明上面断言不是恒真）');
 
+
+/* ═════════ I. 全站功能 schema（用户要「所有网站功能」+ 精美动效） ═════════ */
+const schemaRes = await call('/api/app/v1/schema', makeEnv());
+check(schemaRes.status === 200 && schemaRes.body.success === true
+  && schemaRes.body.v === 2, 'GET /api/app/v1/schema 真跑 200 且版本为 2');
+check(Array.isArray(schemaRes.body.groups) && schemaRes.body.groups.length >= 10,
+  'schema 至少 10 个功能分组');
+const schemaScreens = (schemaRes.body.groups || [])
+  .reduce((n: number, g: any) => n + (g.screens || []).length, 0);
+check(schemaScreens >= 40, `schema 覆盖 ≥40 个页面（实际 ${schemaScreens}）`);
+const schemaSettings = (schemaRes.body.groups || [])
+  .flatMap((g: any) => g.screens || [])
+  .flatMap((s: any) => (s.forms || []).flatMap((f: any) => f.fields || []))
+  .filter((f: any) => f && f.raw);
+check(schemaSettings.length >= 70,
+  `schema 的后台设置页覆盖 ≥70 个字段（实际 ${schemaSettings.length}）`);
+check((schemaRes.headers.get('Cache-Control') || '').includes('max-age=300')
+  && schemaRes.headers.get('X-Schema-Version') === '2',
+  'schema 可缓存 5 分钟并带版本号（App 能判断是否要刷新）');
+
+/* 每个 schema 端点的 ep 必须在契约里；每个真实写接口必须被 schema 覆盖 */
+const schemaEps = new Set<string>();
+const walkSchema = (o: any) => {
+  if (!o || typeof o !== 'object') return;
+  if (Array.isArray(o)) { for (const x of o) walkSchema(x); return; }
+  if (typeof o.ep === 'string') schemaEps.add(o.ep);
+  for (const v of Object.values(o)) walkSchema(v);
+};
+walkSchema(schemaRes.body);
+check([...schemaEps].every((k) => eps[k]), `schema 引用的 ${schemaEps.size} 个契约 key 全部存在`);
+const writeRoutes = Object.keys(realRoutes).filter((r) =>
+  r.startsWith('/api/') &&
+  [...realRoutes[r]].some((m) => m !== 'GET') &&
+  !/\/callback$/.test(r) && !/\/start$/.test(r));
+const uncovered = writeRoutes.filter((r) => {
+  const nr = r.replace(/:[A-Za-z_]\w*/g, ':P');
+  return !Object.values(eps).some((p) => p.split('?')[0].replace(/\{[^}]+\}/g, ':P') === nr);
+});
+check(uncovered.length === 0,
+  `全部 ${writeRoutes.length} 个写接口都有契约路径（未覆盖 ${uncovered.length}）`);
+/* 原生精修页（登录 / 注册 / 找回 / DNS 详情 / 滑块 / 申请）里的调用点，
+   从 Java 源码自动提取 key —— 不手写白名单，避免断言变成恒真。
+   一个写接口要么由 schema 通用渲染器承载，要么确实被某个原生 Activity 调用。 */
+const javaKeys = new Set<string>();
+for (const f of fs.readdirSync(javaDir).filter((x) => x.endsWith('.java'))) {
+  const src = read(javaDir + '/' + f);
+  for (const m of src.matchAll(/(?:ep(?:Get|Post|Patch|Put|Delete)|endpoint)\(\s*"([A-Za-z]\w*)"/g)) {
+    javaKeys.add(m[1]);
+  }
+}
+/* 同一真实路径可能对应多个契约 key（如 /api/subdomains/{id} 同时是 GET 详情、
+   PATCH 修改、DELETE 释放）—— 只要其中**任一** key 可达就算覆盖。 */
+const keysForRoute = (r: string) => Object.keys(eps).filter((k) =>
+  eps[k].split('?')[0].replace(/\{[^}]+\}/g, ':P') === r.replace(/:[A-Za-z_]\w*/g, ':P'));
+const reachable = (r: string) => keysForRoute(r).some((k) => schemaEps.has(k) || javaKeys.has(k));
+const notReachable = writeRoutes.filter((r) => !reachable(r));
+check(javaKeys.size >= 40, `原生页里真实存在 ≥40 个接口调用点（实际 ${javaKeys.size}）`);
+check(notReachable.length === 0,
+  `全部写接口都能在 App 里点到：schema 渲染器或原生精修页（不可达 ${notReachable.length}：${notReachable.join(', ')}）`);
+/* 反向对照：假装没有任何原生调用点，未覆盖的接口必须被抓出来 */
+const nativeOnly = writeRoutes.filter((r) =>
+  keysForRoute(r).every((k) => !schemaEps.has(k)) &&
+  keysForRoute(r).some((k) => javaKeys.has(k)));
+check(nativeOnly.length > 0 && nativeOnly.every((r) => !reachableWithEmpty(r)),
+  '反向对照：假装没有原生调用点，这些写接口必须被判为不可达（断言不是恒真）');
+function reachableWithEmpty(r: string) {
+  return keysForRoute(r).some((k) => schemaEps.has(k));   // 空 javaKeys
+}
+
+/* 反向对照：故意删掉一个分组，覆盖断言必须失败 */
+const brokenSchema = JSON.parse(JSON.stringify(schemaRes.body));
+brokenSchema.groups = brokenSchema.groups.slice(1);
+const brokenScreens = brokenSchema.groups.reduce((n: number, g: any) => n + g.screens.length, 0);
+check(brokenScreens < schemaScreens, '反向对照：schema 少一组时页面计数断言会失败');
+
+const bootSchema = await call('/api/app/v1/bootstrap', makeEnv());
+check(bootSchema.body.site && bootSchema.body.site.schemaVersion === 2
+  && bootSchema.body.site.featureScreens >= 40
+  && bootSchema.body.site.featureEndpoints >= 100,
+  'bootstrap 下发功能统计（首页 Bento 卡的数字滚动有真数据）');
+
+/* Android 端动效 / 资源静态断言 */
+const motionJava = read('android/app/src/main/java/xyz/noxc/app/Motion.java');
+const fxJava = read('android/app/src/main/java/xyz/noxc/app/FxView.java');
+const hubJava = read('android/app/src/main/java/xyz/noxc/app/HubActivity.java');
+const schemaJava = read('android/app/src/main/java/xyz/noxc/app/SchemaActivity.java');
+const gradle = read('android/app/build.gradle');
+check(/interface Callback|class Motion/.test(motionJava)
+  && /stagger|press|countUp|scene|reduced/.test(motionJava),
+  'Motion 提供错落入场 / 弹簧按压 / 数字滚动 / 共享元素 / 减少动画');
+check(/ANIMATOR_DURATION_SCALE|TRANSITION_ANIMATION_SCALE/.test(motionJava),
+  '动效尊重系统「减少动画」无障碍设置');
+check(/class FxView/.test(fxJava) && /SHIMMER|GLOW/.test(fxJava)
+  && /LinearGradient|ValueAnimator/.test(fxJava),
+  '自绘骨架屏 + 品牌光晕，替代一直转圈');
+check(/lottie:6\.4\.0/.test(gradle) && /dynamicanimation/.test(gradle),
+  '引入 Lottie 与物理弹簧依赖（用户允许体积做到几十 MB）');
+const rawDir = 'android/app/src/main/res/raw';
+const lotties = fs.readdirSync(rawDir).filter((f) => f.endsWith('.json'));
+check(lotties.length >= 7 && lotties.every((f) => {
+  const j = JSON.parse(read(rawDir + '/' + f));
+  return j.v && j.fr && j.layers && j.layers.length > 0;
+}), `7 组合法 Lottie 动画 JSON（实际 ${lotties.length} 组）`);
+const arts = fs.readdirSync('android/app/src/main/res/drawable-nodpi')
+  .filter((f) => f.endsWith('.webp'));
+check(arts.length >= 12, `≥12 张品牌插画（实际 ${arts.length} 张）`);
+check(fs.existsSync('android/app/src/main/assets/fonts/NotoSansSC-Regular.ttf')
+  && fs.existsSync('android/app/src/main/assets/fonts/NotoSerifSC-VF.ttf')
+  && fs.existsSync('android/app/src/main/assets/fonts/OFL.txt'),
+  '内置 OFL 中文字体 + 许可证（排版不再依赖系统字体）');
+check(/HubActivity|GroupActivity|SchemaActivity/.test(read('android/app/src/main/AndroidManifest.xml')),
+  'Manifest 注册功能中心三个 Activity');
+check(/renderForm|runAction|loadData|emptyState|onResult/.test(schemaJava),
+  'SchemaActivity 通用渲染器覆盖表单 / 动作 / 数据 / 空状态 / 结果');
+check(/schema/.test(hubJava) && /hub_search|Bento|stagger/.test(hubJava),
+  '功能中心有搜索、Bento 网格与错落入场');
+
 }
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of bad) console.error('  ✗ ' + m);
+
 
 console.log(`App 专用接口回归：${ok.length} 通过，${bad.length} 失败`);
 if (bad.length) process.exit(1);

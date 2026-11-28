@@ -134,6 +134,17 @@ public class MainActivity extends AppCompatActivity {
 
         showPage(0);
         boot(false);
+        /* 启动页：Logo 弹性放大 + 光晕，减少动画时静止显示。 */
+        if (!Motion.reduced(this)) {
+            View logo = findViewById(R.id.splash_logo);
+            logo.setScaleX(0.6f);
+            logo.setScaleY(0.6f);
+            logo.setAlpha(0f);
+            logo.animate().scaleX(1f).scaleY(1f).alpha(1f)
+                    .setDuration(620).setStartDelay(80)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator(1.3f))
+                    .start();
+        }
         /* 浏览器授权页点「一键返回 App」会带着一次性码回到这里 */
         handleDeepLink(getIntent());
     }
@@ -309,6 +320,40 @@ public class MainActivity extends AppCompatActivity {
         sub.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 14));
         homeTop.addView(sub);
 
+        /* 功能中心 Bento 大卡：全站 10 组 / 46 页 / 142 接口的唯一入口。
+           数字滚动 + 共享元素转场，点进去是原生 Bento 网格，不是网页。 */
+        LinearLayout hub = Ui.card(this);
+        hub.setBackgroundResource(R.drawable.bg_group_card);
+        android.widget.ImageView art = new android.widget.ImageView(this);
+        art.setImageResource(R.drawable.art_hero);
+        art.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 96));
+        hub.addView(art, ap);
+        TextView hubTitle = Ui.title(this, getString(R.string.hub_title));
+        hubTitle.setTypeface(Motion.display(this));
+        hubTitle.setPadding(0, Ui.dp(this, 10), 0, 0);
+        hub.addView(hubTitle);
+        LinearLayout nums = new LinearLayout(this);
+        nums.setOrientation(LinearLayout.HORIZONTAL);
+        nums.setPadding(0, Ui.dp(this, 6), 0, 0);
+        nums.addView(statNum(site.optInt("featureGroups", 0), getString(R.string.hub_groups)));
+        nums.addView(statNum(site.optInt("featureScreens", 0), getString(R.string.hub_screens)));
+        nums.addView(statNum(site.optInt("featureEndpoints", 0), getString(R.string.hub_endpoints)));
+        hub.addView(nums);
+        hub.addView(Ui.pill(this, getString(R.string.hub_enter) + "  →", v -> {
+            Bundle scene = Motion.scene(this, hub, "hub_card");
+            Motion.transitionName(hub, "hub_card");
+            Intent it = new Intent(this, HubActivity.class);
+            if (scene != null) startActivity(it, scene);
+            else startActivity(it);
+            Motion.enter(this);
+        }));
+        Motion.press(hub);
+        homeTop.addView(hub);
+        Motion.applyFont(homeTop);
+        Motion.stagger(homeTop);
+
         String ann = site.optString("announcement", "").trim();
         if (ann.length() > 0) {
             LinearLayout c = Ui.card(this);
@@ -348,6 +393,21 @@ public class MainActivity extends AppCompatActivity {
             homeTop.addView(c);
         }
         fillRoots();
+    }
+
+    /** 首页 Bento 卡里的一个滚动数字列。 */
+    private LinearLayout statNum(int value, String label) {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.VERTICAL);
+        l.setLayoutParams(new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView n = Ui.bigNum(this, "0");
+        n.setTextSize(22);
+        l.addView(n);
+        TextView cap = Ui.body(this, label);
+        l.addView(cap);
+        Motion.countUp(n, value);
+        return l;
     }
 
     private void fillRoots() {

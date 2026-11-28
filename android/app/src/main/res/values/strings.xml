@@ -256,4 +256,34 @@
     <string name="auth_code_hint">12-character code</string>
     <string name="browser_auth_success">Signed in</string>
     <string name="browser_auth_failed">Authorization failed, please try again</string>
+    <!-- Feature hub / motion / full-site schema -->
+    <string name="hub_title">All features</string>
+    <string name="hub_sub">Everything on the site, natively</string>
+    <string name="hub_groups">Feature groups</string>
+    <string name="hub_screens">Screens</string>
+    <string name="hub_endpoints">API actions</string>
+    <string name="hub_admin_only">Admin only</string>
+    <string name="hub_enter">Open</string>
+    <string name="hub_search">Search features</string>
+    <string name="hub_search_empty">No matching feature</string>
+    <string name="motion_reduce">Reduce animations</string>
+    <string name="motion_on">On</string>
+    <string name="motion_off">Off</string>
+    <string name="hub_loading">Loading features…</string>
+    <string name="schema_loading">Loading…</string>
+    <string name="schema_empty">Nothing here yet. Use the action below to create the first one.</string>
+    <string name="schema_save">Save</string>
+    <string name="schema_run">Run</string>
+    <string name="schema_refresh">Refresh</string>
+    <string name="schema_confirm">Are you sure?</string>
+    <string name="schema_danger">This action cannot be undone</string>
+    <string name="schema_need_login">Please sign in first</string>
+    <string name="schema_admin_only">Admin only</string>
+    <string name="schema_success">Done</string>
+    <string name="schema_retry">Retry</string>
+    <string name="schema_field_required">Required</string>
+    <string name="schema_result">Result</string>
+    <string name="schema_open_in_browser">Open in browser</string>
+    <string name="schema_toggle_theme">Motion &amp; appearance</string>
+    <string name="splash_tagline">Your dynamo starts with a name</string>
 </resources>

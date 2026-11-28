@@ -60,6 +60,12 @@ public abstract class OpsActivity extends AppCompatActivity {
 
     protected void clear() { list.removeAllViews(); }
 
+    /** 页面渲染完成后调用：字体统一为内置 OFL 字体，卡片错落入场。 */
+    protected void animatePage() {
+        Motion.applyFont(list);
+        Motion.stagger(list);
+    }
+
     protected void busy(boolean on) {
         progress.setVisibility(on ? View.VISIBLE : View.GONE);
         if (!on) swipe.setRefreshing(false);
@@ -84,6 +90,8 @@ public abstract class OpsActivity extends AppCompatActivity {
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         }
         list.addView(c);
+        Motion.applyFont(c);
+        Motion.pop(c);
         return c;
     }
 

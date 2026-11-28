@@ -88,7 +88,8 @@ for (const j of ['MainActivity.java', 'Api.java', 'Ui.java', 'LoginActivity.java
   'RegisterActivity.java', 'ForgotPasswordActivity.java',
   'DomainDetailActivity.java', 'FormActivity.java', 'OpsActivity.java',
   'AdminActivity.java', 'ApplyActivity.java', 'ServicesActivity.java',
-  'CaptchaDialog.java']) {
+  'CaptchaDialog.java', 'Motion.java', 'FxView.java', 'HubActivity.java',
+  'GroupActivity.java', 'SchemaActivity.java']) {
   check(!!java[j], `原生 Java 源文件存在：${j}`);
 }
 for (const d of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
@@ -360,6 +361,41 @@ check(/records: '\/api\/subdomains\/\{id\}\/records'/.test(read('src/routes/app.
   'DNS 记录列表契约路径修好（真机曾报「接口不存在」）');
 check(/browser_auth_help/.test(strings) && /browser_auth_help/.test(stringsZh),
   '浏览器授权流程文案中英齐全');
+
+/* ── G4. 全站功能 schema + 精美动效（用户要「几十 MB 也可以、参考主流 App」） ── */
+const motionJava = read('android/app/src/main/java/xyz/noxc/app/Motion.java');
+const fxJava = read('android/app/src/main/java/xyz/noxc/app/FxView.java');
+const hubJava = read('android/app/src/main/java/xyz/noxc/app/HubActivity.java');
+const groupJava = read('android/app/src/main/java/xyz/noxc/app/GroupActivity.java');
+const schemaJava = read('android/app/src/main/java/xyz/noxc/app/SchemaActivity.java');
+const gradle2 = read('android/app/build.gradle');
+check(/class Motion/.test(motionJava) && /stagger|press|countUp|scene|reduced/.test(motionJava),
+  'Motion 基建：错落入场 / 弹簧按压 / 数字滚动 / 共享元素 / 减少动画');
+check(/ANIMATOR_DURATION_SCALE/.test(motionJava) && /createFromAsset/.test(motionJava),
+  '尊重系统无障碍设置 + 内置 OFL 字体');
+check(/class FxView/.test(fxJava) && /SHIMMER|GLOW/.test(fxJava)
+  && /AttributeSet/.test(fxJava), '自绘骨架屏 / 光晕，且支持 XML inflate');
+check(/lottie:6\.4\.0/.test(gradle2) && /dynamicanimation/.test(gradle2),
+  '引入 Lottie + 物理弹簧（体积换精致度，用户明确允许几十 MB）');
+const raws = fs.readdirSync(path.resolve('android/app/src/main/res/raw')).filter((f) => f.endsWith('.json'));
+const arts2 = fs.readdirSync(path.resolve('android/app/src/main/res/drawable-nodpi')).filter((f) => f.endsWith('.webp'));
+check(raws.length >= 7 && arts2.length >= 12,
+  '7 组 Lottie + ≥12 张品牌插画（实际 ' + raws.length + ' / ' + arts2.length + '）');
+check(exists('android/app/src/main/assets/fonts/NotoSansSC-Regular.ttf')
+  && exists('android/app/src/main/assets/fonts/NotoSerifSC-VF.ttf')
+  && exists('android/app/src/main/assets/fonts/OFL.txt'),
+  '内置两套 OFL 中文字体与许可证');
+check(/HubActivity/.test(hubJava) && /GroupActivity/.test(groupJava)
+  && /renderForm|runAction|loadData|emptyState/.test(schemaJava),
+  '功能中心三级：Hub Bento → 分组 → schema 通用渲染器');
+check(/activity_hub/.test(hubJava) && /hub_search|hub_reduce/.test(hubJava),
+  '功能中心有搜索与「减少动画」开关');
+check(/HubActivity|GroupActivity|SchemaActivity/.test(manifest),
+  'Manifest 注册功能中心三个 Activity');
+check(/art_hero|bg_group_card|hub_card/.test(read('android/app/src/main/java/xyz/noxc/app/MainActivity.java')),
+  '首页有 Bento 功能中心入口与共享元素转场');
+check(/SchemaActivity/.test(schemaJava) && /endpointCall|epGet|epPost/.test(schemaJava),
+  '通用渲染器只走 endpoints 契约，不硬编码 /api 路径');
 
 /* ───────── H. 文案 / 主题 / 颜色 ───────── */
 check(exists(MAIN + 'res/values-zh-rCN/strings.xml')

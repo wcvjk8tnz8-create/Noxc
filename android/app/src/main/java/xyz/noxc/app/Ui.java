@@ -50,7 +50,7 @@ public final class Ui {
         t.setText(s);
         t.setTextColor(c.getResources().getColor(R.color.bar_text));
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTypeface(Motion.display(c));
         return t;
     }
 
@@ -59,6 +59,7 @@ public final class Ui {
         t.setText(s);
         t.setTextColor(c.getResources().getColor(R.color.bar_dim));
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        t.setTypeface(Motion.body(c));
         t.setLineSpacing(dp(c, 3), 1f);
         return t;
     }
@@ -68,7 +69,7 @@ public final class Ui {
         t.setText(s);
         t.setTextColor(c.getResources().getColor(R.color.bar_text));
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 27);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTypeface(Motion.display(c));
         return t;
     }
 
@@ -77,7 +78,7 @@ public final class Ui {
         t.setText(s);
         t.setTextColor(c.getResources().getColor(R.color.brand_dot));
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTypeface(Motion.body(c));
         return t;
     }
 
@@ -105,6 +106,7 @@ public final class Ui {
         b.setText(s);
         b.setAllCaps(false);
         b.setTextColor(c.getResources().getColor(R.color.bar_text));
+        b.setTypeface(Motion.body(c));
         b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         b.setGravity(Gravity.CENTER);
         b.setMinHeight(dp(c, 46));
@@ -121,6 +123,7 @@ public final class Ui {
             b.setClickable(true);
             b.setFocusable(true);
             b.setOnClickListener(click);
+            Motion.press(b);
         } else {
             b.setEnabled(false);
         }

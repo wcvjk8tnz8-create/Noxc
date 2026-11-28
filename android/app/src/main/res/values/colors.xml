@@ -21,4 +21,16 @@
     <color name="brand_container">#3A2A33</color>
 
     <color name="ic_launcher_background">#151519</color>
+    <!-- 功能中心 / 动效：低饱和分组色，只做卡片背景与图标底，不抢语义状态色 -->
+    <color name="group_0">#3A2A33</color>
+    <color name="group_1">#222C3E</color>
+    <color name="group_2">#3A3020</color>
+    <color name="group_3">#203329</color>
+    <color name="group_4">#2E2438</color>
+    <color name="group_5">#382326</color>
+    <color name="group_6">#1E3338</color>
+    <color name="group_7">#333320</color>
+    <color name="group_8">#282C30</color>
+    <color name="group_9">#382820</color>
+    <color name="hero_scrim">#CC121317</color>
 </resources>

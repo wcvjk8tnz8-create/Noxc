@@ -158,8 +158,12 @@ jobs:
           print('  合计压缩后: %d bytes / %d 项' % (
               sum(i.compress_size for i in z.infolist()), len(names)))
           assets = [n for n in names if n.startswith('assets/')]
-          print('  assets/ 条目:', len(assets), '(0 = 没有打包网页资源)')
-          if assets: print('::warning::APK 里出现了 assets/，确认不是把网页又塞回来了')
+          # 内置 OFL 中文字体与许可证是刻意的（排版不依赖系统字体）。
+          # 除此之外不允许任何 assets/ 内容，防止把网页塞回 APK 凑体积。
+          unexpected = [n for n in assets if not n.startswith('assets/fonts/')]
+          print('  assets/ 条目:', len(assets), '(内置字体 + OFL.txt)')
+          if unexpected:
+              print('::error::APK 里出现了非字体 assets:', unexpected[:5]); sys.exit(1)
           # 用户明确要「至少几 MB 的真 App」：Material 3 / AndroidX 必须真的打进去。
           # 若有人把依赖删掉退回几十 KB 的玩具包，这一步直接失败。
           MIN_SIZE = 1500000

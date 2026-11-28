@@ -1423,17 +1423,51 @@ App 内原生页面。**第三方登录改成「浏览器授权登录」**：App
 公开配置复用 `/api/config` 的 30 秒缓存，不多打 D1。签到 / 登录 / 登出后
 带 `?_=` 强制 fresh。
 
-**为什么现在是几 MB（而不是几十 KB）**
+**为什么现在做到几十 MB（而不是几 MB）**
+
+用户明确说「体积可以几十 MB，内容要更完善、要精美动画、要所有网站功能、参考主流 App」，
+所以这一版不再为了压缩包体砍资源：
 
 | 之前 | 现在 |
 |---|---|
-| 5 个纯平台 Java 类、零依赖 | AndroidX AppCompat / Material 3 / SwipeRefresh / RecyclerView / CoordinatorLayout / Custom Tabs 全部打进 dex |
-| 6 张小 PNG | 6 张 PNG + 5 个矢量图标 + 2 套 menu + 5 套布局 + M3 主题资源 |
-| 68 KB debug 包 | **CI 断言 ≥ 1.5 MB**，实测体积见该次 run 的「校验 APK 产物」步骤 |
+| 5 MB 左右（只有 M3 + AndroidX） | **内置两套 OFL 中文字体（35 MB 原始 TTF）+ Lottie 引擎 + 物理弹簧库** |
+| 6 张小 PNG | 13 张生成的品牌 WebP 插画 + 7 组合法 Lottie JSON + 4 套窗口转场 |
+| 系统字体、纯色卡片 | Noto Sans SC 正文 / Noto Serif SC 标题 + Bento 网格 + 自绘光晕 |
+| 68 KB debug 包 | **CI 断言 ≥ 1.5 MB**（实际几十 MB），实测体积见该次 run 的「校验 APK 产物」 |
 
-这是刻意的：Material 3 组件库本身就有体积，用户明确要「至少几 MB 的真 App」，
-不是把网页塞进 assets 凑数（APK 的 `assets/` 仍为 0）。CI 会打印 APK 组成清单，
-并断言 `classes.dex` / `resources.arsc` / ≥6 张 PNG 都在 —— 空壳直接判失败。
+`assets/` 里**只有** `fonts/NotoSansSC-Regular.ttf`、`NotoSerifSC-VF.ttf` 与 `OFL.txt`
+（SIL Open Font License 1.1）；CI 会拒绝任何其它 `assets/` 条目 —— 体积是花在字体、
+插画与动画引擎上，不是把网页塞进 APK 凑数，仍然零 WebView。CI 同时打印 APK 组成清单，
+断言 `classes.dex` / `resources.arsc` / ≥6 张 PNG 都在，空壳直接判失败。
+
+**全站功能中心（所有网站功能都能在 App 里控制）**
+
+首页新增 Bento 大卡「全部功能」→ `HubActivity` 两列网格 → `GroupActivity` 分组页 →
+`SchemaActivity` 通用渲染器，三级都是原生控件。功能清单不写死在客户端：
+服务端 `GET /api/app/v1/schema` 下发声明式描述（由 `scripts/gen-app-schema.py` 生成），
+**10 个分组 / 48 个页面 / 148 条接口契约 / 74 个后台设置字段**，新增网站功能只改生成脚本，
+不用发版。渲染器支持四类构件：`load`（数据卡片 + 行内动作）、`forms`（动态
+text/num/bool/select/secret/area 表单）、`actions`（确认 / 弹窗字段 / 常量参数）、
+`rowActions`（从行数据取 `{id}`/`{rid}`/`{domain}`）。路径全走 endpoints 契约，
+客户端零硬编码；管理员分区服务端 `requireAdmin` 照常把关。
+
+`app-api-regression.ts` 会展开 `index.ts` 的所有挂载与 `routes/*.ts` 的全部方法，
+逐条核对 148 条契约，并验证**全部 92 个写接口**都能在 App 里点到：要么由 schema
+渲染器承载，要么确实出现在某个原生 Activity 的调用点里（从 Java 源码自动提取，
+不是手写白名单），还带反向对照。
+
+**精美动效（参考主流 App，但克制）**
+
+| 场景 | 做法 |
+|---|---|
+| 冷启动 / 加载 | 骨架屏扫光替代一直转圈；Logo 弹性放大；光晕缓慢漂移 |
+| 列表 / 卡片 | 错落淡入 + 上移 + 弹簧回弹；按压 0.96 缩放、松手回归 |
+| 数据 | 统计数字从 0 滚动；共享元素转场保持上下文连续 |
+| 状态 | Lottie 7 组：加载 / 成功勾 / 空状态 / 奖励粒子 / 域名 / 后台 / 星光 |
+| 无障碍 | 尊重系统「减少动画」，功能中心还有开关；退化成瞬时状态切换 |
+
+动效全部集中在 `Motion.java` / `FxView.java`，页面不自己写 ValueAnimator，
+避免各页不一致。视觉仍沿用站点黑白灰 + 一点品牌粉，不做多层视差，控制低端机成本。
 
 **网络层**仍是平台 `HttpURLConnection` + `org.json` + 线程池（不引入
 OkHttp/Retrofit），回调回主线程，按系统语言请求中英文案。唯一用到的 AndroidX
@@ -1448,6 +1482,10 @@ OkHttp/Retrofit），回调回主线程，按系统语言请求中英文案。�
 | `android/app/src/main/java/.../OpsActivity.java` | 通用 M3 卡片列表 / 对话框 / 契约请求骨架 |
 | `android/app/src/main/java/.../AdminActivity.java` | 后台 11 分区：审核 / 用户 / 配额 / 封禁 / IP / 设置 / 锁 / 审计 / 根域名 |
 | `android/app/src/main/java/.../DomainDetailActivity.java` | DNS 记录增 / 改 / 删 + 验证锁 + 域名续期 / 备注 / 释放 |
+| `android/app/src/main/java/.../Motion.java` | 错落入场 / 弹簧 / 数字滚动 / 共享元素 / 减少动画 / 内置字体 |
+| `android/app/src/main/java/.../FxView.java` | 自绘骨架屏扫光 + 品牌光晕 |
+| `android/app/src/main/java/.../HubActivity.java` · `GroupActivity.java` · `SchemaActivity.java` | 功能中心三级 + 全站 schema 通用渲染器 |
+| `src/lib/appSchema.ts` | 全站功能声明式描述（由 `scripts/gen-app-schema.py` 生成） |
 | `android/app/src/main/java/.../ApplyActivity.java` | 查价 + 原生滑块 + 提交申请 |
 | `android/app/src/main/java/.../CaptchaDialog.java` | 原生 M3 滑块拼图（自绘舞台 / SeekBar 轨迹 / 服务端一次性票据） |
 | `android/app/src/main/java/.../ServicesActivity.java` | 通知 / 工单 / 兑换 / 转让 / 举报 / 第三方域名 / 资料 / 委派 / 社区 |
@@ -1607,7 +1645,7 @@ DNS / 积分 / 个人中心 / 消息工单 / 第三方域名 / 管理后台共 8
 
 **每条契约都验过**：`scripts/app-api-regression.ts` 会把 `index.ts` 的所有
 `app.route` 挂载 + 各 `routes/*.ts` 里的 `app.get/post/patch/put/delete` 展开成
-真实路径集合，**逐条**核对 `endpoints` 的 115 条路径与 App 里每个调用点的 HTTP 方法，
+真实路径集合，**逐条**核对 `endpoints` 的 148 条路径与 App 里每个调用点的 HTTP 方法，
 并真跑 DNS 列表、授权码领用 / 兑换 / 过期 / 重放、授权页 HTML。真机反馈的
 「DNS 记录说接口不存在」就是这样定位到的：`records` 被写成
 `/api/records/subdomains/{id}/records`（多了一层），真实挂载是
@@ -2039,8 +2077,12 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
   `/api/records/subdomains/{id}/records`，而 `recordRoutes` 挂在 `/api`，真实路径是
   **`/api/subdomains/{id}/records`**；请求落到 `app.all('/api/*')` 兜底就回「接口不存在」。
   已修正并加**全量契约校验**：把 index.ts 的挂载与所有 routes 文件展开成真实路径集合，
-  逐条核对 115 条契约与 App 每个调用点的方法，还留了反向对照（旧路径确实会报这个错）。
+  逐条核对 148 条契约与 App 每个调用点的方法，还留了反向对照（旧路径确实会报这个错）。
   另外 `Api.DEFAULT_ENDPOINTS` 保证 bootstrap 没跑完时也不会请求空路径。
+- **APK 突然变成几十 MB**：这是本版**刻意**的，不是打包出错。内置两套 OFL 中文字体、
+  Lottie 引擎、13 张插画与 7 组动画 JSON，都是用户明确要「精美动画 + 体积可以几十 MB」
+  换来的。`assets/` 里只允许字体与许可证，CI 会拒绝任何网页资源回流；组成清单在
+  「校验 APK 产物」步骤里逐项打印，可自行复核。
 - **打开是网站首页 / 还在内嵌网页**：这是**刻意否掉**的两版方案。现在是
   **Material 3 完全原生 App**：五个 tab 由 Android 控件绘制、数据直连站点 API，
   `android/` 里 **零 WebView / 零 android.webkit**。回归会真扫全部 Java 与 XML，
