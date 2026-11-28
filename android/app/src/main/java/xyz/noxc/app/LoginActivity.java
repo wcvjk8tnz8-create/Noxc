@@ -81,7 +81,7 @@ public class LoginActivity extends FormActivity {
                 .show();
     }
 
-    /* 注意：prompt()/pick()/confirm() 是 OpsActivity 的 helper，FormActivity 没有。
+    /* 注意：prompt / pick / confirm 等 helper 属于 OpsActivity，FormActivity 没有。
        这里直接内联一个 M3 对话框，避免「cannot find symbol」编译失败。 */
     private void promptCode() {
         final EditText input = new EditText(this);
