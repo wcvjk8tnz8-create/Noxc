@@ -47,11 +47,14 @@ public abstract class OpsActivity extends AppCompatActivity {
         swipe.setOnRefreshListener(this::refresh);
     }
 
-    protected void setTitle(String s) {
+    /* 必须是 public：Activity.setTitle(int) 是 public，
+       protected 会以「降低访问权限」被 javac 拒绝编译（CI 真跑踩过）。 */
+    public void setTitle(String s) {
         ((MaterialToolbar) findViewById(R.id.toolbar)).setTitle(s);
     }
 
-    protected void setTitle(int resId) {
+    @Override
+    public void setTitle(int resId) {
         ((MaterialToolbar) findViewById(R.id.toolbar)).setTitle(resId);
     }
 

@@ -294,7 +294,10 @@ check(!!java['AdminActivity.java'] && !!java['ApplyActivity.java']
   && !!java['ServicesActivity.java'] && !!java['OpsActivity.java']
   && !!java['CaptchaDialog.java'], '五个原生操控类齐全（后台 / 申请 / 服务 / 骨架 / 滑块）');
 check(/extends OpsActivity/.test(adminJava + applyJava + servicesJava + detailJava)
-  && /epPost|epPatch|epDelete|epPut|epGet/.test(opsJava),
+  && /epPost|epPatch|epDelete|epPut|epGet/.test(opsJava)
+  /* Activity.setTitle(int) 是 public，protected 会以「降低访问权限」编译失败 */
+  && /public void setTitle\(int resId\)/.test(opsJava)
+  && !/protected void setTitle\(int resId\)/.test(opsJava),
   '四个操控页共用 OpsActivity 骨架，写操作统一走契约');
 check(/adminOverview/.test(adminJava) && /SECTION_KEYS/.test(adminJava)
   && /adminApprove|adminReject|adminUserBan|adminUserQuota|adminIpBan|adminSettings/.test(adminJava),
