@@ -5,7 +5,7 @@
 真编译 / analyze 在 workflow 里由 flutter 完成；这里先挡住「能打包但一跑就崩」：
   1) assets/endpoints.json 与 src/routes/app.ts 逐条同源
   2) assets/schema.json 与 src/lib/appSchema.ts 完全一致，schema 引用的 ep 都在契约里
-  3) pubspec 只允许两个 pub.dev 官方包，禁止任何 git fork 依赖
+  3) pubspec 只允许三个 pub.dev 官方包，禁止任何 git fork 依赖
   4) 全部 Dart 文件的括号 / 字符串配对（Dart 单双引号、三引号、插值）
   5) 关键架构件存在：分层收口 / 浮动底栏 / iPad 侧栏 / schema 渲染器 / 原生滑块
   6) workflow 真的生成平台壳、注入配置、两端都 build 并校验产物
@@ -74,8 +74,9 @@ check(schema_eps <= set(server_eps),
 pub = read('flutter/pubspec.yaml')
 check('git:' not in pub and 'ref:' not in pub and 'path:' not in pub,
       'pubspec 零 git / path 依赖，pub get 只走 pub.dev')
-check('http: ^1.' in pub and 'shared_preferences: ^2.' in pub,
-      '仅 http + shared_preferences 两个官方包')
+check('http: ^1.' in pub and 'shared_preferences: ^2.' in pub and
+      'url_launcher: ^6.' in pub,
+      '仅 http + shared_preferences + url_launcher 三个官方包')
 check('flutter_animate' not in pub and 'get:' not in pub and 'dio:' not in pub,
       '动效自绘、状态用 ChangeNotifier，不引第三方框架')
 check('- assets/images/' in pub and 'family: NotoSansSC' in pub,
@@ -155,6 +156,18 @@ for sym, desc in [
 ]:
     check(sym in all_src, desc)
 check("Navigator.pushNamed" in all_src, '页面用命名路由，不自己 new Route')
+# 浏览器授权登录（用户指出 Flutter 版漏掉「浏览器授权」按钮）
+check('authorizeUri()' in all_src and 'appAuthorize' in all_src,
+      'Api 提供 /app-authorize 的 Uri（来自服务端契约）')
+check('launchUrl(' in all_src and 'appTokenExchange' in all_src,
+      '账号页有「打开浏览器授权」按钮 + 一次性码兑换')
+check('Clipboard.getData' in all_src and 'onChanged: (_) => setState' in all_src,
+      '授权码支持粘贴、输入后按钮解锁')
+check('浏览器授权登录' in all_src and '打开浏览器授权' in all_src,
+      '中文按钮文案齐全（不是只留英文）')
+check('appAuthorize' in bundled_eps and 'appTokenExchange' in bundled_eps,
+      '浏览器授权用的两个契约 key 在内置快照里')
+
 # CI annotations 抓到过的三类真实编译错误，锁死不再回流
 check('CurvedAnimation(parent:' in all_src and
       'CurvedAnimation(_c,' not in all_src,
@@ -182,6 +195,10 @@ check('assets/flutter_assets/assets/schema.json' in wf,
       'CI 校验 APK 里内置 schema / 契约')
 check('macos' in wf and 'ubuntu-latest' in wf, '两个 job 分别在 macOS / Ubuntu 上构建')
 check('android.permission.INTERNET' in patch, 'Android 补 INTERNET 权限')
+check('<queries>' in patch and 'android:scheme="noxc"' in patch,
+      'Android 补浏览器可见性 queries 与 noxc:// 回跳')
+check('CFBundleURLTypes' in patch and "'noxc'" in patch,
+      'iOS 注册 noxc:// 回跳 scheme')
 check('UISupportedInterfaceOrientations~ipad' in patch and
       'UIRequiresFullScreen' in patch, 'iOS 补 iPad 四向与分屏')
 check('TARGETED_DEVICE_FAMILY = "1,2"' in patch, 'iOS 工程 Universal')
@@ -191,8 +208,10 @@ check(read('flutter/README.md').count('Flutter') >= 3, 'flutter/README.md 说明
 check(server_eps == bundled_eps and
       {**bundled_eps, 'ghost': '/api/ghost'} != server_eps,
       '反向对照：契约多一条假接口时同源断言必须失败')
-check('git:' not in pub and 'git:' in pub.replace('# 这里刻意只用两个',
-                                                  '# 这里刻意只用两个\ngit:'),
+fake_pub = pub.replace('dependencies:',
+                       'dependencies:\n  fake_pkg:\n    git: https://example.invalid/repo.git', 1)
+check('git:' not in pub and 'git:' in fake_pub and
+      fake_pub != pub,
       '反向对照：pubspec 出现 git 依赖时白名单断言必须失败')
 is_universal = lambda s: 'TARGETED_DEVICE_FAMILY = "1,2"' in s
 check(is_universal(patch) and not is_universal(
@@ -202,6 +221,9 @@ check(is_universal(patch) and not is_universal(
 check('class FloatNav' in all_src and 'class FloatNav' not in
       all_src.replace('class FloatNav', 'class ZzzNav'),
       '反向对照：浮动底栏被删时架构断言必须失败')
+check('launchUrl(' in all_src and 'launchUrl(' not in
+      all_src.replace('launchUrl(', 'neverLaunch('),
+      '反向对照：浏览器授权按钮被删时断言必须失败')
 
 print(f'✔ Flutter 工程静态自检：{len(ok)} 通过，{len(bad)} 失败')
 for m in bad:

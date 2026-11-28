@@ -7,13 +7,15 @@ environment:
   sdk: '>=3.4.0 <4.0.0'
 
 # PiliPlus 那类项目大量依赖作者自己的 git fork，构建前得拉一堆分支。
-# 这里刻意只用两个 pub.dev 官方包，动效全部自绘（AnimationController /
-# CustomPainter / Hero），pub get 不碰任何 git 仓库。
+# 这里刻意只用 pub.dev 官方包（Flutter 团队维护），动效全部自绘
+# （AnimationController / CustomPainter / Hero），pub get 不碰任何 git 仓库。
+# url_launcher 只用于「浏览器授权登录」打开 /app-authorize 这一步。
 dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.2
   shared_preferences: ^2.2.3
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

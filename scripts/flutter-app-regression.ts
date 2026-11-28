@@ -74,6 +74,8 @@ check(/AppThemeRef\.reduce/.test(dart) && /setReduce/.test(dart),
   '尊重「减少动画」开关，退化成瞬时状态');
 check(/flutter_animate/.test(pub) === false && /lottie/.test(pub) === false,
   '不引第三方动效包（避免 git fork 依赖）');
+check(/url_launcher: \^6\./.test(pub) && /git:/.test(pub) === false,
+  '浏览器授权用 pub.dev 官方 url_launcher，仍零 git 依赖');
 
 /* ── D. 全站功能与服务端同源 ── */
 const eps = JSON.parse(read('flutter/assets/endpoints.json')) as Record<string, string>;
@@ -99,6 +101,13 @@ check(/class CaptchaSheet/.test(dart) && /captchaVerify/.test(dart) &&
       /trace/.test(dart), '申请域名原生滑块验证（真实拖动轨迹）');
 check(/class AccountPage/.test(dart) && /'register'/.test(dart) && /'reset'/.test(dart),
   '登录 / 注册 / 找回密码全部 App 内原生完成');
+check(/launchUrl\(/.test(dart) && /appTokenExchange/.test(dart) &&
+      /authorizeUri/.test(dart) && /打开浏览器授权/.test(dart),
+  '「浏览器授权登录」按钮 + 12 位一次性码兑换（用户指出的缺失）');
+check(/Clipboard\.getData/.test(dart) && /onChanged: \(_\) => setState/.test(dart),
+  '授权码可粘贴、输入后兑换按钮解锁');
+check(/CFBundleURLTypes/.test(patch) && /android:scheme="noxc"/.test(patch),
+  '两端注册 noxc://auth 回跳 scheme，授权页能切回 App');
 check(/class SettingsPage/.test(dart) && /setSite/.test(dart),
   '站点地址可在 App 内更换');
 check(/Endpoints\.defaults/.test(dart) === false && /endpoints\.json/.test(dart),
@@ -139,6 +148,9 @@ check(/class FloatNav/.test(dart) &&
 check(/useMaterial3: true/.test(dart) &&
       !/useMaterial3: true/.test(dart.replace('useMaterial3: true', 'useMaterial3: false')),
   '反向对照：关掉 Material 3 时形态断言必须失败');
+check(/launchUrl\(/.test(dart) && !/launchUrl\(/.test(
+      dart.split('launchUrl(').join('neverLaunch(')),
+  '反向对照：浏览器授权按钮被删时断言必须失败');
 check(/macos/.test(wf) && !/macos/.test(wf.split('macos-latest').join('ubuntu-latest')
       .split('macos').join('')),
   '反向对照：iOS job 换成 Linux 时 CI 断言必须失败（编不出 IPA）');

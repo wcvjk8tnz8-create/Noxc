@@ -18,9 +18,10 @@ Material 3 + 动态主题色 + 悬浮胶囊底栏、分层收口、平台差异�
 | 平板 | 两套适配逻辑 | `PlatformX.pad()` 一个断点，NavigationRail / 双栏 |
 
 PiliPlus 那类项目的构建痛点是「一堆作者自己的 git fork 依赖，编译前得拉分支」。
-这里刻意反向：**只用 `http` + `shared_preferences` 两个 pub.dev 官方包**，
-动效全部自绘（`AnimationController` / `CustomPainter` / `Hero` / `TweenAnimationBuilder`），
-`pub get` 不碰任何 git 仓库。
+这里刻意反向：**只用 `http` + `shared_preferences` + `url_launcher` 三个
+pub.dev 官方包**（Flutter 团队维护），动效全部自绘
+（`AnimationController` / `CustomPainter` / `Hero` / `TweenAnimationBuilder`），
+`pub get` 不碰任何 git 仓库。`url_launcher` 只用于浏览器授权登录那一步。
 
 ## 分层（core.dart 是唯一收口点）
 
@@ -58,6 +59,13 @@ pages/*.dart  →  AppState / Api / Store / AppTheme / AppRoutes  →  Worker AP
 
 另有精修原生页：首页、我的域名（含滑块验证申请与 DNS 记录增改删）、积分 / 签到 /
 兑换、个人资料、设置、登录注册找回密码。
+
+**浏览器授权登录**（原生 Android 版有，Flutter 版补回）：账号页顶部「打开浏览器授权」
+→ 系统浏览器打开 `/app-authorize`（邮箱 / GitHub / NodeLoc 都能登录）→ 点
+「授权给 App」拿 12 位一次性码 → 复制 → 回 App 点粘贴图标 →「用授权码登录」
+`POST /api/app/v1/auth/exchange` 换到站点原有 `sh_session`。两端平台壳都注册了
+`noxc://auth` scheme，「一键返回 App」能切回 App；个别浏览器不认自定义 scheme 时
+粘贴码一定可用。码 5 分钟有效、单次消费，权限与封禁判定与站内一致。
 
 ## 出包
 

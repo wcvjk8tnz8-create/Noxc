@@ -297,6 +297,13 @@ class Api {
 
   String endpoint(String key) => _eps[key] ?? '';
 
+  /// 浏览器授权页：用户在浏览器（含第三方 OAuth）登录站点后点「授权给 App」，
+  /// 拿到 12 位一次性码回 App 粘贴，走 appTokenExchange 换 sh_session。
+  Uri authorizeUri() {
+    final path = endpoint('appAuthorize').isEmpty ? '/app-authorize' : endpoint('appAuthorize');
+    return Uri.parse(base + (path.startsWith('/') ? path.substring(1) : path));
+  }
+
   static List<String> placeholders(String path) {
     final out = <String>[];
     for (final m in RegExp(r'\{(\w+)\}').allMatches(path)) {

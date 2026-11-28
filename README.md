@@ -2235,8 +2235,13 @@ CustomPainter 骨架屏扫光、数字滚动、页面淡入上移、亮 / 暗 / 
 系统「减少动画」或 App 内开关打开时全部退化为瞬时状态。
 
 **依赖刻意做减法**：PiliPlus 那类项目的痛点是大量作者自己的 git fork 依赖，
-编译前得拉一堆分支。这里只用 `http` + `shared_preferences` 两个 pub.dev 官方包，
-动效全部自绘，`pub get` 不碰任何 git 仓库。
+编译前得拉一堆分支。这里只用 `http` + `shared_preferences` + `url_launcher`
+三个 pub.dev 官方包，动效全部自绘，`pub get` 不碰任何 git 仓库。
+
+**浏览器授权登录**：账号页顶部「打开浏览器授权」→ `/app-authorize` 里用任意方式
+登录站点 → 点「授权给 App」拿 12 位一次性码 → 复制回 App 粘贴兑换
+`sh_session`。两端平台壳注册 `noxc://auth` 回跳 scheme；第三方 OAuth 按规范必须
+走浏览器安全上下文，但全程不离开这个功能链路。
 
 `assets/endpoints.json`（148 条契约）与 `assets/schema.json`（10 组 / 48 页）
 由 `scripts/gen-flutter-assets.py` 从 `src/routes/app.ts` / `src/lib/appSchema.ts`
@@ -2274,7 +2279,10 @@ Android(Java) + iOS(SwiftUI) 两套代码、两套视觉、两套适配，
    用户说「不用 Swift」针对的是业务代码，不是这个壳。
 3. **站点改 `http://` 自建地址**：`NSAllowsArbitraryLoads` 与 Android 明文开关
    是为了支持设置页换站点；若只走正式 https 且要上架，应收紧为域名例外。
-4. **通用渲染器对带 `{id}` 占位符的页面**：没有行上下文时不发空路径请求，
+4. **「一键返回 App」只负责切回 App**：两端的 `noxc://auth` scheme 能拉起应用，
+   但 Flutter 版没有平台通道自动解析 URL 里的 `code`，所以码仍需点粘贴图标
+   （授权页有「复制授权码」按钮）；自动兑换需要后续补平台通道，不是当前缺口。
+5. **通用渲染器对带 `{id}` 占位符的页面**：没有行上下文时不发空路径请求，
    页面会提示改用「我的域名 / 全部功能」里的精修原生入口（DNS 记录就在那里）。
 
 **排查顺序**：`flutter pub get` 失败 → 先看是不是引回了 git/path 依赖（pubspec

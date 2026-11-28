@@ -13,6 +13,7 @@ iOS
   · iPad 四向 + UIRequiresFullScreen=false（Split View / Slide Over）
   · NSAllowsArbitraryLoads（支持在设置里改自建 http 站点）
   · TARGETED_DEVICE_FAMILY = 1,2、部署目标 ≥ iOS 13
+  · Android <queries> / iOS CFBundleURLTypes：浏览器授权登录回跳
 """
 import pathlib
 import plistlib
@@ -29,14 +30,44 @@ def patch_android():
         print('  (无 AndroidManifest，跳过)')
         return
     t = main.read_text(encoding='utf-8')
+    changed = False
     if 'android.permission.INTERNET' not in t:
         t = t.replace(
             '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
             '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n'
             '    <uses-permission android:name="android.permission.INTERNET"/>',
             1)
-        main.write_text(t, encoding='utf-8')
+        changed = True
         print('  ✔ AndroidManifest 补 INTERNET 权限')
+    # Android 11+ 包可见性：url_launcher 打开 https 需要声明 queries
+    if '<queries>' not in t:
+        queries = '''    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+    </queries>
+'''
+        t = t.replace('</manifest>', queries + '</manifest>', 1)
+        changed = True
+        print('  ✔ AndroidManifest 补 <queries>（Android 11+ 打开浏览器）')
+    # 授权页的「一键返回 App」用 noxc://auth?code=，注册 scheme 才能切回 App
+    if 'android:scheme="noxc"' not in t:
+        filt = '''            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="noxc" android:host="auth"/>
+            </intent-filter>
+'''
+        idx = t.find('</activity>')
+        if idx < 0:
+            raise SystemExit('  ✗ AndroidManifest 没有 </activity>，无法注入 noxc:// 回跳')
+        t = t[:idx] + filt + t[idx:]
+        changed = True
+        print('  ✔ AndroidManifest 补 noxc://auth 回跳 intent-filter')
+    if changed:
+        main.write_text(t, encoding='utf-8')
     for gradle in sorted((FL / 'android/app').glob('build.gradle*')):
         g = gradle.read_text(encoding='utf-8')
         g2 = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "xyz.noxc.app"', g)
@@ -62,6 +93,10 @@ def patch_ios():
     ]
     p['UIRequiresFullScreen'] = False
     p['NSAppTransportSecurity'] = {'NSAllowsArbitraryLoads': True}
+    # 浏览器授权页的「一键返回 App」：noxc://auth?code=XXXX
+    p['CFBundleURLTypes'] = [
+        {'CFBundleURLName': 'xyz.noxc.app', 'CFBundleURLSchemes': ['noxc']}
+    ]
     p['ITSAppUsesNonExemptEncryption'] = False
     with info.open('wb') as f:
         plistlib.dump(p, f)
@@ -85,9 +120,16 @@ def patch_ios():
 def verify():
     ok = True
     man = FL / 'android/app/src/main/AndroidManifest.xml'
-    if man.exists() and 'android.permission.INTERNET' not in man.read_text(encoding='utf-8'):
-        print('  ✗ Android 缺 INTERNET 权限')
-        ok = False
+    if man.exists():
+        mt = man.read_text(encoding='utf-8')
+        for must, desc in (
+            ('android.permission.INTERNET', 'INTERNET 权限'),
+            ('<queries>', 'queries（浏览器可见性）'),
+            ('android:scheme="noxc"', 'noxc:// 回跳'),
+        ):
+            if must not in mt:
+                print('  ✗ Android 缺 ' + desc)
+                ok = False
     info = FL / 'ios/Runner/Info.plist'
     if info.exists():
         with info.open('rb') as f:
@@ -97,6 +139,11 @@ def verify():
             ok = False
         if p.get('UIRequiresFullScreen') is not False:
             print('  ✗ UIRequiresFullScreen 未关')
+            ok = False
+        schemes = [s for t2 in p.get('CFBundleURLTypes', [])
+                   for s in t2.get('CFBundleURLSchemes', [])]
+        if 'noxc' not in schemes:
+            print('  ✗ iOS 未注册 noxc:// 回跳 scheme')
             ok = False
     pbx = FL / 'ios/Runner.xcodeproj/project.pbxproj'
     if pbx.exists() and 'TARGETED_DEVICE_FAMILY = "1,2"' not in pbx.read_text(encoding='utf-8'):

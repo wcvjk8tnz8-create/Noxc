@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'core.dart';
 import 'widgets.dart';
@@ -15,6 +17,7 @@ class _AccountPageState extends State<AccountPage> {
   final _email = TextEditingController();
   final _pass = TextEditingController();
   final _code = TextEditingController();
+  final _authCode = TextEditingController();
   bool _agree = true;
   bool _busy = false;
   String _msg = '';
@@ -24,6 +27,7 @@ class _AccountPageState extends State<AccountPage> {
     _email.dispose();
     _pass.dispose();
     _code.dispose();
+    _authCode.dispose();
     super.dispose();
   }
 
@@ -42,6 +46,42 @@ class _AccountPageState extends State<AccountPage> {
       _busy = false;
       _msg = r.ok ? (zh ? '验证码已发送' : 'Code sent') : r.display;
     });
+  }
+
+  /// 浏览器授权登录：打开 Worker 直出的 /app-authorize。
+  /// 用户在浏览器里用邮箱 / GitHub / NodeLoc 登录 → 点「授权给 App」拿码 →
+  /// 回 App 粘贴（授权页的「一键返回 App」在个别浏览器不认 noxc:// 时可能没反应，
+  /// 所以粘贴码是主路径）。
+  Future<void> _openBrowserAuthorize() async {
+    final uri = s.api.authorizeUri();
+    try {
+      final okDirect = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!okDirect && mounted) {
+        setState(() => _msg = zh ? '未能打开浏览器，请手动访问 ${uri.toString()}' : 'Could not open browser');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _msg = '${zh ? '打开浏览器失败' : 'Cannot open browser'}：$e');
+    }
+  }
+
+  Future<void> _exchangeCode() async {
+    final clean = _authCode.text.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    if (clean.length < 8) {
+      setState(() => _msg = zh ? '请填写浏览器里显示的 12 位授权码' : 'Enter the 12-digit code shown in the browser');
+      return;
+    }
+    setState(() => _busy = true);
+    final r = await s.call('appTokenExchange',
+        body: <String, dynamic>{'code': clean}, refreshAfter: false);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (r.ok) {
+      await s.refresh();
+      if (!mounted) return;
+      Navigator.pop(context);
+    } else {
+      setState(() => _msg = r.display);
+    }
   }
 
   Future<void> _submit() async {
@@ -98,6 +138,55 @@ class _AccountPageState extends State<AccountPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
         children: [
+          // 浏览器授权登录（此前 Flutter 版漏掉，用户指出的就是这个按钮）
+          Stagger(index: 0, child: NxCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(Icons.open_in_new_rounded, size: 19, color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(zh ? '浏览器授权登录' : 'Sign in via browser',
+                    style: const TextStyle(fontFamily: 'NotoSerifSC', fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Text(
+              zh
+                  ? '在浏览器里登录 nic.299282.xyz（邮箱 / GitHub / NodeLoc 都行），'
+                    '点「授权给 App」拿到一次性码，回这里粘贴即可。'
+                  : 'Sign in on the site in your browser (email / GitHub / NodeLoc), '
+                    'tap “Authorize App” and paste the one-time code here.',
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            PillButton(zh ? '打开浏览器授权' : 'Open browser to authorize',
+                prominent: true,
+                icon: Icons.public_rounded,
+                onTap: _busy ? null : _openBrowserAuthorize),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _authCode,
+              textCapitalization: TextCapitalization.characters,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: zh ? '授权码（XXXX-XXXX-XXXX）' : 'Authorization code',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.content_paste_rounded, size: 17),
+                  onPressed: () async {
+                    final data = await Clipboard.getData(Clipboard.kTextPlain);
+                    if (data?.text != null) setState(() => _authCode.text = data!.text!);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            PillButton(_busy ? (zh ? '兑换中…' : 'Exchanging…') : (zh ? '用授权码登录' : 'Sign in with code'),
+                icon: Icons.vpn_key_rounded,
+                onTap: (_busy || _authCode.text.isEmpty) ? null : _exchangeCode),
+          ]))),
+          const SizedBox(height: 16),
+          Text(zh ? '或者使用邮箱密码' : 'Or use email & password',
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+          const SizedBox(height: 10),
           SegmentedButton<int>(
             segments: [
               ButtonSegment(value: 0, label: Text(zh ? '登录' : 'Sign in')),
@@ -144,8 +233,10 @@ class _AccountPageState extends State<AccountPage> {
           const SizedBox(height: 14),
           NxCard(child: Text(
             zh
-                ? '第三方登录需在浏览器里授权，再用一次性码回到 App；其余流程全部在 App 内完成。'
-                : 'Third-party sign-in is authorized in the browser, then handed back with a one-time code.',
+                ? '授权码 5 分钟有效、单次消费；换到的是站点原有会话，权限与封禁判定一致。'
+                  '若授权页「一键返回 App」没反应，直接复制码粘贴即可。'
+                : 'The code expires in 5 minutes and is single-use; it redeems the site\'s own session. '
+                  'If “Return to App” does nothing, just copy and paste the code.',
             style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
           )),
         ],

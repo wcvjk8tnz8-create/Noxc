@@ -2393,6 +2393,12 @@ check(/## 26\./.test(read('README.md'))
   '主 README 第 26 节记录 Flutter 改版与参考来源');
 check(/### Z\.17/.test(read('README.md')),
   '文末 Z.17 记录 SwiftUI 版被否定的原因与 iOS 签名限制');
+check(/launchUrl\(/.test(read('flutter/lib/pages_account.dart'))
+  && /appTokenExchange/.test(read('flutter/lib/pages_account.dart'))
+  && /url_launcher/.test(flPub),
+  'Flutter 账号页保留「浏览器授权登录」按钮与授权码兑换');
+check(/CFBundleURLTypes/.test(read('scripts/flutter-platform-patch.py')),
+  '两端注册 noxc:// 回跳 scheme');
 
 
 for (const m of ok) console.log('  ✓ ' + m);
