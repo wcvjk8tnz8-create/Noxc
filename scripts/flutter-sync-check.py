@@ -155,6 +155,16 @@ for sym, desc in [
 ]:
     check(sym in all_src, desc)
 check("Navigator.pushNamed" in all_src, '页面用命名路由，不自己 new Route')
+# CI annotations 抓到过的三类真实编译错误，锁死不再回流
+check('CurvedAnimation(parent:' in all_src and
+      'CurvedAnimation(_c,' not in all_src,
+      'CurvedAnimation 用命名参数 parent/curve（位置参数会编译失败）')
+check('Alignment.bottomLeading' not in all_src and
+      'Alignment.bottomLeft' in all_src,
+      'Alignment 用 bottomLeft（没有 bottomLeading）')
+check('const PageTransitionsTheme' not in all_src and
+      'CupertinoPageTransitionsBuilder' not in all_src,
+      'PageTransitionsTheme 不用 const map / 未导入的 Cupertino builder')
 
 # ── 6. workflow / 平台壳 ──
 wf = read('.github/workflows/flutter-app.yml')

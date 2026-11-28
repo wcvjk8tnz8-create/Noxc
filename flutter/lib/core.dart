@@ -208,10 +208,12 @@ class AppTheme with ChangeNotifier {
           ? const Color(0xFF121318)
           : const Color(0xFFF7F7F9),
       splashFactory: InkRipple.splashFactory,
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
+      // 不写 const：部分 Flutter 版本的 PageTransitionsBuilder 子类没有 const
+      // 构造，const map 会直接编译失败；这里两个平台都走稳定的淡入上移。
+      pageTransitionsTheme: PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
           TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: FadeUpwardsPageTransitionsBuilder(),
         },
       ),
       filledButtonTheme: FilledButtonThemeData(

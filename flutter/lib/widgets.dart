@@ -131,7 +131,7 @@ class _StaggerState extends State<Stagger> with SingleTickerProviderStateMixin {
     vsync: this,
     duration: Duration(milliseconds: 420 + widget.index.clamp(0, 12).toInt() * 42),
   )..forward();
-  late final Animation<double> _a = CurvedAnimation(_c, Curves.easeOutBack);
+  late final Animation<double> _a = CurvedAnimation(parent: _c, curve: Curves.easeOutBack);
 
   @override
   void initState() {
@@ -327,7 +327,7 @@ class HeroArt extends StatelessWidget {
   Widget build(BuildContext context) => ClipRRect(
         borderRadius: BorderRadius.circular(22),
         child: Stack(
-          alignment: Alignment.bottomLeading,
+          alignment: Alignment.bottomLeft,
           children: [
             Image.asset('assets/images/art_hero.png',
                 width: double.infinity, height: height, fit: BoxFit.cover),
