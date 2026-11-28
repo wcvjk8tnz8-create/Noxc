@@ -76,3 +76,10 @@ GitHub Actions `Build Noxc iOS IPA` 每次产出：
   若只走正式 https 站点、要上 App Store，应改成域名例外或去掉。
 - `UIAppFonts` 内置的 Noto Sans SC / Noto Serif SC 遵循 SIL OFL 1.1，
   许可证见 `Noxc/Fonts/OFL.txt`。
+
+## CI runner 标签
+
+`workflow_dispatch` 支持 `runner` 输入。默认 `macos-latest`；若账户把
+`macos-14` 解析为不受支持的 `macos-14-arm64-us-default` 配置，run 会在分配
+runner 前被 `cancelled`（详见主 README 文末 Z.16）。遇到这种情况在 Actions
+页面手动触发时改填 `macos-15` / `macos-15-intel` 即可，不必改工程。

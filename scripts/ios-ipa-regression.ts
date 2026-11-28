@@ -102,7 +102,8 @@ check(fs.existsSync(path.join(root, 'ios/Noxc/Fonts/OFL.txt')),
   '内置字体附 SIL OFL 许可证');
 
 /* ── D. CI：真编译 + 两类产物 + 可选签名 ── */
-check(/runs-on: macos-14/.test(wf), 'CI 用 macOS runner（真 Xcode 编译）');
+check(/runs-on: .*macos/.test(wf) && /github\.event\.inputs\.runner/.test(wf),
+  'CI 用 macOS runner（真 Xcode 编译），且标签可在 dispatch 时切换');
 check(/xcodebuild -list -project/.test(wf), 'CI 先校验工程能被 Xcode 打开');
 check(/clean archive/.test(wf) && /generic\/platform=iOS/.test(wf),
   'CI 真跑 archive 出真机包');
@@ -130,7 +131,13 @@ check(isUniversal(pbx) && !isUniversal(
 check(JSON.stringify(eps) === JSON.stringify(swiftEps)
   && JSON.stringify({ ...swiftEps, ghost: '/api/ghost' }) !== JSON.stringify(eps),
   '反向对照：契约多一条假接口时同源断言必须失败');
-check(/macos-14/.test(wf) && !/macos-14/.test(wf.replace('macos-14', 'ubuntu-latest')),
+const noMac = wf.split('macos-latest').join('ubuntu-latest')
+  .split('macos-15-intel').join('ubuntu-latest')
+  .split('macos-15').join('ubuntu-latest')
+  .split('macos-14').join('ubuntu-latest')
+  .split('macos-13').join('ubuntu-latest')
+  .split('macos').join('');
+check(/runs-on: .*macos/.test(wf) && !/runs-on: .*macos/.test(noMac),
   '反向对照：换成 Linux runner 时 CI 断言必须失败（Linux 编不出 IPA）');
 check(schemaJson.v === 2 && { ...schemaJson, v: 99 }.v !== 2,
   '反向对照：schema 版本被改时同源断言必须失败');

@@ -2354,7 +2354,7 @@ check(/TARGETED_DEVICE_FAMILY = "1,2"/.test(iosPbx),
 check(/UISupportedInterfaceOrientations~ipad/.test(iosInfo)
   && /UIRequiresFullScreen<\/key>\s*<false\/>/.test(iosInfo),
   'iPad 四向 + 分屏 / Slide Over');
-check(/runs-on: macos-14/.test(iosWf) && /Noxc-unsigned\.ipa/.test(iosWf),
+check(/runs-on: .*macos/.test(iosWf) && /Noxc-unsigned\.ipa/.test(iosWf),
   'iOS CI 在 macOS 上真编译并产出 IPA');
 check(/Noxc-Simulator\.app\.zip/.test(iosWf),
   'iOS CI 同时产出模拟器 .app（无需 Apple 账号即可运行）');
@@ -2368,6 +2368,9 @@ check(/签名|unsigned|Simulator/.test(iosReadme),
 check(/## 25\./.test(read('README.md'))
   && /ios\/README\.md/.test(read('README.md')),
   '主 README 第 25 节记录 iOS Universal IPA 与双端适配');
+check(/### Z\.16/.test(read('README.md'))
+  && /macos-14-arm64-us-default/.test(read('README.md')),
+  '文末 Z.16 记录 iOS runner 配置被拒的根因与排查顺序');
 
 
 for (const m of ok) console.log('  ✓ ' + m);

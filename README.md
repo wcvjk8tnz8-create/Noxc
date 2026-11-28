@@ -2169,7 +2169,11 @@ Slide Over / 台前调度都支持；布局按 `horizontalSizeClass` 切换，�
 `Generated/Endpoints.swift` / `Generated/schema.json` / Assets / OFL 字体），
 不依赖 xcodegen；新增 `.swift` 文件重跑一次生成器即可。
 `scripts/ios-sync-check.py`（标准库）与 `scripts/ios-ipa-regression.ts`
-阻断配置回流，`ios-ipa.yml` 在 `macos-14` 上真跑 `xcodebuild clean archive`。
+阻断配置回流，`ios-ipa.yml` 在 macOS runner 上真跑 `xcodebuild clean archive`。
+> 部分账户的 `macos-14` 会解析到不受支持的 arm64 配置、在分配 runner 前直接
+> `cancelled`（annotation: `The configuration 'macos-14-arm64-us-default' is
+> not supported`）。默认改为 `macos-latest`，手动触发时可用 `runner` 输入换
+> `macos-15` / `macos-15-intel` 等标签重试；详见文末 Z.16。
 
 **产物与签名前提**：CI 每次给出 `Noxc-unsigned.ipa`（未签名，真机不能直接装）、
 `Noxc-Simulator.app.zip`（拖进模拟器即可运行，无需 Apple 账号）；
@@ -2178,3 +2182,27 @@ Slide Over / 台前调度都支持；布局按 `horizontalSizeClass` 切换，�
 签名 IPA。**没有 Apple Developer 证书时，任何平台都编不出可直接真机安装的
 签名 IPA** —— 这是 iOS 签名机制决定的，不是构建失败；用 Xcode 自动签名
 `open ios/Noxc.xcodeproj` 是最省事的本地方案。详见 `ios/README.md`。
+
+### Z.16 · iOS 构建「秒取消」与 runner 配置
+
+**现象**：`Build Noxc iOS IPA` 的 run 创建后约 1–2 秒就 `completed / cancelled`，
+job 里**一个步骤都没有**，`runner_id = 0`、`runner_name` 为空。不是编译报错，
+也不是并发取消 —— `workflow_dispatch` 手动触发、仓库里没有其它 iOS run 时同样复现。
+
+**根因**：GitHub 在分配 runner 之前就判配置不合法，check-run annotation 写明
+`The configuration 'macos-14-arm64-us-default' is not supported`。
+该账户下 `macos-14` 解析到的 arm64 托管配置不可用，作业连机器都没拿到。
+
+**处理**：`runs-on` 默认改成 `macos-latest`，并暴露 `workflow_dispatch` 的
+`runner` 输入；手动触发时可填 `macos-15` / `macos-15-intel` 等标签逐个试，
+不用为每个标签改一次 workflow 再提交。回归断言也改成「必须是 macOS runner」，
+不再锁死某个具体版本。
+
+**排查顺序**：先看 run 的 annotation（Jobs 页 / Checks 页能看，日志下载被 403
+挡住时尤其有用）；再看 job 的 `runner_id` 是否为 0 —— 为 0 就是平台层拒绝，
+换 runner 标签，不要去改 Xcode 工程。只有 job 真的分到 runner、某一步标红，
+才按 `xcodebuild` 的报错走。
+
+**仍然存在的限制**：没有 Apple Developer 证书时，任何平台都只能产出未签名 IPA
+与模拟器包，不能直接装真机；这不是构建失败。签名方案见第 25 节和 `ios/README.md`。
+

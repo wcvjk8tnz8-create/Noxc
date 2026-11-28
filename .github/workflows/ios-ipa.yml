@@ -14,6 +14,10 @@ on:
       - 'src/lib/appSchema.ts'
   workflow_dispatch:
     inputs:
+      runner:
+        description: 'macOS runner 标签（留空用 macos-latest；账户不支持时可试 macos-15 / macos-15-intel）'
+        required: false
+        default: 'macos-latest'
       create_release:
         description: '同时发布到 GitHub Releases（需已配置签名 Secrets）'
         type: boolean
@@ -24,7 +28,10 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14
+    # GitHub 部分账户的 macos-14 会解析到不受支持的 arm64 配置并在分配 runner 前
+    # 直接 cancel（annotation: "The configuration 'macos-14-arm64-us-default'
+    # is not supported"）。默认用 macos-latest，并允许手动触发时换标签重试。
+    runs-on: ${{ github.event.inputs.runner || 'macos-latest' }}
 
     env:
       # 四个 Secrets 齐全时额外产出可真机安装的签名 IPA；
