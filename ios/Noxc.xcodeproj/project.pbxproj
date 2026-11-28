@@ -1,0 +1,347 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		27B787277CDD1B9B06449ACA /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B6D1B869703D853779A728 /* AccountView.swift */; };
+		155B3E3F469ACF9E7A5FE1A9 /* AppAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44646FA30F30CB62274198C9 /* AppAPI.swift */; };
+		9ECF5B5399721C0BECD1576B /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E871255102DB2DE1EA87CF /* AppStore.swift */; };
+		61DB9A0E828F9B196E8F7EA8 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D43C29CA24796C973085817 /* Components.swift */; };
+		5C9C95F33DC9414592D228A0 /* DomainsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65F369E26B7CFA74C8F1668A /* DomainsView.swift */; };
+		08BFC62376D54A5C08A6271D /* Generated/Endpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAEEA226C8FCFCC259B93A1D /* Endpoints.swift */; };
+		2854E9BCD2926D8DF3804B1D /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54327A888686473FC8CDCF3F /* HomeView.swift */; };
+		A2994ADE27C865DE4949FF5C /* HubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86EE4100855A511E3FF7EB25 /* HubView.swift */; };
+		1AEC10787D3F3DBDB8577640 /* JSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1694944FC56C779138C50E8F /* JSON.swift */; };
+		83E1107968756263598D4B67 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 380D40BF946911433A245FE4 /* L10n.swift */; };
+		A40F3C2BD18EB38315904571 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 279A7AABB1D6C3D622CF2D5E /* Motion.swift */; };
+		00B067B9D7CE95D9F970C092 /* NoxcApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1266924AE951ADD626B1926 /* NoxcApp.swift */; };
+		348FAE323ED4B161A343DFDD /* PointsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B213AE42542EB8566EEC819A /* PointsView.swift */; };
+		6480A659FC07FA3063EC3C72 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED18F4BBAB1E2AB591789ECB /* ProfileView.swift */; };
+		CE56AE5445B319FF5766A4AE /* SchemaScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5D7586D2A9963072259754 /* SchemaScreenView.swift */; };
+		8A10E93D2DA073312D3C6CC8 /* SliderCaptchaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97B4089579BB5109BF7F3C5E /* SliderCaptchaView.swift */; };
+		AFF2E6B5878A5FA075E81EB1 /* Generated/schema.json in Resources */ = {isa = PBXBuildFile; fileRef = 89975CA4FB43B48D87D588C9 /* schema.json */; };
+		42E3CAF9E467F99F3AF2B7A4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5E0BA1D1A8F69207062F1625 /* Assets.xcassets */; };
+		46C88980E69A9D589F5625EB /* Fonts/NotoSansSC-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8D893496A165C1E4DF9F0E02 /* NotoSansSC-Regular.ttf */; };
+		075BAA872930379EA40A6991 /* Fonts/NotoSerifSC-VF.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 633DD857474F06A32E00EF4E /* NotoSerifSC-VF.ttf */; };
+		8E719A581774C64D00B1FB5F /* Fonts/OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 1EA8D3F5EDC6D53478C029C9 /* OFL.txt */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		E1B6D1B869703D853779A728 /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
+		44646FA30F30CB62274198C9 /* AppAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAPI.swift; sourceTree = "<group>"; };
+		20E871255102DB2DE1EA87CF /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		6D43C29CA24796C973085817 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		65F369E26B7CFA74C8F1668A /* DomainsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainsView.swift; sourceTree = "<group>"; };
+		EAEEA226C8FCFCC259B93A1D /* Endpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Endpoints.swift; sourceTree = "<group>"; };
+		54327A888686473FC8CDCF3F /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		86EE4100855A511E3FF7EB25 /* HubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubView.swift; sourceTree = "<group>"; };
+		1694944FC56C779138C50E8F /* JSON.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSON.swift; sourceTree = "<group>"; };
+		380D40BF946911433A245FE4 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		279A7AABB1D6C3D622CF2D5E /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
+		F1266924AE951ADD626B1926 /* NoxcApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoxcApp.swift; sourceTree = "<group>"; };
+		B213AE42542EB8566EEC819A /* PointsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointsView.swift; sourceTree = "<group>"; };
+		ED18F4BBAB1E2AB591789ECB /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		5F5D7586D2A9963072259754 /* SchemaScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaScreenView.swift; sourceTree = "<group>"; };
+		97B4089579BB5109BF7F3C5E /* SliderCaptchaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SliderCaptchaView.swift; sourceTree = "<group>"; };
+		89975CA4FB43B48D87D588C9 /* schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = schema.json; sourceTree = "<group>"; };
+		5E0BA1D1A8F69207062F1625 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		8D893496A165C1E4DF9F0E02 /* NotoSansSC-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = NotoSansSC-Regular.ttf; sourceTree = "<group>"; };
+		633DD857474F06A32E00EF4E /* NotoSerifSC-VF.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = NotoSerifSC-VF.ttf; sourceTree = "<group>"; };
+		1EA8D3F5EDC6D53478C029C9 /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OFL.txt; sourceTree = "<group>"; };
+		8A7B345F7B70FDD9E20B49CE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		EB6DFC6A003F602FE74AECE3 /* Noxc.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Noxc.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		23348E6B765B647760720FE7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		79C8F6389C382219A5DF87DB = {
+			isa = PBXGroup;
+			children = (
+				B1854A0B71D69404CC1DCB4E /* Noxc */,
+				3BC7BCEE63469D258BD0546A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B1854A0B71D69404CC1DCB4E /* Noxc */ = {
+			isa = PBXGroup;
+			children = (
+				DD13DBFF61D2E082F2A44770 /* Generated */,
+				4325E6527F488D7122C3E71C /* Fonts */,
+				BDA9C8448B31EFA360586238 /* Resources */,
+				E1B6D1B869703D853779A728 /* AccountView.swift */,
+				44646FA30F30CB62274198C9 /* AppAPI.swift */,
+				20E871255102DB2DE1EA87CF /* AppStore.swift */,
+				6D43C29CA24796C973085817 /* Components.swift */,
+				65F369E26B7CFA74C8F1668A /* DomainsView.swift */,
+				54327A888686473FC8CDCF3F /* HomeView.swift */,
+				86EE4100855A511E3FF7EB25 /* HubView.swift */,
+				1694944FC56C779138C50E8F /* JSON.swift */,
+				380D40BF946911433A245FE4 /* L10n.swift */,
+				279A7AABB1D6C3D622CF2D5E /* Motion.swift */,
+				F1266924AE951ADD626B1926 /* NoxcApp.swift */,
+				B213AE42542EB8566EEC819A /* PointsView.swift */,
+				ED18F4BBAB1E2AB591789ECB /* ProfileView.swift */,
+				5F5D7586D2A9963072259754 /* SchemaScreenView.swift */,
+				97B4089579BB5109BF7F3C5E /* SliderCaptchaView.swift */,
+				8A7B345F7B70FDD9E20B49CE /* Info.plist */,
+			);
+			path = Noxc;
+			sourceTree = "<group>";
+		};
+		DD13DBFF61D2E082F2A44770 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				EAEEA226C8FCFCC259B93A1D /* Endpoints.swift */,
+				89975CA4FB43B48D87D588C9 /* schema.json */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		4325E6527F488D7122C3E71C /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				8D893496A165C1E4DF9F0E02 /* NotoSansSC-Regular.ttf */,
+				633DD857474F06A32E00EF4E /* NotoSerifSC-VF.ttf */,
+				1EA8D3F5EDC6D53478C029C9 /* OFL.txt */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		BDA9C8448B31EFA360586238 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				5E0BA1D1A8F69207062F1625 /* Assets.xcassets */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		3BC7BCEE63469D258BD0546A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				EB6DFC6A003F602FE74AECE3 /* Noxc.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8192B0F5545D83C0CBF8F525 /* Noxc */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D45731ACAF62834DCDA39DC3 /* Build configuration list for PBXNativeTarget "Noxc" */;
+			buildPhases = (
+				EE32FE7FC325FB408F42453F /* Sources */,
+				23348E6B765B647760720FE7 /* Frameworks */,
+				FAF276808753EF5405A3D8D5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Noxc;
+			productName = Noxc;
+			productReference = EB6DFC6A003F602FE74AECE3 /* Noxc.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		5A69CF2401DE8E04D5FDDEC0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					8192B0F5545D83C0CBF8F525 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = 8D5B549E96B44B6C719D3F73 /* Build configuration list for PBXProject "Noxc" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = 79C8F6389C382219A5DF87DB;
+			productRefGroup = 3BC7BCEE63469D258BD0546A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8192B0F5545D83C0CBF8F525 /* Noxc */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		FAF276808753EF5405A3D8D5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AFF2E6B5878A5FA075E81EB1 /* schema.json in Resources */,
+				42E3CAF9E467F99F3AF2B7A4 /* Assets.xcassets in Resources */,
+				46C88980E69A9D589F5625EB /* NotoSansSC-Regular.ttf in Resources */,
+				075BAA872930379EA40A6991 /* NotoSerifSC-VF.ttf in Resources */,
+				8E719A581774C64D00B1FB5F /* OFL.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		EE32FE7FC325FB408F42453F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				27B787277CDD1B9B06449ACA /* AccountView.swift in Sources */,
+				155B3E3F469ACF9E7A5FE1A9 /* AppAPI.swift in Sources */,
+				9ECF5B5399721C0BECD1576B /* AppStore.swift in Sources */,
+				61DB9A0E828F9B196E8F7EA8 /* Components.swift in Sources */,
+				5C9C95F33DC9414592D228A0 /* DomainsView.swift in Sources */,
+				08BFC62376D54A5C08A6271D /* Endpoints.swift in Sources */,
+				2854E9BCD2926D8DF3804B1D /* HomeView.swift in Sources */,
+				A2994ADE27C865DE4949FF5C /* HubView.swift in Sources */,
+				1AEC10787D3F3DBDB8577640 /* JSON.swift in Sources */,
+				83E1107968756263598D4B67 /* L10n.swift in Sources */,
+				A40F3C2BD18EB38315904571 /* Motion.swift in Sources */,
+				00B067B9D7CE95D9F970C092 /* NoxcApp.swift in Sources */,
+				348FAE323ED4B161A343DFDD /* PointsView.swift in Sources */,
+				6480A659FC07FA3063EC3C72 /* ProfileView.swift in Sources */,
+				CE56AE5445B319FF5766A4AE /* SchemaScreenView.swift in Sources */,
+				8A10E93D2DA073312D3C6CC8 /* SliderCaptchaView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		374807A36D7251330BB29D09 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		60560F3A52088AD8CAFFDCA8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		0B76758D55D05B3B720C5CBE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Noxc/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = xyz.noxc.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+			};
+			name = Debug;
+		};
+		82F2B5AA9A9F9420C8DB7201 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Noxc/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = xyz.noxc.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		8D5B549E96B44B6C719D3F73 /* Build configuration list for PBXProject "Noxc" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				374807A36D7251330BB29D09 /* Debug */,
+				60560F3A52088AD8CAFFDCA8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D45731ACAF62834DCDA39DC3 /* Build configuration list for PBXNativeTarget "Noxc" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0B76758D55D05B3B720C5CBE /* Debug */,
+				82F2B5AA9A9F9420C8DB7201 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 5A69CF2401DE8E04D5FDDEC0 /* Project object */;
+}

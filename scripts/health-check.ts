@@ -2344,6 +2344,32 @@ check(/mobile-render\.py/.test(read('scripts/mobile-regression.ts'))
   '浏览器实拍 + CI 静态回归成对存在');
 check(/### Z\.13/.test(read('README.md')), 'README 文末 Z.13 记录手机适配');
 
+/* iOS Universal 工程：与 Android 共用同一份服务端契约与 schema */
+const iosPbx = read('ios/Noxc.xcodeproj/project.pbxproj');
+const iosInfo = read('ios/Noxc/Info.plist');
+const iosWf = read('.github/workflows/ios-ipa.yml');
+const iosReadme = read('ios/README.md');
+check(/TARGETED_DEVICE_FAMILY = "1,2"/.test(iosPbx),
+  'iOS 工程同时支持 iPhone 与 iPad');
+check(/UISupportedInterfaceOrientations~ipad/.test(iosInfo)
+  && /UIRequiresFullScreen<\/key>\s*<false\/>/.test(iosInfo),
+  'iPad 四向 + 分屏 / Slide Over');
+check(/runs-on: macos-14/.test(iosWf) && /Noxc-unsigned\.ipa/.test(iosWf),
+  'iOS CI 在 macOS 上真编译并产出 IPA');
+check(/Noxc-Simulator\.app\.zip/.test(iosWf),
+  'iOS CI 同时产出模拟器 .app（无需 Apple 账号即可运行）');
+check(/NavigationSplitView/.test(read('ios/Noxc/NoxcApp.swift')),
+  'iPad 用三栏 NavigationSplitView');
+check(/Endpoints\.defaults/.test(read('ios/Noxc/AppAPI.swift'))
+  && read('ios/Noxc/Generated/Endpoints.swift').includes('"schema":'),
+  'iOS 走同一份 endpoints 契约');
+check(/签名|unsigned|Simulator/.test(iosReadme),
+  'iOS README 说明未签名 IPA 与签名前提');
+check(/## 25\./.test(read('README.md'))
+  && /ios\/README\.md/.test(read('README.md')),
+  '主 README 第 25 节记录 iOS Universal IPA 与双端适配');
+
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);
 console.log(`健康巡检：${ok.length} 通过，${errors.length} 失败`);

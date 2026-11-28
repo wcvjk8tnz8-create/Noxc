@@ -165,6 +165,10 @@ jobs:
       - name: App 专用接口回归（bootstrap 聚合 / 字段同源 / 脱敏 / 契约）
         run: npx tsx scripts/app-api-regression.ts
 
+      # iOS Universal 工程：双家族 / 三栏适配 / schema 同源 / 出包路径
+      - name: iOS Universal IPA 回归
+        run: npx tsx scripts/ios-ipa-regression.ts
+
       - name: AnyNS 管理 API 接入回归（n.ht 社区官方文档）
         run: npx tsx scripts/anyns-api-regression.ts
 

@@ -1,0 +1,4 @@
+Noto Sans SC / Noto Serif SC are licensed under the SIL Open Font License 1.1.
+Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+This font bundle is redistributed unmodified as an Android app asset.
+Full license: https://scripts.sil.org/OFL

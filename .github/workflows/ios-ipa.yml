@@ -1,0 +1,185 @@
+name: Build Noxc iOS IPA
+
+# Universal 原生 App（iPhone + iPad）。只有 iOS 工程 / 生成脚本 / 服务端契约
+# 变化时才出包；也可随时手动跑一次。
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-ipa.yml'
+      - 'scripts/gen-ios-project.py'
+      - 'scripts/ios-sync-check.py'
+      - 'src/routes/app.ts'
+      - 'src/lib/appSchema.ts'
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: '同时发布到 GitHub Releases（需已配置签名 Secrets）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    env:
+      # 四个 Secrets 齐全时额外产出可真机安装的签名 IPA；
+      # 没配时仍产出未签名 IPA + 模拟器 .app，CI 不会失败。
+      IOS_P12: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+      IOS_P12_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+      IOS_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+      IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 校验 Xcode 与工程
+        run: |
+          xcodebuild -version
+          xcode-select -p
+          plutil -lint ios/Noxc/Info.plist
+          plutil -lint ios/ExportOptions.plist
+          # Contents.json 是 JSON 不是 plist，用标准库校验
+          python3 - <<'PY'
+          import glob, json, sys
+          files = glob.glob('ios/Noxc/Assets.xcassets/**/Contents.json', recursive=True)
+          for f in files:
+              json.load(open(f, encoding='utf-8'))
+          print('✔ %d 个 asset 目录 Contents.json 合法' % len(files))
+          PY
+          xcodebuild -list -project ios/Noxc.xcodeproj
+
+      - name: 校验生成产物与服务端同源
+        run: python3 scripts/ios-sync-check.py
+
+      - name: iOS 工程防回流回归
+        run: npx --yes tsx scripts/ios-ipa-regression.ts
+
+      - name: 构建未签名真机 Archive
+        run: |
+          rm -rf build
+          xcodebuild \
+            -project ios/Noxc.xcodeproj \
+            -scheme Noxc \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/Noxc.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            -allowProvisioningUpdates \
+            clean archive
+
+      - name: 打包未签名 IPA
+        run: |
+          APP="$PWD/build/Noxc.xcarchive/Products/Applications/Noxc.app"
+          test -d "$APP" || { echo "::error::Archive 里没有 Noxc.app"; exit 1; }
+          mkdir -p "$PWD/build/Payload"
+          cp -R "$APP" "$PWD/build/Payload/"
+          (cd "$PWD/build" && zip -qry Noxc-unsigned.ipa Payload)
+          ls -lh "$PWD/build/Noxc-unsigned.ipa"
+          # 校验 Universal：编译产物里必须同时有 iPhone(1) 和 iPad(2)
+          plutil -extract UIDeviceFamily json -o - "$APP/Info.plist"
+          python3 - <<'PY'
+          import json, subprocess, os
+          app = os.path.join(os.environ['GITHUB_WORKSPACE'], 'build/Noxc.xcarchive/Products/Applications/Noxc.app')
+          fam = json.loads(subprocess.check_output(
+              ['plutil', '-extract', 'UIDeviceFamily', 'json', '-o', '-', app + '/Info.plist']))
+          if '1' not in [str(x) for x in fam] or '2' not in [str(x) for x in fam]:
+              print('::error::IPA 不是 Universal（缺 iPhone 或 iPad）', fam); raise SystemExit(1)
+          print('✔ Universal device family:', fam)
+          ipa = os.path.join(os.environ['GITHUB_WORKSPACE'], 'build/Noxc-unsigned.ipa')
+          size = os.path.getsize(ipa)
+          print('  IPA 体积: %d bytes (%.2f MB)' % (size, size / 1048576.0))
+          if size < 5_000_000:
+              print('::error::IPA 体积过小，可能没把插画 / 字体 / 资源打进去'); raise SystemExit(1)
+          PY
+
+      - name: 构建模拟器 .app（无需 Apple 账号即可运行）
+        run: |
+          xcodebuild \
+            -project ios/Noxc.xcodeproj \
+            -scheme Noxc \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$PWD/build/sim" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+          SIMAPP="$PWD/build/sim/Build/Products/Debug-iphonesimulator/Noxc.app"
+          test -d "$SIMAPP" || { echo "::error::没找到模拟器 .app"; exit 1; }
+          (cd "$(dirname "$SIMAPP")" && zip -qry "$GITHUB_WORKSPACE/build/Noxc-Simulator.app.zip" Noxc.app)
+          ls -lh "$PWD/build/Noxc-Simulator.app.zip"
+
+      - name: 导入签名证书（配置了 Secrets 才执行）
+        if: ${{ env.IOS_P12 != '' && env.IOS_P12_PASSWORD != '' && env.IOS_PROFILE != '' && env.IOS_TEAM_ID != '' }}
+        run: |
+          KC="$RUNNER_TEMP/noxc.keychain-db"
+          security create-keychain -p "$RUNNER_TEMP" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$RUNNER_TEMP" "$KC"
+          echo "$IOS_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$IOS_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$RUNNER_TEMP" "$KC"
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          echo "$IOS_PROFILE" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          NAME=$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" | plutil -extract Name raw -)
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$NAME.mobileprovision"
+          echo "PROFILE_NAME=$NAME" >> "$GITHUB_ENV"
+          sed -e "s/__TEAM_ID__/$IOS_TEAM_ID/" -e "s/__PROFILE_NAME__/$NAME/" \
+            ios/ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: 导出可安装签名 IPA
+        if: ${{ env.IOS_P12 != '' && env.IOS_P12_PASSWORD != '' && env.IOS_PROFILE != '' && env.IOS_TEAM_ID != '' }}
+        run: |
+          xcodebuild \
+            -project ios/Noxc.xcodeproj \
+            -scheme Noxc \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/Noxc-signed.xcarchive" \
+            DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            -allowProvisioningUpdates \
+            clean archive
+          xcodebuild -exportArchive \
+            -archivePath "$PWD/build/Noxc-signed.xcarchive" \
+            -exportPath "$PWD/build/signed" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+          ls -lh "$PWD/build/signed"
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxc-ipa-${{ github.run_number }}
+          path: |
+            build/Noxc-unsigned.ipa
+            build/Noxc-Simulator.app.zip
+            build/signed/*.ipa
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: 发布到 GitHub Releases
+        if: ${{ inputs.create_release && env.IOS_P12 != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-v${{ github.run_number }}
+          name: Noxc iOS · build ${{ github.run_number }}
+          body: |
+            由 GitHub Actions 从 `${{ github.sha }}` 自动构建（Universal：iPhone + iPad）。
+
+            - `Noxc-unsigned.ipa`：未签名真机包，需 Xcode / 开发者证书重签后安装
+            - `Noxc-Simulator.app.zip`：解压后拖进 iOS Simulator 即可运行
+            - 配置签名 Secrets 时会额外产出 ad-hoc 签名的 `.ipa`

@@ -25,6 +25,7 @@
 | meoy.top 迁移至 AnyNS · 解析已恢复 | 第 21 节 / 附录 Z.12 |
 | 第三方域名接入（独立页 / 文档） | 第 22 节 / `/external-domains` · `/docs/external-domains.html` |
 | Noxc 手机版（Material 3 原生 APK）/ App 专用接口 / 签名 / 换站点 | 第 23 节 · 第 24 节 / `.github/workflows/android-apk.yml` · 附录 Z.15 |
+| **Noxc iOS 版（Universal IPA：iPhone + iPad）** | **第 25 节 / `ios/README.md` / `.github/workflows/ios-ipa.yml`**
 
 ---
 
@@ -2143,3 +2144,37 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
   `python3 scripts/gen-android-icons.py`。
 - **以为 APK 里打包了网页**：没有。APK 只有原生控件 + Material 资源 + 网络层，
   页面数据实时取自 Worker；离线时显示原生断网页，不会假装能用。
+
+---
+
+## 25. Noxc iOS 版 · Universal IPA（iPhone + iPad）
+
+纯 SwiftUI 原生 App，零 WebView、零第三方依赖，与 Android 端共用同一份
+`GET /api/app/v1/schema`（10 组 / 48 页）与 `bootstrap.endpoints`（148 条契约）。
+
+| 端 | 导航 | 功能中心 |
+|---|---|---|
+| iPhone | `TabView` 五标签 + `NavigationStack` | 2 列 Bento |
+| iPad | `NavigationSplitView` 三栏（侧栏 / 分组 / 详情） | 3–4 列 Bento |
+
+`TARGETED_DEVICE_FAMILY = 1,2`、`UIRequiresFullScreen = false`、
+`UIApplicationSupportsMultipleScenes = true`，iPad 四向、Split View /
+Slide Over / 台前调度都支持；布局按 `horizontalSizeClass` 切换，不是两套代码。
+部署目标 iOS 16。功能包含原生精修页（首页 / 域名 / 积分 / 我的 / 登录注册找回 /
+设置）、原生滑块验证申请域名，以及 `SchemaScreenView` 全站通用渲染器
+（动态表单 / 数据列表 / 行内动作 / 结果区 / 骨架屏 / 空状态）。
+动效是错落入场、弹簧按压、数字滚动、骨架屏扫光、成功脉冲，尊重系统「减少动画」。
+
+**工程由 `scripts/gen-ios-project.py` 生成**（pbxproj / plist / scheme /
+`Generated/Endpoints.swift` / `Generated/schema.json` / Assets / OFL 字体），
+不依赖 xcodegen；新增 `.swift` 文件重跑一次生成器即可。
+`scripts/ios-sync-check.py`（标准库）与 `scripts/ios-ipa-regression.ts`
+阻断配置回流，`ios-ipa.yml` 在 `macos-14` 上真跑 `xcodebuild clean archive`。
+
+**产物与签名前提**：CI 每次给出 `Noxc-unsigned.ipa`（未签名，真机不能直接装）、
+`Noxc-Simulator.app.zip`（拖进模拟器即可运行，无需 Apple 账号）；
+配置了 `IOS_CERTIFICATE_P12_BASE64` / `IOS_CERTIFICATE_PASSWORD` /
+`IOS_PROVISIONING_PROFILE_BASE64` / `IOS_TEAM_ID` 四个 Secret 时额外导出 ad-hoc
+签名 IPA。**没有 Apple Developer 证书时，任何平台都编不出可直接真机安装的
+签名 IPA** —— 这是 iOS 签名机制决定的，不是构建失败；用 Xcode 自动签名
+`open ios/Noxc.xcodeproj` 是最省事的本地方案。详见 `ios/README.md`。
