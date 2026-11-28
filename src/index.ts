@@ -49,6 +49,7 @@ import backupRoutes from './routes/backup.js';
 import emailRequestRoutes from './routes/emailRequests.js';
 import showcaseRoutes from './routes/showcase.js';
 import { createAppRoutes } from './routes/app.js';
+import appAuthRoutes, { authorizePage } from './routes/appAuth.js';
 
 const app = new Hono();
 
@@ -398,6 +399,10 @@ app.route('/api/app/v1', createAppRoutes(
   },
 ));
 
+/* App 浏览器授权登录：/issue 需登录（自己判 c.get('user')），/exchange 公开。
+   挂在 requireAuth 段之前，避免 /exchange 被拦截（凭一次性码换会话）。 */
+app.route('/api/app/v1/auth', appAuthRoutes);
+
 // 需要登录的接口
 // 滑块验证独立前缀也要登录：未登录领不到挑战，也就没法为别人刷票据
 app.use('/api/captcha', requireAuth);
@@ -440,6 +445,14 @@ app.route('/api/abuse', abuseRoutes);
 
 // API 兜底
 app.all('/api/*', (c) => fail(c, '接口不存在', 404));
+
+/* App 浏览器授权页：Worker 直出 HTML，不依赖前端构建链。
+   必须早于末尾的 app.all('*') SPA 回落，否则会被 ASSETS 当成前端路由处理。 */
+app.get('/app-authorize', (c) => {
+  const res = c.html(authorizePage());
+  res.headers.set('Cache-Control', 'private, no-store');
+  return res;
+});
 
 // 静态资源：run_worker_first = true 时由 Worker 回落到 ASSETS
 // 注意：不要自己改写路径（补 index.html、去 .html 等）。

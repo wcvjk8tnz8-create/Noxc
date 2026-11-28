@@ -249,4 +249,11 @@
     <string name="password_send_code">Send code to account email</string>
     <string name="services_community">Community</string>
     <string name="admin_console_hint">Review applications, manage users, edit site settings and DNS locks — all natively.</string>
+    <string name="login_browser_auth">Sign in via browser</string>
+    <string name="login_auth_code">Enter authorization code</string>
+    <string name="browser_auth_help">Open the site, sign in with email / GitHub / NodeLoc, then tap "Authorize". Copy the one-time code and paste it here.</string>
+    <string name="browser_auth_open">Open authorize page</string>
+    <string name="auth_code_hint">12-character code</string>
+    <string name="browser_auth_success">Signed in</string>
+    <string name="browser_auth_failed">Authorization failed, please try again</string>
 </resources>

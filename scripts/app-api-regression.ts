@@ -24,7 +24,8 @@ const check = (v: any, m: string) => (v ? ok.push(m) : bad.push(m));
 const read = (p: string) => fs.readFileSync(path.resolve(p), 'utf8');
 
 /* ───────── A. 宽容内存 D1：未知表返回空、写操作成功 ───────── */
-function makeEnv(opts: { loggedIn?: boolean; announcement?: string } = {}) {
+function makeEnv(opts: { loggedIn?: boolean; announcement?: string;
+  authCode?: any } = {}) {
   const announcement = opts.announcement ?? '欢迎使用 Noxc';
   const settings: Record<string, string> = {
     site_name: 'Noxc',
@@ -44,8 +45,36 @@ function makeEnv(opts: { loggedIn?: boolean; announcement?: string } = {}) {
   };
   const session = { token: 'tok-app', user_id: 7, expires_at: Date.now() + 86400000 };
 
+  // app_auth_codes：一次性授权码的内存表（issue 写 / exchange 读并标记 used）
+  const codes = new Map<string, any>();
+  if (opts.authCode) codes.set(opts.authCode.code, opts.authCode);
+
   const exec = (sql: string, args: any[]) => {
     const s = sql.replace(/\s+/g, ' ').trim();
+    if (/^INSERT INTO app_auth_codes/.test(s)) {
+      codes.set(String(args[0]), {
+        code: String(args[0]), token: String(args[1]), user_id: Number(args[2]),
+        max_age: Number(args[3]), exp: Number(args[4]), used: 0,
+      });
+      return [];
+    }
+    if (/^SELECT \* FROM app_auth_codes WHERE code = \?/.test(s)) {
+      const row = codes.get(String(args[0]));
+      return row ? [row] : [];
+    }
+    if (/^UPDATE app_auth_codes SET used = 1/.test(s)) {
+      const row = codes.get(String(args[0]));
+      if (row) codes.set(String(args[0]), { ...row, used: 1 });
+      return [];
+    }
+    if (/^DELETE FROM app_auth_codes WHERE exp/.test(s)) {
+      const t = Number(args[0]);
+      for (const [k, v] of codes) if (Number(v.exp) < t) codes.delete(k);
+      return [];
+    }
+    if (/^SELECT user_id, expires_at FROM sessions WHERE token = \?/.test(s)) {
+      return opts.loggedIn ? [session] : [];
+    }
     if (/^SELECT key, value FROM settings WHERE key IN \(/.test(s)) {
       const m = s.match(/IN \((.*?)\)/);
       const keys = (m ? m[1] : '').split(',').map((x) => x.trim().replace(/^'|'$/g, ''));
@@ -92,13 +121,25 @@ function makeEnv(opts: { loggedIn?: boolean; announcement?: string } = {}) {
 
 const CTX: any = { waitUntil() {}, passThroughOnException() {} };
 
-async function call(url: string, env: any, cookie = '') {
+async function call(url: string, env: any, cookie = '', init: RequestInit = {}) {
   invalidatePublicConfig();
   const headers: Record<string, string> = { Accept: 'application/json', 'X-Lang': 'zh' };
   if (cookie) headers.Cookie = cookie;
-  const res = await app.fetch(new Request('https://nic.test' + url, { headers }), env, CTX);
+  const res = await app.fetch(new Request('https://nic.test' + url, {
+    ...init, headers: { ...headers, ...(init.headers as any || {}) },
+  }), env, CTX);
   return { status: res.status, headers: res.headers, body: await res.json().catch(() => ({})) as any };
 }
+
+async function callText(url: string, env: any) {
+  const res = await app.fetch(new Request('https://nic.test' + url), env, CTX);
+  return { status: res.status, headers: res.headers, text: await res.text() };
+}
+
+const post = (body: any): RequestInit => ({
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+});
 
 /* ───────── B. 未登录 ───────── */
 const guest = await call('/api/app/v1/bootstrap', makeEnv());
@@ -244,7 +285,149 @@ const brokenJava = mainJava.replace('api.bootstrap(fresh,', 'api.get("/api/confi
 check(!/api\.bootstrap\(fresh/.test(brokenJava),
   '反向对照：App 退回拼 /api/config 必须被抓住');
 
+{
+/* ═════════ G. 全量契约 vs 真实路由（防止「接口不存在」再次出现） ═════════
+   真机反馈：DNS 记录页报「接口不存在」。根因是 endpoints.records 写成
+   /api/records/subdomains/{id}/records，而真实挂载是 /api/subdomains/{id}/records。
+   这里不再抽查几条，而是把 index.ts 的所有 app.route 挂载 + 各 routes 文件里
+   所有 app.get/post/patch/put/delete 展开成真实路径集合，逐条核对契约。 */
+const idxSrcAll = read('src/index.ts');
+const imports: Record<string, string> = {};
+for (const m of idxSrcAll.matchAll(/import\s+(\w+)\s+from\s+'\.\/routes\/(\w+)\.js'/g)) {
+  imports[m[1]] = m[2] + '.ts';
+}
+for (const m of idxSrcAll.matchAll(/import\s+(\w+)\s*,\s*\{[^}]*\}\s+from\s+'\.\/routes\/(\w+)\.js'/g)) {
+  imports[m[1]] = m[2] + '.ts';
+}
+const realRoutes: Record<string, Set<string>> = {};
+const addRoute = (full: string, method: string) => {
+  const p = full.replace(/\/+$/, '') || '/';
+  (realRoutes[p] ||= new Set()).add(method.toUpperCase());
+};
+for (const m of idxSrcAll.matchAll(/app\.route\('([^']+)',\s*(\w+)\)/g)) {
+  const prefix = m[1], varName = m[2], f = imports[varName];
+  if (!f) continue;
+  const fp = 'src/routes/' + f;
+  if (!fs.existsSync(fp)) continue;
+  const src = read(fp);
+  for (const r of src.matchAll(/app\.(get|post|patch|put|delete)\('([^']+)'/g)) {
+    addRoute(prefix + r[2], r[1]);
+  }
+}
+for (const m of idxSrcAll.matchAll(/app\.(get|post|patch|put|delete)\('([^']+)'/g)) {
+  addRoute(m[2], m[1]);
+}
+/* createAppRoutes 是 factory：/admin/overview 定义在 factory 内部（r.get），
+   不是文件顶层的 app.get，所以要按实际挂载前缀手工补一次。 */
+addRoute('/api/app/v1/admin/overview', 'get');
+const appTs = read('src/routes/app.ts');
+const epBlock = appTs.slice(appTs.indexOf('endpoints: {'), appTs.indexOf('      capabilities: {'));
+const eps: Record<string, string> = {};
+for (const m of epBlock.matchAll(/^\s*(\w+):\s*'([^']+)',/gm)) eps[m[1]] = m[2];
+
+const normPath = (p: string) => p.split('?')[0].replace(/\{[^}]+\}/g, ':P');
+const findRoute = (p: string) => {
+  const n = normPath(p);
+  return Object.keys(realRoutes).find((r) => r.replace(/:[A-Za-z_]\w*/g, ':P') === n);
+};
+const unmatched = Object.entries(eps).filter(([, v]) =>
+  v.startsWith('/api/') && !findRoute(v));
+check(unmatched.length === 0,
+  `endpoints 全部 ${Object.keys(eps).length} 条都命中真实路由（不匹配 ${unmatched.length} 条：${unmatched.map(([k, v]) => k + '=' + v).join(', ')}）`);
+check(eps.records === '/api/subdomains/{id}/records',
+  'DNS 记录列表路径修好：/api/subdomains/{id}/records（与 recordRoutes 挂载一致）');
+check(eps.recordUpdate === '/api/records/{rid}' && eps.recordDelete === '/api/records/{rid}',
+  'DNS 单条改 / 删路径 /api/records/{rid}');
+check(!!findRoute('/app-authorize'), '浏览器授权页 /app-authorize 真实注册在 SPA 回落之前');
+check(!!findRoute('/api/app/v1/auth/issue') && !!findRoute('/api/app/v1/auth/exchange'),
+  '一次性授权码 issue / exchange 真实挂载');
+
+/* App 里每个 epXxx 使用点：key 必须在契约里，且方法必须与真实路由一致 */
+const javaDir = 'android/app/src/main/java/xyz/noxc/app';
+const allJava = fs.readdirSync(javaDir).filter((f) => f.endsWith('.java'))
+  .map((f) => read(javaDir + '/' + f)).join('\n');
+const usages = [...allJava.matchAll(/ep(Get|Post|Patch|Put|Delete)\(\s*"([A-Za-z]\w*)"/g)]
+  .map((m) => ({ method: m[1].toUpperCase(), key: m[2] }));
+const badKeys = usages.filter((u) => !eps[u.key]);
+check(badKeys.length === 0,
+  `App 的 ${usages.length} 个契约调用 key 全有定义（缺失：${badKeys.map((x) => x.key).join(',')}）`);
+const badMethods = usages.filter((u) => {
+  const p = eps[u.key], r = p && findRoute(p);
+  return r && !realRoutes[r].has(u.method);
+});
+check(badMethods.length === 0,
+  `App 每个调用点的 HTTP 方法都与真实路由一致（不符：${badMethods.map((x) => x.method + ' ' + x.key).join(',')}）`);
+
+/* Java 兜底契约必须与后端逐条同源：bootstrap 没跑完也不会请求空路径 */
+const apiJavaAll = read('android/app/src/main/java/xyz/noxc/app/Api.java');
+const defaults: Record<string, string> = {};
+for (const m of apiJavaAll.matchAll(/\{"(\w+)",\s*"([^"]+)"\}/g)) defaults[m[1]] = m[2];
+check(Object.keys(defaults).length === Object.keys(eps).length
+  && Object.entries(eps).every(([k, v]) => defaults[k] === v),
+  `Api.DEFAULT_ENDPOINTS 与后端 endpoints 逐条同源（${Object.keys(defaults).length} 条）`);
+check(/接口配置缺失/.test(apiJavaAll),
+  '契约为空时直接回明确错误，绝不把请求打到站点根路径冒充「接口不存在」');
+
+/* ═════════ H. 浏览器授权登录 & DNS 真跑 ═════════ */
+const envGuest = makeEnv();
+const issueGuest = await call('/api/app/v1/auth/issue', envGuest, '', post({}));
+check(issueGuest.status === 401 && issueGuest.body.needLogin === true,
+  '未登录不能领授权码（401 + needLogin）');
+
+const envLogged = makeEnv({ loggedIn: true });
+const issued = await call('/api/app/v1/auth/issue', envLogged, 'sh_session=tok-app', post({}));
+check(issued.status === 200 && issued.body.success === true,
+  '已登录领授权码成功');
+check(/^[0-9A-F]{12}$/.test(issued.body.code || '') && issued.body.expiresIn === 300,
+  '授权码 12 位随机、5 分钟有效');
+check(/^[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/.test(issued.body.display || ''),
+  '页面展示成 XXXX-XXXX-XXXX 便于抄写');
+
+const authCode = {
+  code: issued.body.code, token: 'tok-app', user_id: 7,
+  max_age: 2592000, exp: Date.now() + 300000, used: 0,
+};
+const exchanged = await call('/api/app/v1/auth/exchange',
+  makeEnv({ loggedIn: true, authCode }), '', post({ code: authCode.code }));
+check(exchanged.status === 200 && !!exchanged.body.token && !!exchanged.body.user,
+  '一次性码换到站点原有 sh_session + 用户信息');
+check(String(exchanged.headers.get('Set-Cookie') || '').includes('sh_session='),
+  'exchange 同时下发 Set-Cookie（App 两套兜底都能拿到登录态）');
+const usedAgain = await call('/api/app/v1/auth/exchange',
+  makeEnv({ loggedIn: true, authCode }), '', post({ code: authCode.code }));
+check(usedAgain.status === 200 || usedAgain.status === 400, '重复兑换不会 500');
+const expired = await call('/api/app/v1/auth/exchange',
+  makeEnv({ loggedIn: true, authCode: { ...authCode, exp: Date.now() - 1 } }),
+  '', post({ code: authCode.code }));
+check(expired.body.success === false && /过期/.test(expired.body.message || ''),
+  '过期授权码被拒绝');
+const badCode = await call('/api/app/v1/auth/exchange', makeEnv(),
+  '', post({ code: 'ZZZZZZZZZZZZ' }));
+check(badCode.body.success === false && /无效|已使用/.test(badCode.body.message || ''),
+  '无效授权码被拒绝，不泄露账号是否存在');
+
+const page = await callText('/app-authorize', makeEnv());
+check(page.status === 200 && page.text.includes('授权 Noxc App')
+  && page.text.includes('noxc://auth?code=')
+  && page.text.includes('/api/app/v1/auth/issue'),
+  '授权页 Worker 直出 HTML：含一键回 App 深链与领码接口');
+check(String(page.headers.get('Cache-Control') || '').includes('no-store'),
+  '授权页 no-store，绝不缓存');
+
+/* DNS 真跑：正是真机报「接口不存在」的那条路径 */
+const dnsList = await call('/api/subdomains/1/records', makeEnv({ loggedIn: true }),
+  'sh_session=tok-app');
+check(dnsList.body.message !== '接口不存在' && !String(dnsList.body.message || '').includes('接口不存在'),
+  'GET /api/subdomains/{id}/records 不再落到 API 兜底 404');
+const dnsOld = await call('/api/records/subdomains/1/records', makeEnv({ loggedIn: true }),
+  'sh_session=tok-app');
+check(dnsOld.body.message === '接口不存在',
+  '反向对照：旧的错误路径确实会命中「接口不存在」兜底（证明上面断言不是恒真）');
+
+}
+
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of bad) console.error('  ✗ ' + m);
+
 console.log(`App 专用接口回归：${ok.length} 通过，${bad.length} 失败`);
 if (bad.length) process.exit(1);

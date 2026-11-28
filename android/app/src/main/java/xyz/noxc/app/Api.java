@@ -103,6 +103,138 @@ public final class Api {
         保证从最近任务直接恢复任意 Activity 时也能拿到路径，不用硬编码。 */
     private static JSONObject ENDPOINTS = new JSONObject();
 
+    /* 兜底契约：与后端 /api/app/v1/bootstrap 的 endpoints 逐条同源。
+       曾经 bootstrap 没跑完（断网 / 直接恢复某个 Activity）时 endpoint()
+       返回空串，请求被打到站点根路径，Worker 兜底回「接口不存在」——
+       用户在 DNS 页看到的就是这个。现在契约永不为零。 */
+    private static final String[][] DEFAULT_ENDPOINTS = {
+            {"check", "/api/subdomains/check"},
+            {"whois", "/api/whois"},
+            {"config", "/api/config"},
+            {"terms", "/api/terms"},
+            {"rules", "/api/rules"},
+            {"showcase", "/api/showcase"},
+            {"pointsCost", "/api/points/cost"},
+            {"stats", "/api/stats"},
+            {"login", "/api/auth/login"},
+            {"logout", "/api/auth/logout"},
+            {"register", "/api/auth/register"},
+            {"verifySend", "/api/auth/verify/send"},
+            {"verifyCheck", "/api/auth/verify/check"},
+            {"reset", "/api/auth/reset"},
+            {"me", "/api/auth/me"},
+            {"oauthNodeloc", "/api/auth/nodeloc/start"},
+            {"oauthGithub", "/api/auth/github/start"},
+            {"appTokenIssue", "/api/app/v1/auth/issue"},
+            {"appTokenExchange", "/api/app/v1/auth/exchange"},
+            {"appAuthorize", "/app-authorize"},
+            {"mine", "/api/subdomains/mine"},
+            {"apply", "/api/subdomains"},
+            {"subdomain", "/api/subdomains/{id}"},
+            {"subdomainUpdate", "/api/subdomains/{id}"},
+            {"renew", "/api/subdomains/{id}/renew"},
+            {"subdomainDelete", "/api/subdomains/{id}"},
+            {"records", "/api/subdomains/{id}/records"},
+            {"recordUpdate", "/api/records/{rid}"},
+            {"recordDelete", "/api/records/{rid}"},
+            {"verifyStart", "/api/subdomains/{id}/verify"},
+            {"verifyConfirm", "/api/records/{rid}/verify-confirm"},
+            {"forceUnlock", "/api/records/{rid}/force-unlock"},
+            {"soa", "/api/soa"},
+            {"pointsMe", "/api/points/me"},
+            {"checkin", "/api/points/checkin"},
+            {"rewards", "/api/points/rewards"},
+            {"redeem", "/api/redeem/redeem"},
+            {"redeemMine", "/api/redeem/mine"},
+            {"redeemGenerate", "/api/redeem/admin/generate"},
+            {"redeemList", "/api/redeem/admin/list"},
+            {"profile", "/api/profile"},
+            {"profileEmailSend", "/api/profile/email/send"},
+            {"profileEmailConfirm", "/api/profile/email/confirm"},
+            {"passwordSendCode", "/api/auth/password/send-code"},
+            {"passwordChange", "/api/auth/password"},
+            {"notifications", "/api/notifications"},
+            {"notificationsRead", "/api/notifications/read"},
+            {"notificationsReadAll", "/api/notifications/read-all"},
+            {"notificationDelete", "/api/notifications/{id}"},
+            {"tickets", "/api/tickets"},
+            {"ticketCreate", "/api/tickets"},
+            {"ticketReply", "/api/tickets/{id}/reply"},
+            {"ticketClose", "/api/tickets/{id}/close"},
+            {"ticketDetail", "/api/tickets/{id}"},
+            {"transferNotice", "/api/transfer/notice"},
+            {"transferPreview", "/api/transfer/preview"},
+            {"transferCommit", "/api/transfer/commit"},
+            {"transferMine", "/api/transfer/mine"},
+            {"abuse", "/api/abuse"},
+            {"abuseAdmin", "/api/abuse/admin"},
+            {"abuseMine", "/api/abuse/mine"},
+            {"chatPosts", "/api/chat/posts"},
+            {"chatReply", "/api/chat/posts/{id}/replies"},
+            {"delegationProviders", "/api/delegation/providers"},
+            {"delegation", "/api/subdomains/{id}/delegation"},
+            {"delegationCheck", "/api/subdomains/{id}/delegation/check"},
+            {"externalDomains", "/api/external-domains"},
+            {"externalDomainVerify", "/api/external-domains/{id}/verify"},
+            {"externalDomainConnect", "/api/external-domains/{id}/connect"},
+            {"externalDomainCheckNs", "/api/external-domains/{id}/check-ns"},
+            {"externalDomainDelete", "/api/external-domains/{id}"},
+            {"emailRequest", "/api/email-request"},
+            {"emailRequestStatus", "/api/email-request/status"},
+            {"captcha", "/api/captcha/challenge"},
+            {"captchaVerify", "/api/captcha/verify"},
+            {"adminOverview", "/api/app/v1/admin/overview"},
+            {"adminStats", "/api/admin/stats"},
+            {"adminSubdomains", "/api/admin/subdomains?status={status}"},
+            {"adminApprove", "/api/admin/subdomains/{id}/approve"},
+            {"adminReject", "/api/admin/subdomains/{id}/reject"},
+            {"adminSuspend", "/api/admin/subdomains/{id}/suspend"},
+            {"adminRestore", "/api/admin/subdomains/{id}/restore"},
+            {"adminSubdomainDelete", "/api/admin/subdomains/{id}"},
+            {"adminUsers", "/api/admin/users"},
+            {"adminUserPoints", "/api/admin/users/{id}/points"},
+            {"adminUserBan", "/api/admin/users/{id}/ban"},
+            {"adminUserUnban", "/api/admin/users/{id}/unban"},
+            {"adminUserQuota", "/api/admin/users/{id}/quota"},
+            {"adminLocks", "/api/admin/locks"},
+            {"adminAudit", "/api/admin/audit"},
+            {"adminReconcile", "/api/admin/reconcile/{id}"},
+            {"adminIps", "/api/admin/ips"},
+            {"adminIpBan", "/api/admin/ips/ban"},
+            {"adminIpUnban", "/api/admin/ips/unban"},
+            {"adminSettings", "/api/admin/settings"},
+            {"adminExternalDomains", "/api/admin/external-domains"},
+            {"adminExternalApprove", "/api/admin/external-domains/{id}/approve"},
+            {"adminExternalReject", "/api/admin/external-domains/{id}/reject"},
+            {"adminEmailRequests", "/api/admin/email-requests"},
+            {"adminEmailApprove", "/api/admin/email-requests/{id}/approve"},
+            {"adminEmailReject", "/api/admin/email-requests/{id}/reject"},
+            {"adminEmailAllowlist", "/api/admin/email-allowlist"},
+            {"adminRoots", "/api/admin/roots"},
+            {"adminRootBackend", "/api/admin/roots/{domain}/backend"},
+            {"adminRootRestore", "/api/admin/roots/{domain}/restore"},
+            {"adminResetLogo", "/api/admin/settings/reset-logo"},
+            {"adminBackupExport", "/api/admin/backup/export/{kind}"},
+            {"adminBackupImport", "/api/admin/backup/import/{kind}"},
+            {"adminAiReviewRun", "/api/admin/ai-review-run"},
+            {"adminAiReviewStatus", "/api/admin/ai-review-status"},
+            {"webConsole", "/dashboard"},
+            {"webDocs", "/docs"},
+            {"webTerms", "/terms"},
+            {"webExternalDomains", "/external-domains"},
+            {"webReport", "/report"}
+    };
+
+    private static final JSONObject DEFAULT_MAP = buildDefaults();
+
+    private static JSONObject buildDefaults() {
+        JSONObject o = new JSONObject();
+        for (String[] kv : DEFAULT_ENDPOINTS) {
+            try { o.put(kv[0], kv[1]); } catch (Exception ignored) { }
+        }
+        return o;
+    }
+
     public static void setEndpoints(JSONObject e) {
         ENDPOINTS = e == null ? new JSONObject() : e;
     }
@@ -118,6 +250,7 @@ public final class Api {
 
     public String endpoint(String key, String fallback) {
         String v = ENDPOINTS.optString(key, "");
+        if (v.length() == 0) v = DEFAULT_MAP.optString(key, "");
         return v.length() > 0 ? v : fallback;
     }
 
@@ -169,7 +302,7 @@ public final class Api {
         return pref.getString(KEY_SESSION, null);
     }
 
-    private void saveSession(String t) {
+    public void saveSession(String t) {
         pref.edit().putString(KEY_SESSION, t).apply();
     }
 
@@ -214,6 +347,10 @@ public final class Api {
     public void endpointCall(String key, String method, JSONObject body,
                              Callback cb, String... vars) {
         String path = endpoint(key, "");
+        if (path.length() == 0) {
+            UI.post(() -> cb.on(new Reply(0, null, "接口配置缺失：" + key)));
+            return;
+        }
         for (int i = 0; i + 1 < vars.length; i += 2) {
             path = path.replace("{" + vars[i] + "}", vars[i + 1]);
         }
@@ -253,7 +390,8 @@ public final class Api {
 
     /**
      * 用 Chrome Custom Tab 在 **App 内** 打开网页（带 App 名称与工具栏），
-     * 不再 ACTION_VIEW 甩给外部浏览器。条款、文档、后台、第三方 OAuth 都走这里。
+     * 不再 ACTION_VIEW 甩给外部浏览器。条款、文档、后台、浏览器授权页都走这里；
+     * 第三方 OAuth 本身在授权页里完成（不再让 App 直接跳 /start）。
      * 设备没有支持 Custom Tabs 的浏览器时才回落到系统 VIEW。
      */
     public void openInApp(Activity a, String path) {

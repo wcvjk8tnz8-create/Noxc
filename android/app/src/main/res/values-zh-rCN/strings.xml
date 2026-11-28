@@ -249,4 +249,11 @@
     <string name="password_send_code">发送账号邮箱验证码</string>
     <string name="services_community">社区</string>
     <string name="admin_console_hint">审核申请、管理用户、修改站点设置与 DNS 验证锁，全部原生完成。</string>
+    <string name="login_browser_auth">浏览器授权登录</string>
+    <string name="login_auth_code">输入授权码</string>
+    <string name="browser_auth_help">打开站点，用邮箱密码 / GitHub / NodeLoc 登录，然后点「授权给 App」。复制一次性授权码，回到这里粘贴即可。</string>
+    <string name="browser_auth_open">打开授权页</string>
+    <string name="auth_code_hint">12 位授权码</string>
+    <string name="browser_auth_success">登录成功</string>
+    <string name="browser_auth_failed">授权失败，请重试</string>
 </resources>

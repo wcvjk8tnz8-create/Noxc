@@ -134,6 +134,43 @@ public class MainActivity extends AppCompatActivity {
 
         showPage(0);
         boot(false);
+        /* 浏览器授权页点「一键返回 App」会带着一次性码回到这里 */
+        handleDeepLink(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleDeepLink(intent);
+    }
+
+    /** 授权页的 noxc://auth?code=XXXX：本地兑换成站点 session，然后刷新全站数据。 */
+    private void handleDeepLink(Intent intent) {
+        if (intent == null || intent.getData() == null) return;
+        Uri d = intent.getData();
+        if (!"noxc".equalsIgnoreCase(d.getScheme())
+                || !"auth".equalsIgnoreCase(d.getHost())) return;
+        String code = d.getQueryParameter("code");
+        if (code == null || code.length() == 0) return;
+        String clean = code.toUpperCase().replaceAll("[^A-Z0-9]", "");
+        if (clean.length() < 8) return;
+
+        JSONObject body = new JSONObject();
+        try { body.put("code", clean); } catch (Exception ignored) { }
+        api.epPost("appTokenExchange", body, r -> {
+            if (r.ok) {
+                String tk = r.data.optString("token", "");
+                if (tk.length() > 0) api.saveSession(tk);
+                Toast.makeText(this, R.string.browser_auth_success, Toast.LENGTH_SHORT).show();
+                boot(true);
+            } else {
+                Toast.makeText(this, r.message.length() > 0 ? r.message
+                        : getString(R.string.browser_auth_failed), Toast.LENGTH_LONG).show();
+            }
+        });
+        // 避免旋转屏幕后重复消费同一个码
+        intent.setData(null);
     }
 
     /* ══════════════ 启动：一个专用接口拿全四页 ══════════════ */

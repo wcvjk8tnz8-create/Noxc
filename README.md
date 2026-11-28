@@ -1400,8 +1400,12 @@ Components 控件绘制 —— `MaterialToolbar`、`BottomNavigationView`、
 验证码 / 条款勾选）、找回密码（发码 → 填码 → 重置）都是独立 Activity 的原生表单，
 直连 `/api/auth/*`。**管理后台、DNS 记录增删改、申请子域名（含原生滑块验证）、
 通知 / 工单 / 兑换 / 转让 / 举报 / 第三方域名 / 资料 / NS 委派 / 社区** 也全部是
-App 内原生页面。只有第三方 OAuth（授权规范强制浏览器安全上下文）与静态文档 /
-条款这类**纯阅读内容**用 Chrome Custom Tab 在 App 内打开，不甩外部浏览器。
+App 内原生页面。**第三方登录改成「浏览器授权登录」**：App 直接跳
+`/api/auth/github/start` 在真机的 Custom Tab 里常只剩空白页，所以改为
+`Sign in via browser` → 打开 Worker 直出的 `/app-authorize`（永远不会空白），
+在页面里用邮箱 / GitHub / NodeLoc 正常登录 → 点「授权给 App」拿 12 位一次性码
+→ 点「一键返回 App」(`noxc://auth?code=`) 自动兑换，或复制码回登录页粘贴。
+静态文档 / 条款这类**纯阅读内容**仍用 Chrome Custom Tab 在 App 内打开。
 
 > 站点改前端 / 文档**不影响 App 界面**；只有 `android/` 目录变化才重新出包。
 > 接口返回变了（公告、积分规则、统计）App 下次刷新就能看到，不用发版。
@@ -1451,7 +1455,9 @@ OkHttp/Retrofit），回调回主线程，按系统语言请求中英文案。�
 | `android/app/src/main/java/.../LoginActivity.java` | 原生邮箱密码登录 |
 | `android/app/src/main/java/.../RegisterActivity.java` | 原生注册（验证码 / 条款对话框） |
 | `android/app/src/main/java/.../ForgotPasswordActivity.java` | 原生找回密码 |
-| `android/app/src/main/java/.../Api.java` | GET/POST/PATCH/PUT/DELETE / session / 统一信封 / endpoints 契约占位替换 / Custom Tab / 底图下载 |
+| `android/app/src/main/java/.../Api.java` | GET/POST/PATCH/PUT/DELETE / session / 统一信封 / endpoints 契约占位替换 / **同源兜底契约** / Custom Tab / 底图下载 |
+| `android/app/src/main/java/.../LoginActivity.java` | 原生登录 + 浏览器授权登录 + 一次性码兑换 |
+| `src/routes/appAuth.ts` | `/api/app/v1/auth/issue` · `/exchange` + Worker 直出的 `/app-authorize` 授权页 |
 | `android/app/src/main/java/.../Ui.java` | MaterialShapeDrawable 卡片 + MaterialButton |
 | `android/app/src/main/res/` | 5 套布局、2 套 menu、矢量图标、中英 127 词条、M3 明暗主题、6 档图标 |
 | `.github/workflows/android-apk.yml` | JDK 17 + Android 34 + Gradle 8.9 → 编译 / 体积校验 / 上传 |
@@ -1504,8 +1510,21 @@ Material 依赖）；命令行需 JDK 17 + Android SDK 34 + Gradle 8.9，跑
 | 用户服务 | `ServicesActivity`（通知 / 工单 / 兑换 / 转让 / 举报 / 第三方域名 / 资料 / 委派 / 社区） |
 
 `capabilities.browserOnly` 现在**只剩 `oauth`**：第三方授权按规范必须经浏览器安全上下文，
-用 Custom Tab 在 App 内完成；静态文档 / 条款是「阅读」不是「操控」，同样 Custom Tab，
+但**不再由 App 直接跳 `/start`** —— 在 `/app-authorize` 页面里登录，再用一次性码
+把登录态交接给原生端。静态文档 / 条款是「阅读」不是「操控」，同样 Custom Tab，
 但视觉上不离开 App。双击返回键退出。
+
+**浏览器授权登录怎么用**（真机实测后改的方案）：
+
+| 步骤 | 在哪 | 做什么 |
+|---|---|---|
+| 1 | App 登录页 | 点 `Sign in via browser` → Custom Tab 打开 `/app-authorize` |
+| 2 | 授权页 | 未登录先去站点登录（邮箱 / GitHub / NodeLoc 都行），已登录直接显示账号 |
+| 3 | 授权页 | 点「授权给 App」→ 服务端新建真实 session，给 12 位一次性码（5 分钟、单次消费） |
+| 4 | 回 App | 点「一键返回 App」自动兑换；或复制码回登录页点「输入授权码」粘贴 |
+
+码由 Web Crypto 随机生成、绑定用户、用后即焚；换到的仍是站点原有 `sh_session`，
+权限 / 封禁 / 过期判定完全一致，没有另开认证旁路。
 
 配置回归 `scripts/android-apk-regression.ts` 真解析全部 XML / PyYAML / PNG 头，
 用 `scripts/android-resource-check.py` 交叉校验 XML 的 `@string` / `@color` /
@@ -1551,7 +1570,10 @@ Cookie: sh_session=…        # 可选，不带即游客态
 | `register` | `/api/auth/register` | 原生注册（`agreeTerms` / 可选 `code`） |
 | `verifySend` / `verifyCheck` | `/api/auth/verify/send` · `/check` | 注册 / 找回密码发码与校验 |
 | `reset` | `/api/auth/reset` | 原生找回密码提交 |
-| `oauthNodeloc` / `oauthGithub` | `/api/auth/nodeloc/start` · `/github/start` | Custom Tab 内第三方授权 |
+| `oauthNodeloc` / `oauthGithub` | `/api/auth/nodeloc/start` · `/github/start` | 仅授权页内部使用，App 不再直接跳 |
+| `appTokenIssue` | `/api/app/v1/auth/issue` | 浏览器已登录 → 生成一次性授权码 |
+| `appTokenExchange` | `/api/app/v1/auth/exchange` | App 凭码换 `sh_session` |
+| `appAuthorize` | `/app-authorize` | Worker 直出的浏览器授权页 |
 | `web*` | `/dashboard` · `/register` · `/docs` · `/terms` · `/external-domains` · `/report` | 系统浏览器打开 |
 
 **刻意守住的边界**
@@ -1579,8 +1601,19 @@ DNS / 积分 / 个人中心 / 消息工单 / 第三方域名 / 管理后台共 8
 到现有 `/api/admin/*` 端点，并发聚合 11 段数据，`no-store` 不缓存，任一段失败只降级
 `null`。服务端 `requireAdmin` 照常生效，App 专用层不复制任何查询逻辑。
 
-**唯一例外**：第三方 OAuth（`oauth`）按授权规范必须经浏览器安全上下文，用 Custom Tab
-在 App 内完成；静态文档 / 条款是纯阅读内容，同样 Custom Tab。二者都不离开 App。
+**唯一例外**：第三方 OAuth（`oauth`）按授权规范必须经浏览器安全上下文，改在
+`/app-authorize` 页面里完成，再用一次性码交接给 App；静态文档 / 条款是纯阅读内容，
+同样 Custom Tab。二者都不离开 App。
+
+**每条契约都验过**：`scripts/app-api-regression.ts` 会把 `index.ts` 的所有
+`app.route` 挂载 + 各 `routes/*.ts` 里的 `app.get/post/patch/put/delete` 展开成
+真实路径集合，**逐条**核对 `endpoints` 的 115 条路径与 App 里每个调用点的 HTTP 方法，
+并真跑 DNS 列表、授权码领用 / 兑换 / 过期 / 重放、授权页 HTML。真机反馈的
+「DNS 记录说接口不存在」就是这样定位到的：`records` 被写成
+`/api/records/subdomains/{id}/records`（多了一层），真实挂载是
+**`/api/subdomains/{id}/records`**，改完后加了反向对照断言锁住。
+`Api.java` 另内置一份与后端逐条同源的 `DEFAULT_ENDPOINTS`：即使 bootstrap 没跑完
+（断网 / 从最近任务直接恢复某个页面），也不会把空路径打到站点根冒充「接口不存在」。
 
 专项回归 `scripts/app-api-regression.ts` 真跑 Hono + 内存 D1 覆盖游客 / 登录 /
 字段同源 / 脱敏 / 契约 / 缓存头，并锁住「App 只打一个 bootstrap」。
@@ -1996,15 +2029,28 @@ CI 里的 `scripts/mobile-regression.ts` 用静态断言锁住每个修复点。
 
 ### Z.15 安卓 App 构建 / 使用的常见错误
 
+- **按「Sign in with GitHub」只剩一个空白页 + `Opening sign-in…`**：真机实测过。
+  App 直接把 Custom Tab 指到 `/api/auth/github/start`，授权跳转在浏览器安全上下文里
+  被挡住（凭据未配置时还会返回 JSON），页面就空了。**已改成浏览器授权登录**：
+  登录页的 `Sign in via browser` → 打开 Worker 直出的 `/app-authorize` → 在页面里
+  用邮箱 / GitHub / NodeLoc 登录 → 点「授权给 App」拿 12 位码 → 一键回 App 或复制粘贴。
+  回归断言原生端不再出现 `oauthGithub` / `openOAuth`，别把直接跳 `/start` 加回来。
+- **DNS 记录页提示「接口不存在」**：真机实测过。根因是 `endpoints.records` 写成
+  `/api/records/subdomains/{id}/records`，而 `recordRoutes` 挂在 `/api`，真实路径是
+  **`/api/subdomains/{id}/records`**；请求落到 `app.all('/api/*')` 兜底就回「接口不存在」。
+  已修正并加**全量契约校验**：把 index.ts 的挂载与所有 routes 文件展开成真实路径集合，
+  逐条核对 115 条契约与 App 每个调用点的方法，还留了反向对照（旧路径确实会报这个错）。
+  另外 `Api.DEFAULT_ENDPOINTS` 保证 bootstrap 没跑完时也不会请求空路径。
 - **打开是网站首页 / 还在内嵌网页**：这是**刻意否掉**的两版方案。现在是
-  **Material 3 完全原生 App**：四个 tab 由 Android 控件绘制、数据直连站点 API，
+  **Material 3 完全原生 App**：五个 tab 由 Android 控件绘制、数据直连站点 API，
   `android/` 里 **零 WebView / 零 android.webkit**。回归会真扫全部 Java 与 XML，
   任何一处 `WebView` 都会让 CI 挂掉，别加回来。
 - **登录 / 注册 / 忘记密码跳到浏览器**：早期版本确实这样，现在三个流程都是
   App 内原生 Activity（`LoginActivity` / `RegisterActivity` /
   `ForgotPasswordActivity`），直连 `/api/auth/*`。回归断言账号流程里
   **0 处 `Intent.ACTION_VIEW`**；后台、DNS、申请、用户服务也全是原生页，
-  只有 OAuth 与纯阅读文档用 **Chrome Custom Tab** 在 App 内打开。
+  第三方登录改走 `/app-authorize` 浏览器授权页（见本节第一条），
+  纯阅读文档用 **Chrome Custom Tab** 在 App 内打开。
   第三方 OAuth 因授权规范必须经浏览器安全上下文，但已不是「甩给外部浏览器」。
 - **系统「显示大小」调大后布局撑爆**：那是 WebView 版旧问题。M3 界面用 sp / dp
   与 Material 组件自适应；若出现竖排单字，先检查是不是有人把 WebView 加回去了。

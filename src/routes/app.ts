@@ -8,7 +8,7 @@
  * 这一版把**所有写操作**（DNS 记录增删改、申请域名、管理后台审核 / 用户 /
  * 设置 / IP 封禁、第三方域名、通知工单等）都开放给原生端：endpoints 是全量
  * 接口地图，App 从这里读路径，不在客户端硬编码；capabilities.browserOnly 只剩
- * 第三方 OAuth（授权规范强制浏览器安全上下文，仍走应用内 Custom Tab）。
+ * 第三方 OAuth（授权规范强制浏览器安全上下文，改在 /app-authorize 浏览器授权页完成）。
  *
  * 未登录也能调：只回公开的 site 段，user/domains/points 为 null。
  * 站点密钥、AI 配置、后台设置一律不下发（buildConfigData 本身已是白名单）。
@@ -123,6 +123,10 @@ export function createAppRoutes(buildConfigData: BuildConfig, dispatch?: (c: any
         me: '/api/auth/me',
         oauthNodeloc: '/api/auth/nodeloc/start',
         oauthGithub: '/api/auth/github/start',
+        // 浏览器授权登录：在站点登录后点「授权给 App」，App 用一次性码换会话
+        appTokenIssue: '/api/app/v1/auth/issue',
+        appTokenExchange: '/api/app/v1/auth/exchange',
+        appAuthorize: '/app-authorize',
         // 我的域名
         mine: '/api/subdomains/mine',
         apply: '/api/subdomains',
@@ -131,7 +135,7 @@ export function createAppRoutes(buildConfigData: BuildConfig, dispatch?: (c: any
         renew: '/api/subdomains/{id}/renew',
         subdomainDelete: '/api/subdomains/{id}',
         // DNS 记录（完整增删改 + 验证锁）
-        records: '/api/records/subdomains/{id}/records',
+        records: '/api/subdomains/{id}/records',
         recordUpdate: '/api/records/{rid}',
         recordDelete: '/api/records/{rid}',
         verifyStart: '/api/subdomains/{id}/verify',
@@ -235,6 +239,9 @@ export function createAppRoutes(buildConfigData: BuildConfig, dispatch?: (c: any
           'redeem', 'transfer', 'abuse'],
         /* 只剩第三方 OAuth：授权规范强制浏览器安全上下文，用 Custom Tab 在 App 内完成。
            静态文档 / 条款是「阅读」不是「操控」，也走 Custom Tab，但不离开 App。 */
+        /* 第三方 OAuth 仍在浏览器侧完成，但不再是 App 直接跳 /start：
+           App 打开 /app-authorize，用户在浏览器里用 GitHub / NodeLoc 登录，
+           再点「授权给 App」把登录态一次性交接给原生端。 */
         browserOnly: ['oauth'],
       },
     });

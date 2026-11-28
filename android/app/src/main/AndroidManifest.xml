@@ -14,7 +14,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
 
-        <!-- 完全原生 App：主界面四个 tab，不加载任何网页 -->
+        <!-- 完全原生 App：五个 tab（管理员多一个「管理」），不加载任何网页 -->
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
@@ -24,6 +24,13 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 浏览器授权页点「一键返回 App」：noxc://auth?code=XXXX -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="noxc" android:host="auth" />
             </intent-filter>
         </activity>
 

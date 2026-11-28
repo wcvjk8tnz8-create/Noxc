@@ -81,16 +81,18 @@
                 android:layout_width="match_parent" android:layout_height="52dp"
                 android:layout_marginTop="18dp" android:text="@string/login_forgot"
                 android:textSize="15sp" app:cornerRadius="18dp" style="@style/Widget.Material3.Button.TextButton" />
+            <!-- 不再直接跳 /api/auth/github/start：Custom Tab 里授权跳转会空白。
+                 改成「浏览器登录后授权」+「粘贴一次性授权码」两条原生路径。 -->
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/login_oauth_nodeloc"
+                android:id="@+id/login_browser_auth"
                 android:layout_width="match_parent" android:layout_height="52dp"
-                android:layout_marginTop="18dp" android:text="@string/login_oauth_nodeloc"
+                android:layout_marginTop="18dp" android:text="@string/login_browser_auth"
                 android:textSize="15sp" app:cornerRadius="18dp" style="@style/Widget.Material3.Button.TonalButton" />
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/login_oauth_github"
+                android:id="@+id/login_auth_code"
                 android:layout_width="match_parent" android:layout_height="52dp"
-                android:layout_marginTop="18dp" android:text="@string/login_oauth_github"
-                android:textSize="15sp" app:cornerRadius="18dp" style="@style/Widget.Material3.Button.TonalButton" />
+                android:layout_marginTop="8dp" android:text="@string/login_auth_code"
+                android:textSize="15sp" app:cornerRadius="18dp" style="@style/Widget.Material3.Button.TextButton" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

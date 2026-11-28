@@ -331,6 +331,33 @@ check(/public void (patch|put|delete|endpointCall)/.test(apiJava)
   && /epPost|epPatch|epPut|epDelete/.test(apiJava),
   'Api 支持 PATCH/PUT/DELETE + 契约占位符替换');
 
+/* ── G3. 浏览器授权登录（真机反馈：GitHub 按钮只剩空白页） ── */
+const loginAct = java['LoginActivity.java'] || '';
+check(/login_browser_auth|login_auth_code/.test(loginJava)
+  && /browser_auth_open|appAuthorize/.test(loginJava)
+  && /appTokenExchange/.test(loginJava)
+  && /api\.saveSession/.test(loginJava),
+  '登录页改成「浏览器授权登录 + 输入授权码」，不再直接跳 OAuth /start');
+check(!/oauthGithub|oauthNodeloc|openOAuth/.test(loginJava),
+  '原生端不再发起 /api/auth/github/start（真机上 Custom Tab 会停在空白页）');
+check(/browser_auth_success/.test(mainJava) && /handleDeepLink/.test(mainJava)
+  && /onNewIntent/.test(mainJava) && /noxc/.test(mainJava),
+  'MainActivity 接住 noxc://auth?code= 自动兑换登录态');
+check(/android:scheme="noxc"/.test(manifest) && /android:host="auth"/.test(manifest)
+  && /android.intent.action.VIEW/.test(manifest),
+  'Manifest 有浏览器授权回跳的 deep link（一键返回 App）');
+check(/DEFAULT_ENDPOINTS/.test(apiJava) && /DEFAULT_MAP/.test(apiJava)
+  && /接口配置缺失/.test(apiJava),
+  'Api 内置同源兜底契约：bootstrap 没跑完也绝不会请求空路径');
+check(/appTokenIssue|appTokenExchange|appAuthorize/.test(read('src/routes/app.ts'))
+  && /app\.get\('\/app-authorize'/.test(read('src/index.ts'))
+  && /authorizePage/.test(read('src/routes/appAuth.ts')),
+  '后端提供授权页（Worker 直出 HTML，永不空白）与一次性码 issue/exchange');
+check(/records: '\/api\/subdomains\/\{id\}\/records'/.test(read('src/routes/app.ts')),
+  'DNS 记录列表契约路径修好（真机曾报「接口不存在」）');
+check(/browser_auth_help/.test(strings) && /browser_auth_help/.test(stringsZh),
+  '浏览器授权流程文案中英齐全');
+
 /* ───────── H. 文案 / 主题 / 颜色 ───────── */
 check(exists(MAIN + 'res/values-zh-rCN/strings.xml')
   && /[一-龥]/.test(stringsZh) && !/[一-龥]/.test(strings),

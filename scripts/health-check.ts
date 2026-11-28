@@ -2041,6 +2041,29 @@ check(/browserOnly: \['oauth'\]/.test(fnAppRoute)
   'capabilities.browserOnly 只剩 oauth，管理后台进入 native');
 check(/全量接口地图|所有写操作都已原生|只剩 `oauth`/.test(d1Readme),
   'README 明确写明所有写操作已原生、只剩 OAuth 用应用内标签页');
+/* 浏览器授权登录 + 全量契约路径校验（真机反馈的两个问题） */
+const fnLogin = read('android/app/src/main/java/xyz/noxc/app/LoginActivity.java');
+const fnApi = read('android/app/src/main/java/xyz/noxc/app/Api.java');
+const fnAppTs = read('src/routes/app.ts');
+const fnIdx = read('src/index.ts');
+const fnManifest2 = read('android/app/src/main/AndroidManifest.xml');
+check(/login_browser_auth/.test(fnLogin) && /appTokenExchange/.test(fnLogin)
+  && !/oauthGithub/.test(fnLogin),
+  '第三方登录改为浏览器授权：不再直接跳 /start（真机空白页）');
+check(/noxc:\/\/auth|android:scheme="noxc"/.test(fnManifest2 + fnApi)
+  && /handleDeepLink/.test(apMain),
+  '授权页一键回 App 的 deep link 已注册');
+check(/DEFAULT_ENDPOINTS/.test(fnApi) && /接口配置缺失/.test(fnApi),
+  'Api 有同源兜底契约，杜绝空路径请求');
+check(/records: '\/api\/subdomains\/\{id\}\/records'/.test(fnAppTs),
+  'DNS 记录列表契约路径正确（真机「接口不存在」已修）');
+check(/app\.get\('\/app-authorize'/.test(fnIdx)
+  && /authorizePage/.test(read('src/routes/appAuth.ts'))
+  && /app\.route\('\/api\/app\/v1\/auth'/.test(fnIdx),
+  '浏览器授权页与一次性码接口真实挂载');
+check(/全量接口地图|浏览器授权登录|接口不存在/.test(d1Readme),
+  'README 记录浏览器授权登录与 DNS 路径修复');
+
 check(/### 23\./.test(d1Readme) && /### 24\./.test(d1Readme)
   && /### Z\.15/.test(d1Readme) && /Material 3/.test(d1Readme)
   && /完全原生/.test(d1Readme)
