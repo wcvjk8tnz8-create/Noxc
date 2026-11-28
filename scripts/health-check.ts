@@ -2372,6 +2372,28 @@ check(/### Z\.16/.test(read('README.md'))
   && /macos-14-arm64-us-default/.test(read('README.md')),
   '文末 Z.16 记录 iOS runner 配置被拒的根因与排查顺序');
 
+/* Flutter 主工程（参考 PiliPlus / PiliNara，一套 Dart 覆盖两端） */
+const flPub = read('flutter/pubspec.yaml');
+const flDart = read('flutter/lib/main.dart') + read('flutter/lib/core.dart')
+  + read('flutter/lib/widgets.dart') + read('flutter/lib/pages_hub.dart');
+const flWf = read('.github/workflows/flutter-app.yml');
+check(/name: noxc/.test(flPub) && /sdk: flutter/.test(flPub),
+  'Flutter 主工程存在，不是 SwiftUI / Java 原生工程');
+check(!/SwiftUI|UIKit/.test(flDart) && /useMaterial3: true/.test(flDart),
+  'Dart 业务代码零 Swift，Material 3 统一');
+check(/class FloatNav/.test(flDart) && /NavigationRail\(/.test(flDart),
+  '浮动胶囊底栏 + iPad 侧栏');
+check(/flutter build apk --release/.test(flWf)
+  && /flutter build ios --release --no-codesign/.test(flWf),
+  'Flutter CI 同时产出 APK 与 IPA');
+check(/flutter create --org xyz\.noxc/.test(flWf),
+  '平台壳按 Flutter SDK 版本生成，不入库手写 pbxproj');
+check(/## 26\./.test(read('README.md'))
+  && /PiliPlus|PiliNara/.test(read('flutter/README.md')),
+  '主 README 第 26 节记录 Flutter 改版与参考来源');
+check(/### Z\.17/.test(read('README.md')),
+  '文末 Z.17 记录 SwiftUI 版被否定的原因与 iOS 签名限制');
+
 
 for (const m of ok) console.log('  ✓ ' + m);
 for (const m of errors) console.error('  ✗ ' + m);

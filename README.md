@@ -26,6 +26,7 @@
 | 第三方域名接入（独立页 / 文档） | 第 22 节 / `/external-domains` · `/docs/external-domains.html` |
 | Noxc 手机版（Material 3 原生 APK）/ App 专用接口 / 签名 / 换站点 | 第 23 节 · 第 24 节 / `.github/workflows/android-apk.yml` · 附录 Z.15 |
 | **Noxc iOS 版（Universal IPA：iPhone + iPad）** | **第 25 节 / `ios/README.md` / `.github/workflows/ios-ipa.yml`**
+| **Noxc Flutter 主工程（参考 PiliPlus / PiliNara）** | **第 26 节 / `flutter/README.md` / `.github/workflows/flutter-app.yml`** |
 
 ---
 
@@ -2205,4 +2206,80 @@ job 里**一个步骤都没有**，`runner_id = 0`、`runner_name` 为空。不�
 
 **仍然存在的限制**：没有 Apple Developer 证书时，任何平台都只能产出未签名 IPA
 与模拟器包，不能直接装真机；这不是构建失败。签名方案见第 25 节和 `ios/README.md`。
+
+---
+
+## 26. Noxc Flutter 主工程（PiliPlus / PiliNara 路线）
+
+社区反馈「SwiftUI 那版做得一般，参考 PiliPlus / PiliNara 那些」。这两个项目都是
+**Flutter + Dart 一套代码覆盖 Android / iOS / Pad**，Material 3 + 动态主题色 +
+浮动底部导航、分层收口、平台差异隔离。所以主工程改成 `flutter/`：
+业务逻辑全在 `lib/*.dart`，**零 Swift / 零 Java 业务代码，也不是 WebView 壳**。
+
+| | 之前 | 现在 |
+|---|---|---|
+| 代码库 | Android(Java) + iOS(SwiftUI) 两套 | 一套 Dart + 两个自动生成的平台壳 |
+| 新增功能 | 两端各写一遍 | 服务端 schema 下发，两端都不发版 |
+| 视觉 | 两套各自维护 | Material 3 统一 + 6 个可切换主题色 |
+| 平板 | 两套适配 | `PlatformX.pad()` 一个断点：NavigationRail / 双栏 |
+
+**分层**（对齐 PiliPlus 的工程范本）：`lib/core.dart` 把主题、存储、网络、
+统一结果 `Reply`、状态 `AppState`、契约占位符收口到单点；`lib/widgets.dart`
+是卡片 / 浮动底栏 / Bento / 骨架扫光 / 数字滚动 / 动态字段 / 原生滑块验证；
+`lib/pages_*.dart` 只渲染；`lib/main.dart` 负责注入与路由表。
+平台差异只留在 `PlatformX` 与 `RootPage` 的布局分支。
+
+**形态与动效**：手机悬浮胶囊底栏（圆角 32、选中态滑动），iPad `NavigationRail`
+侧栏，功能中心横屏再做一层「左网格 + 右分组详情」；错落入场弹簧回弹、
+CustomPainter 骨架屏扫光、数字滚动、页面淡入上移、亮 / 暗 / 跟随系统。
+系统「减少动画」或 App 内开关打开时全部退化为瞬时状态。
+
+**依赖刻意做减法**：PiliPlus 那类项目的痛点是大量作者自己的 git fork 依赖，
+编译前得拉一堆分支。这里只用 `http` + `shared_preferences` 两个 pub.dev 官方包，
+动效全部自绘，`pub get` 不碰任何 git 仓库。
+
+`assets/endpoints.json`（148 条契约）与 `assets/schema.json`（10 组 / 48 页）
+由 `scripts/gen-flutter-assets.py` 从 `src/routes/app.ts` / `src/lib/appSchema.ts`
+直接生成；全站功能中心由 `SchemaPage` 通用渲染器承载（动态表单 / 独立动作 /
+行内动作 / 数据列表 / 骨架屏 / 结果区），**后台、DNS 记录增改删、申请滑块验证、
+通知 / 工单 / 兑换 / 转让 / 举报 / 第三方域名接入都能在 App 里操作**。
+
+**出包**：`.github/workflows/flutter-app.yml` 两个 job——
+Ubuntu 出 `app-release.apk`（可直接安装），macOS 出 `Noxc-unsigned.ipa`
+与 `Noxc-Simulator.app.zip`。流程是 `flutter create` 生成平台壳 →
+`scripts/flutter-platform-patch.py` 注入 INTERNET 权限 / iPad 四向 / ATS /
+Universal 家族 → 同源校验 → `pub get` → `flutter analyze` → 构建 → 产物结构校验。
+
+> 旧的 `ios/`（SwiftUI）与 `android/`（Java）原生工程**保留为存档**，
+> 对应 workflow 仍可手动出旧包；主路径以 `flutter-app.yml` 为准。
+
+### Z.17 · 为什么弃用 SwiftUI 原生版、Flutter 版的已知限制
+
+**现象 / 反馈**：iOS 纯 SwiftUI 版交付后被认为「做得一般，不如参考
+PiliPlus / PiliNara 那些」。复盘下来不是某个控件没画好，是路线问题：
+Android(Java) + iOS(SwiftUI) 两套代码、两套视觉、两套适配，
+新增站内功能要写两遍，质感也统一不了。
+
+**处理**：主工程改为 `flutter/`，一套 Dart 覆盖 Android / iOS / Pad
+（第 26 节）。旧工程不删、保留为存档，避免误伤已有产物与回归断言。
+
+**已知限制（不是构建失败）**
+
+1. **iOS 未签名 IPA 不能直接装真机**：没有 Apple Developer 证书，任何平台都
+   编不出可直接安装的签名 IPA。用 `open ios/Runner.xcworkspace` 自动签名 Run /
+   Archive，或在 CI 加签名 Secrets 后 `xcodebuild -exportArchive`。
+   模拟器 `.app.zip` 拖进 iOS Simulator 即可运行，不需要账号。
+2. **平台壳里会有 `AppDelegate.swift` / `MainActivity.kt`**：那是 `flutter create`
+   按 SDK 版本生成的启动壳（PiliPlus 同样有），**不入库、不手写、没有业务逻辑**。
+   用户说「不用 Swift」针对的是业务代码，不是这个壳。
+3. **站点改 `http://` 自建地址**：`NSAllowsArbitraryLoads` 与 Android 明文开关
+   是为了支持设置页换站点；若只走正式 https 且要上架，应收紧为域名例外。
+4. **通用渲染器对带 `{id}` 占位符的页面**：没有行上下文时不发空路径请求，
+   页面会提示改用「我的域名 / 全部功能」里的精修原生入口（DNS 记录就在那里）。
+
+**排查顺序**：`flutter pub get` 失败 → 先看是不是引回了 git/path 依赖（pubspec
+白名单断言会拦）；`flutter analyze` 标红 → 是 Dart 编译错误，lint 警告已按
+`--no-fatal-warnings` 处理；`flutter create` 没生成 `android/` / `ios/` →
+检查 SDK 版本，平台壳不入库是刻意的；iPad 四向 / 分屏失效 → 确认 CI 跑了
+`flutter-platform-patch.py`；IPA 秒取消 → 按 Z.16 换 macOS runner 标签。
 

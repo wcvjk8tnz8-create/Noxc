@@ -169,6 +169,10 @@ jobs:
       - name: iOS Universal IPA 回归
         run: npx tsx scripts/ios-ipa-regression.ts
 
+      # Flutter 主工程：分层 / 动态主题 / 浮动底栏 / 双端产物
+      - name: Flutter App 回归
+        run: npx tsx scripts/flutter-app-regression.ts
+
       - name: AnyNS 管理 API 接入回归（n.ht 社区官方文档）
         run: npx tsx scripts/anyns-api-regression.ts
 

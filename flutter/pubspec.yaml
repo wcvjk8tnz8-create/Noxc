@@ -1,0 +1,36 @@
+name: noxc
+description: "Noxc — Flutter 客户端（Android / iOS / iPad），一套 Dart 代码全端统一"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+# PiliPlus 那类项目大量依赖作者自己的 git fork，构建前得拉一堆分支。
+# 这里刻意只用两个 pub.dev 官方包，动效全部自绘（AnimationController /
+# CustomPainter / Hero），pub get 不碰任何 git 仓库。
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  shared_preferences: ^2.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/endpoints.json
+    - assets/schema.json
+    - assets/images/
+  fonts:
+    - family: NotoSansSC
+      fonts:
+        - asset: assets/fonts/NotoSansSC-Regular.ttf
+    - family: NotoSerifSC
+      fonts:
+        - asset: assets/fonts/NotoSerifSC-VF.ttf
+          weight: 700

@@ -1,0 +1,191 @@
+name: Build Noxc Flutter App
+
+# 参考 PiliPlus / PiliNara：一套 Dart 代码覆盖 Android / iOS / iPad。
+# 平台壳不入库，CI 用 `flutter create` 按 SDK 版本生成后注入配置。
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'flutter/**'
+      - '.github/workflows/flutter-app.yml'
+      - 'scripts/gen-flutter-assets.py'
+      - 'scripts/flutter-platform-patch.py'
+      - 'scripts/flutter-sync-check.py'
+      - 'scripts/flutter-app-regression.ts'
+      - 'src/routes/app.ts'
+      - 'src/lib/appSchema.ts'
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'iOS job 的 macOS runner 标签（留空用 macos-latest）'
+        required: false
+        default: 'macos-latest'
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Android APK (Flutter)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter --version
+
+      - name: 生成平台壳（不入库，按 SDK 版本生成）
+        run: |
+          rm -rf /tmp/noxc-shell
+          flutter create --org xyz.noxc --project-name noxc \
+            --platforms=android,ios /tmp/noxc-shell
+          cp -R /tmp/noxc-shell/android flutter/
+          cp -R /tmp/noxc-shell/ios flutter/
+          test -f flutter/android/app/src/main/AndroidManifest.xml
+
+      - name: 注入平台配置（INTERNET / applicationId / iPad 四向 / ATS）
+        run: python3 scripts/flutter-platform-patch.py
+
+      - name: 校验 Dart 工程与服务端同源
+        run: python3 scripts/flutter-sync-check.py
+
+      - name: Flutter 工程防回流回归
+        run: npx --yes tsx scripts/flutter-app-regression.ts
+
+      - name: pub get
+        working-directory: flutter
+        run: flutter pub get
+
+      - name: Dart 静态分析（错误即失败）
+        working-directory: flutter
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: 构建 APK
+        working-directory: flutter
+        run: flutter build apk --release
+
+      - name: 校验 APK
+        run: |
+          APK=flutter/build/app/outputs/flutter-apk/app-release.apk
+          test -f "$APK" || { echo "::error::没找到 APK"; exit 1; }
+          python3 - <<'PY'
+          import os, zipfile
+          p = 'flutter/build/app/outputs/flutter-apk/app-release.apk'
+          size = os.path.getsize(p)
+          print('  APK 体积: %d bytes (%.2f MB)' % (size, size / 1048576.0))
+          if size < 5_000_000:
+              print('::error::APK 过小，可能没把 Dart 代码 / 资源打进去'); raise SystemExit(1)
+          with zipfile.ZipFile(p) as z:
+              names = z.namelist()
+          if 'classes.dex' not in names:
+              print('::error::APK 里没有 classes.dex'); raise SystemExit(1)
+          assets = [n for n in names if n.startswith('assets/flutter_assets/')]
+          print('  flutter_assets 条目:', len(assets))
+          for must in ('assets/flutter_assets/assets/schema.json',
+                       'assets/flutter_assets/assets/endpoints.json'):
+              if must not in names:
+                  print('::error::缺内置资源', must); raise SystemExit(1)
+          print('✔ APK 结构、Dart 代码与内置 schema/契约齐全')
+          PY
+          sha256sum "$APK"
+
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxc-flutter-apk-${{ github.run_number }}
+          path: flutter/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 90
+
+  ios:
+    name: iOS IPA (Flutter / Universal)
+    runs-on: ${{ github.event.inputs.runner || 'macos-latest' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter --version && xcodebuild -version
+
+      - name: 生成平台壳（不入库，按 SDK 版本生成）
+        run: |
+          rm -rf /tmp/noxc-shell
+          flutter create --org xyz.noxc --project-name noxc \
+            --platforms=android,ios /tmp/noxc-shell
+          cp -R /tmp/noxc-shell/android flutter/
+          cp -R /tmp/noxc-shell/ios flutter/
+          test -f flutter/ios/Runner/Info.plist
+
+      - name: 注入平台配置（INTERNET / applicationId / iPad 四向 / ATS）
+        run: python3 scripts/flutter-platform-patch.py
+
+      - name: 校验 Dart 工程与服务端同源
+        run: python3 scripts/flutter-sync-check.py
+
+      - name: pub get
+        working-directory: flutter
+        run: flutter pub get
+
+      - name: 构建真机 Release（不签名）
+        working-directory: flutter
+        run: flutter build ios --release --no-codesign
+
+      - name: 打未签名 IPA 并校验 Universal
+        run: |
+          APP=flutter/build/ios/Release-iphoneos/Runner.app
+          test -d "$APP" || { echo "::error::没找到 Runner.app"; exit 1; }
+          rm -rf flutter/build/Payload && mkdir -p flutter/build/Payload
+          cp -R "$APP" flutter/build/Payload/Noxc.app
+          (cd flutter/build && zip -qry Noxc-unsigned.ipa Payload)
+          python3 - <<'PY'
+          import json, os, plistlib, subprocess, zipfile
+          app = 'flutter/build/Payload/Noxc.app'
+          with open(app + '/Info.plist', 'rb') as f:
+              info = plistlib.load(f)
+          fam = [str(x) for x in info.get('UIDeviceFamily', [])]
+          print('  UIDeviceFamily:', fam)
+          if '1' not in fam or '2' not in fam:
+              print('::error::IPA 不是 Universal（缺 iPhone 或 iPad）'); raise SystemExit(1)
+          ori = info.get('UISupportedInterfaceOrientations~ipad', [])
+          if len(ori) != 4:
+              print('::error::iPad 方向不是四个'); raise SystemExit(1)
+          ipa = 'flutter/build/Noxc-unsigned.ipa'
+          size = os.path.getsize(ipa)
+          print('  IPA 体积: %d bytes (%.2f MB)' % (size, size / 1048576.0))
+          if size < 5_000_000:
+              print('::error::IPA 过小，可能没把 Dart 代码 / 资源打进去'); raise SystemExit(1)
+          with zipfile.ZipFile(ipa) as z:
+              names = z.namelist()
+          for must in ('Payload/Noxc.app/Frameworks/App.framework/App',
+                       'Payload/Noxc.app/Frameworks/Flutter.framework/Flutter'):
+              if must not in names:
+                  print('::error::缺 Flutter 引擎产物', must); raise SystemExit(1)
+          print('✔ Universal IPA：iPhone + iPad 四向，Flutter 引擎与 Dart AOT 产物齐全')
+          PY
+
+      - name: 构建模拟器 .app（无需 Apple 账号即可运行）
+        working-directory: flutter
+        run: |
+          flutter build ios --simulator --debug --no-codesign
+          SIM=build/ios/Debug-iphonesimulator/Runner.app
+          test -d "$SIM" || { echo "::error::没找到模拟器 .app"; exit 1; }
+          (cd "$(dirname "$SIM")" && zip -qry "$GITHUB_WORKSPACE/flutter/build/Noxc-Simulator.app.zip" Runner.app)
+
+      - name: 上传 iOS 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxc-flutter-ipa-${{ github.run_number }}
+          path: |
+            flutter/build/Noxc-unsigned.ipa
+            flutter/build/Noxc-Simulator.app.zip
+          if-no-files-found: error
+          retention-days: 90
